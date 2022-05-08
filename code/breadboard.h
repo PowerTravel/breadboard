@@ -22,10 +22,10 @@ struct world
 {
   r32 GlobalTimeSec;
   r32 dtForFrame;
-  
+
   memory_arena* Arena;
   
-  tile_map     TileMap;
+  tile_map TileMap;
 };
 
 typedef void(*func_ptr_void)(void);
@@ -114,31 +114,49 @@ inline game_window_size GameGetWindowSize()
  *  (0,1)                     (1,1)     (-1,-1)                     (-1, 1)
  */
 
-inline v2 CanonicalToScreenSpace(v2 MousePos)
+// Points in Canonical Space will be transformed to ScreenSpace
+inline m4 GetCanonicalSpaceProjectionMatrix()
+{
+  game_window_size WindowSize = GameGetWindowSize();
+  r32 AspectRatio = WindowSize.WidthPx/WindowSize.HeightPx;
+
+  m4 ScreenToCubeScale =  M4( 2/AspectRatio, 0, 0, 0,
+                                           0, 2, 0, 0,
+                                           0, 0, 0, 0,
+                                           0, 0, 0, 1);
+  m4 ScreenToCubeTrans =  M4( 1, 0, 0, -1,
+                              0, 1, 0, -1,
+                              0, 0, 1,  0,
+                              0, 0, 0,  1);
+  m4 ProjectionMatrix = ScreenToCubeTrans*ScreenToCubeScale;
+  return ProjectionMatrix;
+}
+
+inline v2 CanonicalToScreenSpace(v2 Pos)
 {
   game_window_size WindowSize = GameGetWindowSize();
   r32 OneOverAspectRatio = WindowSize.HeightPx/WindowSize.WidthPx;
   v2 Result{};
-  Result.X = (2*MousePos.X*OneOverAspectRatio - 1);
-  Result.Y = (2*MousePos.Y - 1);
+  Result.X = (2*Pos.X*OneOverAspectRatio - 1);
+  Result.Y = (2*Pos.Y - 1);
   return Result;
 }
-inline v2 CanonicalToNDCSpace(v2 MousePos)
+inline v2 CanonicalToNDCSpace(v2 Pos)
 {
   game_window_size WindowSize = GameGetWindowSize();
   r32 OneOverAspectRatio = WindowSize.HeightPx/WindowSize.WidthPx;
   v2 Result{};
-  Result.X = MousePos.X*OneOverAspectRatio;
-  Result.Y = 1-MousePos.Y;
+  Result.X = Pos.X*OneOverAspectRatio;
+  Result.Y = 1-Pos.Y;
   return Result;
 }
-inline v2 CanonicalToRasterSpace(v2 MousePos)
+inline v2 CanonicalToRasterSpace(v2 Pos)
 {
   game_window_size WindowSize = GameGetWindowSize();
   r32 OneOverAspectRatio = WindowSize.HeightPx/WindowSize.WidthPx;
   v2 Result{};
-  Result.X = MousePos.X*OneOverAspectRatio*WindowSize.WidthPx;
-  Result.Y = (1-MousePos.Y)*WindowSize.HeightPx;
+  Result.X = Pos.X*OneOverAspectRatio*WindowSize.WidthPx;
+  Result.Y = (1-Pos.Y)*WindowSize.HeightPx;
   return Result;
 }
 

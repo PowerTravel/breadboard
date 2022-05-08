@@ -15,8 +15,31 @@ void ControllerSystemUpdate( world* World )
     {
       case ControllerType_FlyingCamera:
       {
-        component_camera* Camera   = GetCameraComponent(Components);
-        // Handle Camera
+        component_camera* Camera = GetCameraComponent(Components);
+        keyboard_input* Keyboard = Controller->Keyboard;
+
+        v3 Direction = {};
+        r32 Speed = 1;
+        if(Keyboard->Key_A.Active)
+        {
+          Direction.X -= 1;
+        }
+        if(Keyboard->Key_D.Active)
+        {
+          Direction.X += 1;
+        }
+        if(Keyboard->Key_S.Active)
+        {
+          Direction.Y -= 1;
+        }
+        if(Keyboard->Key_W.Active)
+        {
+          Direction.Y += -1;
+        }
+
+        Direction = Speed * Normalize(Direction);
+
+        TranslateCamera(Camera, Direction);
       }break;
       case ControllerType_Hero:
       {

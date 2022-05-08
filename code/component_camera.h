@@ -85,7 +85,7 @@ void SetOrthoProj( component_camera* Camera, r32 aNear, r32 aFar, r32 aRight, r3
 {
   Assert(aNear < 0);
   Assert(aFar  > 0);
-  aFar     = -aFar;
+  aFar       = -aFar;
   aNear      = -aNear;
   r32 rlSum  = aRight+aLeft;
   r32 rlDiff = aRight-aLeft;

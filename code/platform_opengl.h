@@ -184,11 +184,10 @@ struct open_gl
   
   u32 DefaultInternalTextureFormat;
   u32 DefaultTextureFormat;
-  
-  opengl_program PhongShadingProgram;
+
   opengl_program QuadOverlayProgram;
   opengl_program TextOverlayProgram;
-  opengl_program TexturedQuadOverlayProgram;
+  opengl_program TexturedQuadProgram;
   // Frame Buffers (Intermediate Render Targets)
   
   // Texture Queue (Keeping all our textures?)

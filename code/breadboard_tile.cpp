@@ -1,4 +1,4 @@
-#include "handmade_tile.h"
+#include "breadboard_tile.h"
 
 inline u32
 Get3DIdx(s32 x, s32 y, s32 z, s32 X, s32 Y, s32 Z  )
@@ -10,21 +10,21 @@ Get3DIdx(s32 x, s32 y, s32 z, s32 X, s32 Y, s32 Z  )
 }
 
 inline void
-RecanonicalizeCoord(tile_map* TileMap, u32* Tile, r32* TilePos, r32 TileSideInMeters  )
+RecanonicalizeCoord(tile_map* TileMap, u32* Tile, r32* TilePos, r32 TileSide  )
 {
   // Note(Jakob): Using floor sets the Origin of tile is in the lower corner.
   //              I changed from using Round because it caused the border of the tile
   //              to be undefined. A tile position AbsTile 1 and RelTile 0.5 would flip
   //              flop between AbsTile 2, RelTile -0.5 and AbsTile 1 and RelTile 0.5 by
   //              Successive calls to RecanonicalizeCoord;
-  s32 Offset = (s32) Floor(*TilePos / TileSideInMeters);
+  s32 Offset = (s32) Floor(*TilePos / TileSide);
 
   *Tile += Offset;
-  *TilePos -= Offset*TileSideInMeters;
+  *TilePos -= Offset*TileSide;
 
   // Assert that we are inside a tile
   Assert( *TilePos >=  0 );
-  Assert( *TilePos < TileSideInMeters );
+  Assert( *TilePos < TileSide );
 }
 
 inline tile_map_position
@@ -32,9 +32,9 @@ RecanonicalizePosition(tile_map* TileMap, tile_map_position CanPos)
 {
   tile_map_position Result = CanPos;
 
-  RecanonicalizeCoord(TileMap, &Result.AbsTileX, &Result.RelTileX, TileMap->TileWidthInMeters );
-  RecanonicalizeCoord(TileMap, &Result.AbsTileY, &Result.RelTileY, TileMap->TileHeightInMeters );
-  RecanonicalizeCoord(TileMap, &Result.AbsTileZ, &Result.RelTileZ, TileMap->TileDepthInMeters );
+  RecanonicalizeCoord(TileMap, &Result.AbsTileX, &Result.RelTileX, TileMap->TileWidth );
+  RecanonicalizeCoord(TileMap, &Result.AbsTileY, &Result.RelTileY, TileMap->TileHeight );
+  RecanonicalizeCoord(TileMap, &Result.AbsTileZ, &Result.RelTileZ, TileMap->TileDepth );
 
   return Result;
 }
@@ -64,18 +64,18 @@ MoveNewTileMapPosition(tile_map* TileMap, tile_map_position OldCanPos, r32 dx, r
 aabb3f GetTileAABB(tile_map* TileMap, tile_map_position CanPos )
 {
 
-  r32 HalfWidth  = TileMap->TileWidthInMeters;
-  r32 HalfHeight = TileMap->TileHeightInMeters;
-  r32 HalfDepth  = TileMap->TileDepthInMeters;
+  r32 HalfWidth  = TileMap->TileWidth;
+  r32 HalfHeight = TileMap->TileHeight;
+  r32 HalfDepth  = TileMap->TileDepth;
 
   // Lower Left Back
-  v3 P0 = V3( CanPos.AbsTileX*TileMap->TileWidthInMeters ,
-        CanPos.AbsTileY*TileMap->TileHeightInMeters,
-        CanPos.AbsTileZ*TileMap->TileDepthInMeters );
+  v3 P0 = V3( CanPos.AbsTileX*TileMap->TileWidth ,
+        CanPos.AbsTileY*TileMap->TileHeight,
+        CanPos.AbsTileZ*TileMap->TileDepth );
 
   // Upper Right Front
-  v3 P1 = V3( P0.X + TileMap->TileWidthInMeters ,
-        P0.Y + TileMap->TileHeightInMeters,
+  v3 P1 = V3( P0.X + TileMap->TileWidth ,
+        P0.Y + TileMap->TileHeight,
         P0.Z /* Tilemap in Z direction is 2d Slices */);
 
   aabb3f Result = AABB3f(P0,P1);
@@ -259,9 +259,9 @@ IsTileMapPointEmpty(tile_map* TileMap, tile_map_position CanPos)
 
 void InitializeTileMap( tile_map* TileMap )
 {
-  TileMap->TileWidthInMeters = 1.f;
-  TileMap->TileHeightInMeters = 1.f;
-  TileMap->TileDepthInMeters = 1.f;
+  TileMap->TileWidth = 1.f;
+  TileMap->TileHeight = 1.f;
+  TileMap->TileDepth = 1.f;
   TileMap->PageShift = 4;
   TileMap->PageMask = (1<<TileMap->PageShift)-1;
   TileMap->PageDim = (1<<TileMap->PageShift);
@@ -274,25 +274,24 @@ void InitializeTileMap( tile_map* TileMap )
   }
 }
 
-
 void GetIntersectingTiles(tile_map* TileMap, list<tile_map_position>* OutputList, aabb3f* AABB )
 {
-  s32 MinXIdx = (s32) Floor(AABB->P0.X / TileMap->TileWidthInMeters);
-  s32 MinYIdx = (s32) Floor(AABB->P0.Y / TileMap->TileHeightInMeters);
-  s32 MinZIdx = (s32) Floor(AABB->P0.Z / TileMap->TileDepthInMeters);
-  s32 MaxXIdx = (s32) Floor(AABB->P1.X / TileMap->TileWidthInMeters);
-  s32 MaxYIdx = (s32) Floor(AABB->P1.Y / TileMap->TileHeightInMeters);
-  s32 MaxZIdx = (s32) Floor(AABB->P1.Z / TileMap->TileDepthInMeters);
+  s32 MinXIdx = (s32) Floor(AABB->P0.X / TileMap->TileWidth);
+  s32 MinYIdx = (s32) Floor(AABB->P0.Y / TileMap->TileHeight);
+  s32 MinZIdx = (s32) Floor(AABB->P0.Z / TileMap->TileDepth);
+  s32 MaxXIdx = (s32) Floor(AABB->P1.X / TileMap->TileWidth);
+  s32 MaxYIdx = (s32) Floor(AABB->P1.Y / TileMap->TileHeight);
+  s32 MaxZIdx = (s32) Floor(AABB->P1.Z / TileMap->TileDepth);
   OutputList->First();
   for( s32 IdxZ = MinZIdx; IdxZ <= MaxZIdx; ++IdxZ  )
   {
-    r32 Z = IdxZ * TileMap->TileDepthInMeters;
+    r32 Z = IdxZ * TileMap->TileDepth;
     for( s32 IdxY = MinYIdx; IdxY <= MaxYIdx; ++IdxY  )
     {
-      r32 Y = IdxY * TileMap->TileHeightInMeters;
+      r32 Y = IdxY * TileMap->TileHeight;
       for( s32 IdxX = MinXIdx; IdxX <= MaxXIdx; ++IdxX  )
       {
-        r32 X = IdxX * TileMap->TileWidthInMeters;
+        r32 X = IdxX * TileMap->TileWidth;
         tile_map_position TilePos = CanonicalizePosition( TileMap, V3( X, Y, Z ) );
         OutputList->InsertAfter(TilePos);
       }

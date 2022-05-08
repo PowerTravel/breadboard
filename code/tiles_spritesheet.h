@@ -4,6 +4,14 @@
 #include "data_containers.h"
 #include "math/affine_transformations.h"
 
+
+hash_map<bitmap_coordinate> LoadTileMapSpriteSheet(memory_arena* Arena)
+{
+  hash_map<bitmap_coordinate> Result(Arena, 1);
+  Result.Insert( "empty", { 0, 0, 64, 64 });
+  return Result;
+}
+
 hash_map<bitmap_coordinate> LoadTileSpriteSheetCoordinates(memory_arena* Arena)
 {
   hash_map<bitmap_coordinate> Result(Arena, 172);

@@ -111,7 +111,7 @@ rect2f GetTextSize(r32 x, r32 y, const c8* String, u32 FontSize)
 
 
 // The thing about STB is that their bit map has its origin in the top-left
-// Our standard is that the origin is in the bottom right
+// Our standard is that the origin is in the bottom left
 inline internal rect2f
 GetSTBBitMapTextureCoords(stbtt_bakedchar* CH, r32 WidthScale, r32 HeightScale)
 {
@@ -131,7 +131,7 @@ GetSTBBitMapTextureCoords(stbtt_bakedchar* CH, r32 WidthScale, r32 HeightScale)
 }
 
 // The thing about STB is that their bit map has its origin in the top-left
-// Our standard is that the origin is in the bottom right
+// Our standard is that the origin is in the bottom left
 // The output is the translation needed to get a Quad properly centered with the
 // base-point at x0, y0
 inline internal rect2f
@@ -247,7 +247,6 @@ PushBoxFrame(render_group* RenderGroup, m4 M, aabb3f AABB, v3 CameraPosition, r3
   PushLine(RenderGroup, P[1], P[5], CameraPosition, LineThickness, MaterialName);
   PushLine(RenderGroup, P[2], P[6], CameraPosition, LineThickness, MaterialName);
   PushLine(RenderGroup, P[3], P[7], CameraPosition, LineThickness, MaterialName);
-
 }
 
 
@@ -286,7 +285,58 @@ void PushCube(render_group* RenderGroup, v3 Position, r32 Scale, c8* Color)
 void FillRenderPushBuffer(world* World)
 {
   TIMED_FUNCTION();
+
+  render_group* RenderGroup = GlobalGameState->RenderCommands->OverlayGroup;
   game_asset_manager* AssetManager = GlobalGameState->AssetManager;
   entity_manager* EM = GlobalGameState->EntityManager;
   game_asset_manager* AM = GlobalGameState->AssetManager;
+  v3 CameraPosition = {};
+  {
+    BeginScopedEntityManagerMemory();
+    component_result* ComponentList = GetComponentsOfType(EM, COMPONENT_FLAG_CAMERA);
+    while(Next(EM, ComponentList))
+    {
+      component_camera* Camera = (component_camera*) GetComponent(EM, ComponentList, COMPONENT_FLAG_CAMERA);
+      RenderGroup->ProjectionMatrix = Camera->P;
+      RenderGroup->ViewMatrix       = Camera->V;
+      CameraPosition = V3(Column(RigidInverse(Camera->V),3));
+    }
+  }
+
+  bitmap_handle Handle;
+  GetHandle(AssetManager, "TileSheet", &Handle);
+  //rect2f Subtexture = Rect2f(0,0,64/512.f,64/512.f);
+      
+  local_persist r32 t = 0;
+  r32 s = (r32)(Sin(t) + 1)/ 2.f;
+  t+= Tau32/120.f;
+  if(t>Pi32)
+  {
+    t-=Tau32;
+  }
+
+  r32 GridSide = 63.5/512.f;
+  game_window_size WindowSize = GameGetWindowSize();
+  
+  rect2f Subtexture = Rect2f(0,1-GridSide, GridSide, GridSide); // UW Coordinates
+  r32 AspectRatio = WindowSize.WidthPx / (r32) WindowSize.HeightPx;
+  r32 Height = 10;
+  r32 Width = 1.f/(Height*AspectRatio);
+
+  r32 CountX = AspectRatio/GridSide;
+  r32 CountY = 1.f/GridSide;
+  for(r32 row = 0; row <= 1; row+=GridSide)
+  {
+    for(r32 col = 0; col <= AspectRatio; col+=GridSide)
+    {
+      rect2f Position = Rect2f(col,row,GridSide,GridSide);
+      //Translate(V4((r32)row,0,(r32)col,0),Body->M);
+
+      //hash_map<bitmap_coordinate> Tiles = LoadTileMapSpriteSheet(GlobalGameState->TransientArena);
+
+      //bitmap* Tile = GetAsset(GlobalGameState->AssetManager, Handle);
+      //rect2f Subtexture = GetSpriteSheetTranslationMatrix(Tile, Tiles.Get("empty"));
+      PushTexturedOverlayQuad(Position, Subtexture, Handle);
+    }
+  }
 }

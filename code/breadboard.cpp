@@ -1,60 +1,3 @@
-/*
-
-  Random stuff
-
-    Record video with ffmpg: ffmpg -f gdigrab -r 30 -i title="handmade" -y kekbur.gif
-
-  TODO:
-  BUGS:
-    - Make things work with arbitrary screensize (we have desired aspect ratio hardcoded evertwhere, (Add as global variable?))
-    - Fix game-loop-memory allocation bug.
-      Pressing L activates game-looping. When the loop reloads win32-memory-allocation fails. No idea why, It seems
-      to have been like this for a long long time. Before debug-system.
-    - Collision detection breaks when we have several boxes
-    - Keyboard Pushed/Released doesn't reliably trigger.
-    - Having alot of boxes causes the debug collation to grow to big.
-      Either filter out functions that are too numerous or make the block-thing grow dynamically.
-      Making it super big also breaks rendering as the render buffer grows suspiciously big.
-      We throw away frame-blocks in the profiler that are smaller than one pixel, so it should not grow too big
-  Rendering:
-    - Use TriangleStrips
-    - Nice Lines (https://blog.mapbox.com/drawing-antialiased-lines-with-opengl-8766f34192dc)
-    - Proper Diffuse Textures, BumpMapping
-    - MipMapping
-    - Depth Peeling and Anti Ailising
-    - Environment skybox
-    - Global Illumination
-      - Investigate raytracing
-      - Shadows
-  Assets:
-    - Separately built Asset file with multithreaded stream-loading. (Maybe using ASSIMP)
-    - Add a tag-system. I want to get a random asset with a specific tag.
-  Debug:
-    - Add Memory usage window
-    - Continue on caseys Stream, he gets rid of the __COUNT__ macro gimmic which we also use at some point. (ep 193)
-  User Interface
-    - Item selection w mouse
-    - Convert the debug-function function list into a native scrollable list window
-  Physics:
-    - Persistent AABB-tree
-    - Ray intersection test in AABB-tree
-    - Make gjk-epa sequential impulse work
-      - Make a super simple box - plane narrow-phase detection algorithm to help verify the sequential impulse algorithm.
-    - Make a 2D Collision system (Broad phase, narrow phase, collision resolution) (for fun)
-    - Make a point - point / point-line / point-plane / line-line / line-plane / plane-plane Collision detection
-    - Try algorithms other than sequential impulse.
-  General:
-    - A good looking demo scene
-    - Scene serialization
-    - Come up with a "demo-game" to implement using your engine.
-    - Editor interface
-  Sound:
-    - Add loading and playback of sound file
-  Intrinsics:
-    Round( r32 Real32 )
-    Roof( r32 Real32 )
-    Floor( r32 Real32 )
-*/
 
 #if 0
 
@@ -181,6 +124,7 @@ game_memory* DebugGlobalMemory = 0;
 #include "assets.cpp"
 #include "asset_loading.cpp"
 #include "menu_interface.cpp"
+#include "breadboard_tile.cpp"
 
 #include "debug.h"
 
@@ -218,10 +162,10 @@ GameOutputSound(game_sound_output_buffer* SoundBuffer, int ToneHz)
   }
 }
 
-
 world* CreateWorld( )
 {
   world* World = PushStruct(GlobalGameState->PersistentArena, world);
+  InitializeTileMap( &World->TileMap );
   World->Arena = GlobalGameState->PersistentArena;
   return World;
 }
@@ -237,6 +181,7 @@ void InitiateGame(game_memory* Memory, game_render_commands* RenderCommands, gam
 {
   if (Memory->GameState)
   {
+    // Game is valid
     Assert(RenderCommands->OverlayGroup);
     return;
   }
@@ -257,16 +202,43 @@ void InitiateGame(game_memory* Memory, game_render_commands* RenderCommands, gam
 
   GlobalGameState->Input = Input;
 
-  Memory->GameState = GlobalGameState;
+  u32 ControllableCamera = NewEntity( GlobalGameState->EntityManager );
+  NewComponents( GlobalGameState->EntityManager, ControllableCamera, COMPONENT_FLAG_CONTROLLER | COMPONENT_FLAG_CAMERA);
 
+  game_window_size WindowSize = GameGetWindowSize();
+  r32 AspectRatio = WindowSize.WidthPx/WindowSize.HeightPx;
+
+  component_camera* Camera = GetCameraComponent(ControllableCamera);
+  r32 FieldOfView =  90;
+  Camera->AngleOfView  = FieldOfView;
+  Camera->AspectRatio = AspectRatio;
+  Camera->DeltaRot = M4Identity();
+  Camera->DeltaPos = V3(0,0,0);
+  Camera->V = M4Identity();
+  Camera->P = GetCanonicalSpaceProjectionMatrix();  /// [0,0] -> Bot Left, [1,AspectRatio]
+  //SetOrthoProj(Camera, -1, 1 );
+  //LookAt(Camera, V3(0,1,0), V3(0,30,0), V3(1,0,0));
+
+  component_controller* Controller = GetControllerComponent(ControllableCamera);
+  Controller->Controller = GetController(Input, 0);
+  Controller->Keyboard = &Input->Keyboard;
+  Controller->Type = ControllerType_FlyingCamera;
+
+  hash_map<bitmap_coordinate> Tiles = LoadTileMapSpriteSheet(GlobalGameState->TransientArena);
+  bitmap_handle TileHandle;
+  GetHandle(GlobalGameState->AssetManager, "TileSheet", &TileHandle);
+  bitmap* Tile = GetAsset(GlobalGameState->AssetManager, TileHandle);
+  m4 TransMat = GetSpriteSheetTranslationMatrix(Tile, Tiles.Get("empty"));
+
+
+  Memory->GameState = GlobalGameState;
   RenderCommands->AssetManager = GlobalGameState->AssetManager;
 
   for (s32 ControllerIndex = 0;
   ControllerIndex < ArrayCount(Input->Controllers);
     ++ControllerIndex)
   {
-    game_controller_input* Controller = GetController(Input, ControllerIndex);
-    Controller->IsAnalog = true;
+    GetController(Input, ControllerIndex)->IsAnalog;
   }
 
   GlobalGameState->IsInitialized = true;

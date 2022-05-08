@@ -272,15 +272,10 @@ internal void LoadCubeAsset(game_asset_manager* AssetManager)
 
 internal void LoadBitmaps(game_asset_manager* AssetManager)
 {
-  bitmap* HeroBitmap = LoadTGA(&AssetManager->AssetArena,
-        "..\\handmade\\data\\Platformer\\Adventurer\\adventurer-Sheet.tga" );
-  bitmap_handle HeroBitmapHandle = PushBitmapData(AssetManager, "hero_sprite_sheet", HeroBitmap->Width, HeroBitmap->Height, HeroBitmap->BPP, HeroBitmap->Pixels, true);
-  PushMaterialData(AssetManager, "hero_sprite_sheet", CreateMaterial(V4(1,1,1,1),V4(1,1,1,1),V4(1,1,1,1),1,true));
-
   bitmap* CheckerBitmap = LoadTGA(&AssetManager->AssetArena,
-        "..\\handmade\\data\\checker_board.tga" );
-  bitmap_handle CheckerBitmapHandle = PushBitmapData(AssetManager, "checker_board", CheckerBitmap->Width, CheckerBitmap->Height, CheckerBitmap->BPP, CheckerBitmap->Pixels, true);
-  PushMaterialData(AssetManager, "checker_board", CreateMaterial(V4(1,1,1,1),V4(1,1,1,1),V4(1,1,1,1),1,true));
+        "..\\assets\\TileSheet.tga" );
+  bitmap_handle CheckerBitmapHandle = PushBitmapData(AssetManager, "TileSheet", CheckerBitmap->Width, CheckerBitmap->Height, CheckerBitmap->BPP, CheckerBitmap->Pixels, false);
+  PushMaterialData(AssetManager, "TileSheet", CreateMaterial(V4(1,1,1,1),V4(1,1,1,1),V4(1,1,1,1),1, false));
 }
 
 internal void LoadTeapotAsset(game_asset_manager* AssetManager)
@@ -317,7 +312,7 @@ internal void LoadAssets(game_asset_manager* AssetManager)
   LoadPredefinedMeshes(AssetManager);
   stbtt_BakeFontBitmap(AssetManager);
   //LoadCubeAsset(AssetManager);
-  //LoadBitmaps(AssetManager);
+  LoadBitmaps(AssetManager);
   //LoadTeapotAsset(AssetManager);
 }
 
