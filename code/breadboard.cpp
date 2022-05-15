@@ -209,13 +209,28 @@ void InitiateGame(game_memory* Memory, game_render_commands* RenderCommands, gam
   r32 AspectRatio = WindowSize.WidthPx/WindowSize.HeightPx;
 
   component_camera* Camera = GetCameraComponent(ControllableCamera);
+  v3 From = V3(0,0,1);
+  v3 To = V3(0,0,0);
+  v3 Up = V3(0,1,0);
+  LookAt(Camera, From,  To,  Up );
+
+  Camera->OrthoZoom = 1;
+  r32 Near = -1;
+  r32 Far = 10;
+  r32 Right = AspectRatio;
+  r32 Left = -Right;
+  r32 Top = 1.f;
+  r32 Bot = -Top;
+  SetOrthoProj(Camera, Near, Far, Right, Left, Top, Bot );
+
   r32 FieldOfView =  90;
   Camera->AngleOfView  = FieldOfView;
   Camera->AspectRatio = AspectRatio;
   Camera->DeltaRot = M4Identity();
   Camera->DeltaPos = V3(0,0,0);
   Camera->V = M4Identity();
-  Camera->P = GetCanonicalSpaceProjectionMatrix();  /// [0,0] -> Bot Left, [1,AspectRatio]
+
+  // Camera->P = GetCanonicalSpaceProjectionMatrix();  /// [0,0] -> Bot Left, [1,AspectRatio]
   //SetOrthoProj(Camera, -1, 1 );
   //LookAt(Camera, V3(0,1,0), V3(0,30,0), V3(1,0,0));
 
@@ -244,7 +259,9 @@ void InitiateGame(game_memory* Memory, game_render_commands* RenderCommands, gam
   GlobalGameState->IsInitialized = true;
 
 
+  Assert(!RenderCommands->WorldGroup);
   Assert(!RenderCommands->OverlayGroup);
+  RenderCommands->WorldGroup = InitiateRenderGroup();
   RenderCommands->OverlayGroup = InitiateRenderGroup();
 
 }
@@ -274,6 +291,7 @@ void BeginFrame(game_memory* Memory, game_render_commands* RenderCommands, game_
     ReinitiatePool();
   }
 
+  ResetRenderGroup(RenderCommands->WorldGroup);
   ResetRenderGroup(RenderCommands->OverlayGroup);
 
   game_window_size WindowSize = GameGetWindowSize();

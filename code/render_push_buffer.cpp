@@ -43,8 +43,8 @@ void PushTexturedOverlayQuad(rect2f QuadRect, rect2f TextureRect, bitmap_handle 
 void PushOverlayQuad(rect2f QuadRect, v4 Color)
 {
   render_group* RenderGroup = GlobalGameState->RenderCommands->OverlayGroup;
-  push_buffer_header* Header = PushNewHeader(RenderGroup, render_buffer_entry_type::OVERLAY_QUAD, RENDER_STATE_FILL);
-  entry_type_overlay_quad* Body = PushStruct(&RenderGroup->Arena, entry_type_overlay_quad);
+  push_buffer_header* Header = PushNewHeader(RenderGroup, render_buffer_entry_type::OVERLAY_COLORED_QUAD, RENDER_STATE_FILL);
+  entry_type_overlay_color_quad* Body = PushStruct(&RenderGroup->Arena, entry_type_overlay_color_quad);
   Body->Colour = Color;
   Body->QuadRect = QuadRect;
 }
@@ -282,11 +282,37 @@ void PushCube(render_group* RenderGroup, v3 Position, r32 Scale, c8* Color)
   Body->NM = Transpose(RigidInverse(Body->M));
 }
 
+// Our Bitmap Origin is [0,0]->Left,Bottom, [TextureWidth_pixel,TextureHeight_pixel] -> TopRight
+// Input origin is [0,0]->Left,Top,  [TextureWidth_pixel,TextureHeight_pixel] -> BotRight
+m3 GetTextureTranslationMatrix_OriginTopLeft(s32 X0_pixel, s32 Y0_pixel, s32 Width_pixel, s32 Height_pixel, s32 TextureWidth_pixel, s32 TextureHeight_pixel)
+{
+  r32 XMin = (r32) X0_pixel;
+  r32 Xoffset = XMin / (r32) TextureWidth_pixel;
+  r32 ScaleX  =  (r32) Width_pixel / (r32) TextureWidth_pixel;
+
+  // Note: Picture is stored and read from bottom left to up and right but
+  //     The coordinates given were top left to bottom right so we need to
+  //     Invert the Y-Axis;
+  r32 YMin = (r32) TextureHeight_pixel - (Y0_pixel + Height_pixel);
+  r32 Yoffset = YMin / (r32) TextureHeight_pixel;
+  r32 ScaleY  =  (r32) Height_pixel / (r32) TextureHeight_pixel;
+  m3 Result = GetTranslationMatrix(V3(Xoffset,Yoffset,1)) * GetScaleMatrix(V3(ScaleX,ScaleY,1));
+  return Result;
+}
+
+m4 GetModelMatrix(v3 Position, r32 Scale, r32 RotationAngle, v3 RotationAxis)
+{
+  v3 ScaleVec = V3(Scale, Scale, Scale);
+  v4 Rotation = RotateQuaternion(RotationAngle, V4(RotationAxis,0));
+  m4 ModelMatrix = GetModelMatrix(Position, Rotation, ScaleVec);
+  return ModelMatrix;
+}
+
 void FillRenderPushBuffer(world* World)
 {
   TIMED_FUNCTION();
 
-  render_group* RenderGroup = GlobalGameState->RenderCommands->OverlayGroup;
+  render_group* RenderGroup = GlobalGameState->RenderCommands->WorldGroup;
   game_asset_manager* AssetManager = GlobalGameState->AssetManager;
   entity_manager* EM = GlobalGameState->EntityManager;
   game_asset_manager* AM = GlobalGameState->AssetManager;
@@ -299,44 +325,56 @@ void FillRenderPushBuffer(world* World)
       component_camera* Camera = (component_camera*) GetComponent(EM, ComponentList, COMPONENT_FLAG_CAMERA);
       RenderGroup->ProjectionMatrix = Camera->P;
       RenderGroup->ViewMatrix       = Camera->V;
-      CameraPosition = V3(Column(RigidInverse(Camera->V),3));
+      RenderGroup->CameraPosition = V3(Column(RigidInverse(Camera->V),3));
     }
   }
 
-  bitmap_handle Handle;
-  GetHandle(AssetManager, "TileSheet", &Handle);
+  bitmap_handle TileHandle;
+  GetHandle(AssetManager, "TileSheet", &TileHandle);
   //rect2f Subtexture = Rect2f(0,0,64/512.f,64/512.f);
       
-  local_persist r32 t = 0;
-  r32 s = (r32)(Sin(t) + 1)/ 2.f;
-  t+= Tau32/120.f;
-  if(t>Pi32)
-  {
-    t-=Tau32;
-  }
+
 
   r32 GridSide = 63.5/512.f;
   game_window_size WindowSize = GameGetWindowSize();
   
   rect2f Subtexture = Rect2f(0,1-GridSide, GridSide, GridSide); // UW Coordinates
   r32 AspectRatio = WindowSize.WidthPx / (r32) WindowSize.HeightPx;
-  r32 Height = 10;
-  r32 Width = 1.f/(Height*AspectRatio);
+  // |------------|
+  // |            |
+  // |            |
+  // |------------|
 
-  r32 CountX = AspectRatio/GridSide;
-  r32 CountY = 1.f/GridSide;
-  for(r32 row = 0; row <= 1; row+=GridSide)
+  r32 MinY_Tiles = -10;
+  r32 MaxY_Tiles = 10;
+
+  r32 MinX_Tiles = -10;
+  r32 MaxX_Tiles = 10;
+
+  for(r32 Row_Tiles  = MinY_Tiles;
+          Row_Tiles <= MaxY_Tiles;
+          Row_Tiles++)
   {
-    for(r32 col = 0; col <= AspectRatio; col+=GridSide)
+    for(r32 Col_Tiles  = MinX_Tiles;
+            Col_Tiles <= MaxX_Tiles;
+            Col_Tiles++)
     {
-      rect2f Position = Rect2f(col,row,GridSide,GridSide);
-      //Translate(V4((r32)row,0,(r32)col,0),Body->M);
+      push_buffer_header* Header = PushNewHeader(RenderGroup, render_buffer_entry_type::TEXTURED_QUAD, RENDER_STATE_FILL);
+      entry_type_textured_quad* Body = PushStruct(&RenderGroup->Arena, entry_type_textured_quad);
 
-      //hash_map<bitmap_coordinate> Tiles = LoadTileMapSpriteSheet(GlobalGameState->TransientArena);
+      r32 RotationAngle = 0;
+      v3 RitationAxis = V3(0,0,1);
+      r32 Scale = 1;
+      Body->M = GetModelMatrix(V3(Col_Tiles*0.9948f, Row_Tiles*0.9948f, 0), Scale, RotationAngle, RitationAxis);
 
-      //bitmap* Tile = GetAsset(GlobalGameState->AssetManager, Handle);
-      //rect2f Subtexture = GetSpriteSheetTranslationMatrix(Tile, Tiles.Get("empty"));
-      PushTexturedOverlayQuad(Position, Subtexture, Handle);
+      s32 X0_pixel = 4;
+      s32 Y0_pixel = 4;
+      s32 Width_pixel = 60;
+      s32 Height_pixel = 60;
+      s32 TextureWidth_pixel = 512;
+      s32 TextureHeight_pixel = 512;
+      Body->TM = GetTextureTranslationMatrix_OriginTopLeft(X0_pixel, Y0_pixel, Width_pixel, Height_pixel, TextureWidth_pixel, TextureHeight_pixel);
+      Body->Bitmap = TileHandle;
     }
   }
 }

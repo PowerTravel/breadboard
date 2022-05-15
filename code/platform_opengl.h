@@ -160,7 +160,7 @@ struct text_data
   u32 TextureSlot;
 };
 
-struct overlay_quad_data
+struct overlay_color_quad_data
 {
   rect2f QuadRect;
   v4 Color;
@@ -171,6 +171,18 @@ struct textured_overlay_quad_data
   rect2f QuadRect;
   rect2f UVRect;
   u32 TextureSlot;
+};
+
+struct textured_quad_data
+{
+  u32 TextureSlot;
+  v4 M_Row0;
+  v4 M_Row1;
+  v4 M_Row2;
+  v4 M_Row3;
+  v3 TM_Row0;
+  v3 TM_Row1;
+  v3 TM_Row2;
 };
 
 #define TEXTURE_ARRAY_DIM 512
@@ -216,13 +228,22 @@ struct open_gl
   
   // Keeps Instance data, whatever we like that's per instance.
   glHandle InstanceVBO;
-  glHandle QuadVAO;
-  u32 QuadBaseOffset;
-  glHandle TextVAO;
-  u32 TextBaseOffset;
   
-  glHandle TexQuadVAO;
+  // Draw a colored quad on top of everything else
+  glHandle OverlayQuadVAO;
+  u32 OverlayColorQuadBaseOffset;
+
+  // Draw text on top of eveything else
+  glHandle OverlayTextVAO;
+  u32 OverlayTextBaseOffset;
+  
+  // Draw a textured quad ontop of everything else
+  glHandle OverlayTexQuadVAO;
   u32 OverlayTexQuadBaseOffset;
+
+  // Draw a textured quad in world-space
+  u32 TexQuadBaseOffset;
+  glHandle TexQuadVAO;
 };
 
 void InitOpenGL(open_gl* OpenGL);

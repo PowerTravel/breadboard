@@ -397,6 +397,7 @@ entity_manager* CreateEntityManager( )
   Result->Components[IndexOfLeastSignificantSetBit(COMPONENT_FLAG_CONTROLLER)] = CreateComponentList(COMPONENT_FLAG_CONTROLLER, sizeof(component_controller), ControllerChunkCount, COMPONENT_FLAG_NONE);
   Result->Components[IndexOfLeastSignificantSetBit(COMPONENT_FLAG_RENDER)] = CreateComponentList(COMPONENT_FLAG_RENDER, sizeof(component_render), EntityChunkCount, COMPONENT_FLAG_NONE);
   Result->Components[IndexOfLeastSignificantSetBit(COMPONENT_FLAG_SPRITE_ANIMATION)] = CreateComponentList(COMPONENT_FLAG_SPRITE_ANIMATION, sizeof(component_sprite_animation), EntityChunkCount, COMPONENT_FLAG_NONE);
+  Result->Components[IndexOfLeastSignificantSetBit(COMPONENT_SPATIAL)] = CreateComponentList(COMPONENT_SPATIAL, sizeof(component_spatial), EntityChunkCount, COMPONENT_FLAG_NONE);
 
   for(s32 i = 0; i<IndexOfLeastSignificantSetBit(COMPONENT_FLAG_FINAL); i++)
   {

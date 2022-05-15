@@ -181,6 +181,22 @@ GetRotationMatrix( const r32 Angle, const v4& axis)
 }
 
 inline void
+Translate( const v3& Translation, m3& M )
+{
+  M.E[2]  += Translation.X;
+  M.E[5]  += Translation.Y;
+  M.E[8] += Translation.Z;
+}
+
+inline m3
+GetTranslationMatrix( const v3& Translation )
+{
+  m3 Result = M3Identity();
+  Translate( Translation, Result );
+  return Result;
+}
+
+inline void
 Translate( const v4& Translation, m4& M )
 {
   M.E[3]  += Translation.X;
@@ -194,12 +210,6 @@ GetTranslationMatrix( const v4& Translation )
   m4 Result = M4Identity();
   Translate( Translation, Result );
   return Result;
-}
-
-inline m4
-GetTranslationMatrix( const v3& Translation )
-{
-  return GetTranslationMatrix( V4(Translation,1) );
 }
 
 
@@ -236,6 +246,16 @@ Rotate( const r32 Angle, const v4& Axis, m4& T )
                     0,0,0, 1);
 
   T = bfo * RotMat * tto * T;
+}
+
+inline m3
+GetScaleMatrix( const v3& Scale )
+{
+  m3 ScaleMat = M3Identity();
+  ScaleMat.E[0]  = Scale.X;
+  ScaleMat.E[4]  = Scale.Y;
+  ScaleMat.E[8]  = Scale.Z;
+  return ScaleMat;
 }
 
 inline m4
@@ -286,5 +306,15 @@ PointMultiply( const m4& M, const v4& b )
     Result /= Result.W;
   }
 
+  return Result;
+}
+
+inline m4
+GetModelMatrix( v3 Position, v4 Rotation, v3 Scale)
+{
+  const m4 ScaleMat = GetScaleMatrix(V4(Scale,1));
+  const m4 RotationMat = GetRotationMatrix(Rotation);
+  const m4 TranslationMat = GetTranslationMatrix(V4(Position,1));
+  const m4 Result = TranslationMat * RotationMat * ScaleMat; 
   return Result;
 }

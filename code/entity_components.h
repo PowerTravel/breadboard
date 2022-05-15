@@ -37,6 +37,7 @@ struct component_camera
 {
   r32 AngleOfView;
   r32 AspectRatio;
+  r32 OrthoZoom; // Just used in orthographic projection to control how much of the screen is rendered
   m4  DeltaRot;
   v3  DeltaPos;
   m4  V;
@@ -67,7 +68,7 @@ struct component_spatial
         Position(PosInit), Scale(ScaleInit), Rotation(RotInit){};
   v3 Scale;
   v3 Position;
-  //  we define the Quaternion as (xi,yj,zk, Scalar)
+  //  We define the Quaternion as (xi,yj,zk, Scalar)
   //  Some resources define it as (Scalar,xi,yj,zk)
   v4 Rotation;
   m4 ModelMatrix;
@@ -108,10 +109,7 @@ inline v3 ToGlobal( component_spatial* Spatial )
 void UpdateModelMatrix( component_spatial* c )
 {
   TIMED_FUNCTION();
-  const m4 Scale = GetScaleMatrix(V4(c->Scale,1));
-  const m4 Rotation = GetRotationMatrix(c->Rotation);
-  const m4 Translation = GetTranslationMatrix(c->Position);
-  c->ModelMatrix = Translation * Rotation * Scale;
+  c->ModelMatrix = GetModelMatrix(c->Position, c->Rotation, c->Scale);
 }
 
 struct component_render
@@ -139,7 +137,8 @@ enum component_type
   COMPONENT_FLAG_CONTROLLER         = 1<<1,
   COMPONENT_FLAG_RENDER             = 1<<2,
   COMPONENT_FLAG_SPRITE_ANIMATION   = 1<<3,
-  COMPONENT_FLAG_FINAL              = 1<<4,
+  COMPONENT_SPATIAL                 = 1<<4,
+  COMPONENT_FLAG_FINAL              = 1<<5,
 };
 
 struct em_chunk
@@ -239,3 +238,4 @@ u8* GetComponent(entity_manager* EM, u32 EntityID, u32 ComponentFlag);
 #define GetControllerComponent(Input) ((component_controller*) GetComponent(GlobalGameState->EntityManager, Input, COMPONENT_FLAG_CONTROLLER))
 #define GetRenderComponent(Input) ((component_render*) GetComponent(GlobalGameState->EntityManager, Input, COMPONENT_FLAG_RENDER))
 #define GetSpriteAnimationComponent(Input) ((component_sprite_animation*) GetComponent(GlobalGameState->EntityManager, Input, COMPONENT_FLAG_SPRITE_ANIMATION))
+#define GetSpatialComponent(Input) ((component_spatial*) GetComponent(GlobalGameState->EntityManager, Input, COMPONENT_SPATIAL))

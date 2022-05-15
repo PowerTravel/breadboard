@@ -335,6 +335,7 @@ struct game_render_commands
   struct game_asset_manager* AssetManager;
 
   // 2D Overlay Render Group
+  struct render_group* WorldGroup;
   struct render_group* OverlayGroup;
 };
 

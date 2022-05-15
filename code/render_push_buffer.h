@@ -9,7 +9,8 @@ enum class render_buffer_entry_type
 {
   LIGHT,
   RENDER_ASSET,
-  OVERLAY_QUAD,
+  TEXTURED_QUAD,
+  OVERLAY_COLORED_QUAD,
   LINE, 
   TEXT,
   OVERLAY_TEXTURED_QUAD,
@@ -27,10 +28,17 @@ enum data_type
 enum render_state
 {
   RENDER_STATE_NONE         = 0x0,
-  RENDER_STATE_CULL_BACK    = 0x1,
-  RENDER_STATE_POINTS       = 0x2,
-  RENDER_STATE_WIREFRAME    = 0x4,
-  RENDER_STATE_FILL         = 0x8
+  RENDER_STATE_CULL_BACK    = 1<<1,
+  RENDER_STATE_POINTS       = 1<<2,
+  RENDER_STATE_WIREFRAME    = 1<<3,
+  RENDER_STATE_FILL         = 1<<4
+};
+
+struct entry_type_textured_quad
+{
+  bitmap_handle Bitmap;
+  m4 M;
+  m3 TM;
 };
 
 struct entry_type_line
@@ -49,7 +57,7 @@ struct entry_type_overlay_line
   r32 Thickness;
 };
 
-struct entry_type_overlay_quad
+struct entry_type_overlay_color_quad
 {
   v4 Colour;
   rect2f QuadRect;
@@ -99,6 +107,7 @@ struct render_group
 {
   m4 ProjectionMatrix;
   m4 ViewMatrix;
+  v3 CameraPosition;
 
   u32 ElementCount;
   memory_arena Arena;
@@ -117,6 +126,7 @@ void ResetRenderGroup(render_group* RenderGroup)
 
   RenderGroup->ProjectionMatrix = M4Identity();
   RenderGroup->ViewMatrix = M4Identity();
+  RenderGroup->CameraPosition = V3(0,0,0);
   RenderGroup->ElementCount = 0;
   RenderGroup->First = 0;
   RenderGroup->Last = 0;
