@@ -288,15 +288,16 @@ m3 GetTextureTranslationMatrix_OriginTopLeft(s32 X0_pixel, s32 Y0_pixel, s32 Wid
 {
   r32 XMin = (r32) X0_pixel;
   r32 Xoffset = XMin / (r32) TextureWidth_pixel;
-  r32 ScaleX  =  (r32) Width_pixel / (r32) TextureWidth_pixel;
+  r32 ScaleX  =  (r32) (Width_pixel-1) / (r32) TextureWidth_pixel;
 
   // Note: Picture is stored and read from bottom left to up and right but
   //     The coordinates given were top left to bottom right so we need to
   //     Invert the Y-Axis;
-  r32 YMin = (r32) TextureHeight_pixel - (Y0_pixel + Height_pixel);
+  r32 YMin = (r32) TextureHeight_pixel - (Y0_pixel + Height_pixel-1);
   r32 Yoffset = YMin / (r32) TextureHeight_pixel;
-  r32 ScaleY  =  (r32) Height_pixel / (r32) TextureHeight_pixel;
+  r32 ScaleY  =  (r32) (Height_pixel) / (r32) TextureHeight_pixel;
   m3 Result = GetTranslationMatrix(V3(Xoffset,Yoffset,1)) * GetScaleMatrix(V3(ScaleX,ScaleY,1));
+
   return Result;
 }
 
@@ -365,7 +366,7 @@ void FillRenderPushBuffer(world* World)
       r32 RotationAngle = 0;
       v3 RitationAxis = V3(0,0,1);
       r32 Scale = 1;
-      Body->M = GetModelMatrix(V3(Col_Tiles*0.9948f, Row_Tiles*0.9948f, 0), Scale, RotationAngle, RitationAxis);
+      Body->M = GetModelMatrix(V3(Col_Tiles, Row_Tiles, 0), Scale, RotationAngle, RitationAxis);
 
       s32 X0_pixel = 4;
       s32 Y0_pixel = 4;
