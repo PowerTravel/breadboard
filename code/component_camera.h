@@ -25,6 +25,7 @@ struct ray
   v3 Direction;
 };
 
+// Works only for 3d projection camera
 ray GetRayFromCamera(component_camera* Camera, v2 MousePos)
 {
   ray Result{};

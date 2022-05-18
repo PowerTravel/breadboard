@@ -341,10 +341,6 @@ void FillRenderPushBuffer(world* World)
   
   rect2f Subtexture = Rect2f(0,1-GridSide, GridSide, GridSide); // UW Coordinates
   r32 AspectRatio = WindowSize.WidthPx / (r32) WindowSize.HeightPx;
-  // |------------|
-  // |            |
-  // |            |
-  // |------------|
 
   r32 MinY_Tiles = -10;
   r32 MaxY_Tiles = 10;
