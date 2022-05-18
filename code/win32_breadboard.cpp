@@ -912,10 +912,9 @@ void Win32HandleInternalCommands(win32_state* WinState, game_input* GameInput)
 }
 
 internal void
-Win32ProcessKeyboard(keyboard_input* Keyboard)
+Win32ProcessKeyboardAndScrollWheel(keyboard_input* Keyboard, r32* MouseScroll)
 {
   Assert(ArrayCount(Keyboard->Keys) == KeyboardButton_COUNT);
-
   MSG Message;
   while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
   {
@@ -925,7 +924,12 @@ Win32ProcessKeyboard(keyboard_input* Keyboard)
       {
         GlobalRunning =  false;
       }break;
-
+      case WM_MOUSEWHEEL:
+      {
+        SHORT zDelta = GET_WHEEL_DELTA_WPARAM(Message.wParam);
+        *MouseScroll = zDelta > 0 ? 1.f : -1.f;
+        break;
+      }
       case WM_SYSKEYDOWN:
       case WM_SYSKEYUP:
       case WM_KEYDOWN:
@@ -1256,21 +1260,21 @@ Win32ProcessControllerInput(game_input* GameInput)
 }
 
 
-void Win32ProcessMouse(game_input* GameInput, HWND WindowHandle, r32 ScreenHeightPixels)
+void Win32ProcessMouse(mouse_input* Mouse, r32 MouseScroll, HWND WindowHandle, r32 ScreenHeightPixels)
 {
   POINT MouseP;
   GetCursorPos(&MouseP);
   ScreenToClient(WindowHandle, &MouseP);
   // Transforms from Pixel Space [0,Height: Width,0] to OpenGL Viewport Space [-1,-1 : 1,1]
-  r32 TmpX = GameInput->MouseX;
-  r32 TmpY = GameInput->MouseY;
-  r32 TmpZ = GameInput->MouseZ;
-  GameInput->MouseX = (r32) Floor(MouseP.x+0.5f) / ScreenHeightPixels;
-  GameInput->MouseY = (r32) 1.f-(Floor(MouseP.y+0.5f) / ScreenHeightPixels);
-  GameInput->MouseZ = 0;
-  GameInput->MouseDX = GameInput->MouseX - TmpX;
-  GameInput->MouseDY = GameInput->MouseY - TmpY;
-  GameInput->MouseDZ = GameInput->MouseZ - TmpZ;
+  r32 TmpX = Mouse->X;
+  r32 TmpY = Mouse->Y;
+  r32 TmpZ = Mouse->Z;
+  Mouse->X = (r32) Floor(MouseP.x+0.5f) / ScreenHeightPixels;
+  Mouse->Y = (r32) 1.f-(Floor(MouseP.y+0.5f) / ScreenHeightPixels);
+  Mouse->Z += MouseScroll;
+  Mouse->dX = Mouse->X - TmpX;
+  Mouse->dY = Mouse->Y - TmpY;
+  Mouse->dZ = MouseScroll;
   DWORD WinButtonID[PlatformMouseButton_Count] =
   {
       VK_LBUTTON,
@@ -1284,7 +1288,7 @@ void Win32ProcessMouse(game_input* GameInput, HWND WindowHandle, r32 ScreenHeigh
     ButtonIndex < PlatformMouseButton_Count;
     ++ButtonIndex)
   {
-    Update(&GameInput->MouseButton[ButtonIndex], GetKeyState(WinButtonID[ButtonIndex]) & (1<<15));
+    Update(&Mouse->Button[ButtonIndex], GetKeyState(WinButtonID[ButtonIndex]) & (1<<15));
   }
 }
 
@@ -1985,8 +1989,9 @@ WinMain(  HINSTANCE Instance,
 
     // Todo: Unify controller and keyboad input into something that makes a bit more sense
 
-    Win32ProcessKeyboard(&GameInput->Keyboard);
-    Win32ProcessMouse(GameInput, WindowHandle, (r32) RenderCommands.ScreenHeightPixels);
+    r32 MouseScroll = 0;
+    Win32ProcessKeyboardAndScrollWheel(&GameInput->Keyboard, &MouseScroll);
+    Win32ProcessMouse(&GameInput->Mouse, MouseScroll, WindowHandle, (r32) RenderCommands.ScreenHeightPixels);
     GameInput->dt = TargetSecondsPerFrame;
     Win32ProcessControllerInput(GameInput);
     #if HANDMADE_INTERNAL

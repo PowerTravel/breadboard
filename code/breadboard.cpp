@@ -237,6 +237,7 @@ void InitiateGame(game_memory* Memory, game_render_commands* RenderCommands, gam
   component_controller* Controller = GetControllerComponent(ControllableCamera);
   Controller->Controller = GetController(Input, 0);
   Controller->Keyboard = &Input->Keyboard;
+  Controller->Mouse = &Input->Mouse;
   Controller->Type = ControllerType_FlyingCamera;
 
   hash_map<bitmap_coordinate> Tiles = LoadTileMapSpriteSheet(GlobalGameState->TransientArena);

@@ -1971,7 +1971,7 @@ b32 TabDrag(menu_interface* Interface, container_node* Tab)
 internal void GetInput(game_input* GameInput, menu_interface* Interface)
 {
   Interface->PreviousMousePos = Interface->MousePos;
-  Interface->MousePos = V2(GameInput->MouseX, GameInput->MouseY);
+  Interface->MousePos = V2(GameInput->Mouse.X, GameInput->Mouse.Y);
 
   Update(&Interface->TAB, Pushed(GameInput->Keyboard.Key_TAB));
   if(Interface->TAB.Active && Interface->TAB.Edge)
@@ -1979,7 +1979,7 @@ internal void GetInput(game_input* GameInput, menu_interface* Interface)
     Interface->MenuVisible = !Interface->MenuVisible;
   }
 
-  Update(&Interface->MouseLeftButton, GameInput->MouseButton[PlatformMouseButton_Left].Active);
+  Update(&Interface->MouseLeftButton, GameInput->Mouse.Button[PlatformMouseButton_Left].Active);
   if(Interface->MouseLeftButton.Edge)
   {
     if(Interface->MouseLeftButton.Active )

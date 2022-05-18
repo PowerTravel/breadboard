@@ -53,6 +53,7 @@ enum ControllerType
 struct component_controller
 {
   keyboard_input* Keyboard;
+  mouse_input* Mouse;
   game_controller_input* Controller;
   u32 Type;
 };

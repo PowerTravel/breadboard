@@ -663,6 +663,12 @@ enum keyboard_button
   KeyboardButton_COUNT
 };
 
+struct mouse_input 
+{
+  binary_signal_state Button[5];
+  r32 dX, dY, dZ;
+  r32 X, Y, Z;
+};
 
 struct game_input
 {
@@ -670,11 +676,9 @@ struct game_input
   r32 dt;
   b32 ExecutableReloaded;
 
-  binary_signal_state MouseButton[5];
-  r32 MouseDX, MouseDY, MouseDZ;
-  r32 MouseX, MouseY, MouseZ;
-
   keyboard_input Keyboard;
+  mouse_input Mouse;
+
   game_controller_input Controllers[4];
 };
 

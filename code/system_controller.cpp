@@ -17,39 +17,12 @@ void ControllerSystemUpdate( world* World )
       {
         component_camera* Camera = GetCameraComponent(Components);
         keyboard_input* Keyboard = Controller->Keyboard;
+        mouse_input* Mouse = Controller->Mouse;
 
-        // TODO: Move with mouse, not keyboard
-        v3 Direction = {};
-        r32 Speed = 1 * GlobalGameState->Input->dt;
-        if(Keyboard->Key_A.Active)
-        {
-          Direction.X -= Speed;
-        }
-        if(Keyboard->Key_D.Active)
-        {
-          Direction.X += Speed;
-        }
-        if(Keyboard->Key_S.Active)
-        {
-          Direction.Y -= Speed;
-        }
-        if(Keyboard->Key_W.Active)
-        {
-          Direction.Y += Speed;
-        }
-
-
-        // TODO: Do some slerping here, possibly tied to the scroll wheel, zoom in/zoom out
-        r32 ZoomPercentageSpeed = 0.2f * GlobalGameState->Input->dt;
-        r32 ZoomPercentage = 0;
-        if(Keyboard->Key_Q.Active)
-        {
-          ZoomPercentage += ZoomPercentageSpeed;
-        }
-        if(Keyboard->Key_E.Active)
-        {
-          ZoomPercentage -= ZoomPercentageSpeed;
-        }
+        r32 ScrollWheel = Mouse->dZ;
+        // TODO:  - Do some slerping here, possibly tied to the scroll wheel, zoom in/zoom out
+        //        - Zoom towards mouse position
+        r32 ZoomPercentage = - 10 * Mouse->dZ * GlobalGameState->Input->dt;
         r32 Zoom = Camera->OrthoZoom * ZoomPercentage;
         Camera->OrthoZoom += Zoom;
 
@@ -64,9 +37,22 @@ void ControllerSystemUpdate( world* World )
         r32 Bot   = -Top;
         SetOrthoProj(Camera, Near, Far, Right, Left, Top, Bot );
 
-        Direction = Speed * Normalize(Direction);
+        binary_signal_state MouseButtonLeft = Mouse->Button[PlatformMouseButton_Left];
+        if(MouseButtonLeft.Active)
+        {
+          r32 MouseX = Mouse->X; // Canonical Space
+          r32 MouseY = Mouse->Y;
+          r32 MouseDX = Mouse->dX;
+          r32 MouseDY = Mouse->dY;
 
-        TranslateCamera(Camera, Direction);
+          v2 ScreenSpaceStart = CanonicalToScreenSpace(V2(MouseX-MouseDX,MouseY-MouseDY));
+          v2 ScreenSpaceEnd = CanonicalToScreenSpace(V2(MouseX, MouseY));
+          v2 DeltaScreenSpace = ScreenSpaceEnd - ScreenSpaceStart;
+          DeltaScreenSpace.X = DeltaScreenSpace.X * (Right-Left)/2;
+          DeltaScreenSpace.Y = DeltaScreenSpace.Y * (Top-Bot)/2;
+          TranslateCamera(Camera, V3(-DeltaScreenSpace,0));
+        }
+
       }break;
       case ControllerType_Hero:
       {
