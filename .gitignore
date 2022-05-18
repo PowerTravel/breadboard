@@ -1,2 +1,4 @@
 /build
-.ctm
+*.ctm
+*.sublime-project
+*.sublime-workspace
