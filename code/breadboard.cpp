@@ -233,12 +233,7 @@ void InitiateGame(game_memory* Memory, game_render_commands* RenderCommands, gam
   Controller->Mouse = &Input->Mouse;
   Controller->Type = ControllerType_FlyingCamera;
 
-  hash_map<bitmap_coordinate> Tiles = LoadTileMapSpriteSheet(GlobalGameState->TransientArena);
-  bitmap_handle TileHandle;
-  GetHandle(GlobalGameState->AssetManager, "TileSheet", &TileHandle);
-  bitmap* Tile = GetAsset(GlobalGameState->AssetManager, TileHandle);
-  m4 TransMat = GetSpriteSheetTranslationMatrix(Tile, Tiles.Get("empty"));
-
+  GlobalGameState->World->BreadboardTilesheet = LoadTileMapSpriteSheet(GlobalGameState->PersistentArena);
 
   Memory->GameState = GlobalGameState;
   RenderCommands->AssetManager = GlobalGameState->AssetManager;

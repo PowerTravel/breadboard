@@ -4,11 +4,43 @@
 #include "data_containers.h"
 #include "math/affine_transformations.h"
 
+const char* GetBreadBoardTileWithIndex(u32 Index)
+{
+  Index = Index % 12;
+  switch(Index)
+  {
+    case  0: return "empty";
+    case  1: return "ground";
+    case  2: return "source";
+    case  3: return "resistor";
+    case  4: return "led_red_off";
+    case  5: return "led_blue_off";
+    case  6: return "led_green_off";
+    case  7: return "wire_straight";
+    case  8: return "wire_corner";
+    case  9: return "led_red_on";
+    case 10: return "led_blue_on";
+    case 11: return "led_green_on";
+  }
+  return "empty";
+}
 
 hash_map<bitmap_coordinate> LoadTileMapSpriteSheet(memory_arena* Arena)
 {
+  u32 size = 64;
   hash_map<bitmap_coordinate> Result(Arena, 1);
-  Result.Insert( "empty", { 0, 0, 64, 64 });
+  Result.Insert( "empty",         { 0 * size, 0 * size, size, size });
+  Result.Insert( "ground",        { 1 * size, 0 * size, size, size });
+  Result.Insert( "source",        { 2 * size, 0 * size, size, size });
+  Result.Insert( "resistor",      { 3 * size, 0 * size, size, size });
+  Result.Insert( "led_red_off",   { 4 * size, 0 * size, size, size });
+  Result.Insert( "led_blue_off",  { 5 * size, 0 * size, size, size });
+  Result.Insert( "led_green_off", { 6 * size, 0 * size, size, size });
+  Result.Insert( "wire_straight", { 0 * size, 1 * size, size, size });
+  Result.Insert( "wire_corner",   { 1 * size, 1 * size, size, size });
+  Result.Insert( "led_red_on",    { 4 * size, 1 * size, size, size });
+  Result.Insert( "led_blue_on",   { 5 * size, 1 * size, size, size });
+  Result.Insert( "led_green_on",  { 6 * size, 1 * size, size, size });
   return Result;
 }
 

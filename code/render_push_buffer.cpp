@@ -1,5 +1,6 @@
 #include "render_push_buffer.h"
 #include "entity_components.h"
+#include "random.h"
 
 push_buffer_header* PushNewHeader(render_group* RenderGroup, render_buffer_entry_type Type, u32 RenderState, u32 SortKey = 0)
 {
@@ -329,13 +330,16 @@ void FillRenderPushBuffer(world* World)
       RenderGroup->CameraPosition = V3(Column(RigidInverse(Camera->V),3));
     }
   }
+    
 
   bitmap_handle TileHandle;
   GetHandle(AssetManager, "TileSheet", &TileHandle);
+  bitmap* SpriteSheet = GetAsset(AssetManager, TileHandle);
+
+
+  hash_map<bitmap_coordinate>* BreadboardTilesheetCoordinates = &GlobalGameState->World->BreadboardTilesheet;
   //rect2f Subtexture = Rect2f(0,0,64/512.f,64/512.f);
       
-
-
   r32 GridSide = 63.5/512.f;
   game_window_size WindowSize = GameGetWindowSize();
   
@@ -364,13 +368,27 @@ void FillRenderPushBuffer(world* World)
       r32 Scale = 1;
       Body->M = GetModelMatrix(V3(Col_Tiles, Row_Tiles, 0), Scale, RotationAngle, RitationAxis);
 
-      s32 X0_pixel = 4;
-      s32 Y0_pixel = 4;
-      s32 Width_pixel = 60;
-      s32 Height_pixel = 60;
+    #if 1
+      s32 X0_pixel = 0;
+      s32 Y0_pixel = 0;
+      s32 Width_pixel = 64;
+      s32 Height_pixel = 64;
       s32 TextureWidth_pixel = 512;
       s32 TextureHeight_pixel = 512;
+      
       Body->TM = GetTextureTranslationMatrix_OriginTopLeft(X0_pixel, Y0_pixel, Width_pixel, Height_pixel, TextureWidth_pixel, TextureHeight_pixel);
+#else
+      u32 RandomNumber = GetRandomUint( (u32)(Row_Tiles * Col_Tiles) );
+
+      const char* TileName = GetBreadBoardTileWithIndex(RandomNumber);
+      bitmap_coordinate* TileCoordinate = BreadboardTilesheetCoordinates->Get(TileName);
+      m4 TM_M4 = GetSpriteSheetTranslationMatrix(SpriteSheet, TileCoordinate);
+      Body->TM.r0 = V3(TM_M4.r0);
+      Body->TM.r1 = V3(TM_M4.r1);
+      Body->TM.r2 = V3(TM_M4.r2);
+      Body->TM.E[8] = 1;
+#endif
+
       Body->Bitmap = TileHandle;
     }
   }
