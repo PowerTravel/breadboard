@@ -170,13 +170,6 @@ world* CreateWorld( )
   return World;
 }
 
-void CreateCollisionTestScene(game_state* GameState, game_input* Input)
-{
-  world* World = GameState->World;
-  game_asset_manager* AssetManager = GlobalGameState->AssetManager;
-  entity_manager* EM = GlobalGameState->EntityManager;
-}
-
 void InitiateGame(game_memory* Memory, game_render_commands* RenderCommands, game_input* Input )
 {
   if (Memory->GameState)
