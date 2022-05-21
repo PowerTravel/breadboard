@@ -997,126 +997,10 @@ void PushBitmapToGPU(open_gl* OpenGL, game_asset_manager* AssetManager, bitmap_h
   }
   
 }
-#if 0
-void OpenGLRenderGroupToOutput(game_render_commands* Commands)
-{  
-  render_group* RenderGroup = Commands->OverlayGroup;
-  game_asset_manager* AssetManager = Commands->AssetManager;
-  open_gl* OpenGL = &Commands->OpenGL;
-
-  bitmap_handle BitmapHandle;
-  GetHandle(AssetManager, "TileSheet", &BitmapHandle);
-  
-  for (u32 i = 0; i < AssetManager->ObjectPendingLoadCount; ++i)
-  {
-    // PushObject
-    PushObjectToGPU(OpenGL, AssetManager, AssetManager->ObjectPendingLoad[i]);
-  }
-  AssetManager->ObjectPendingLoadCount = 0;
-  
-  for (u32 i = 0; i < AssetManager->BitmapPendingLoadCount; ++i)
-  {
-    // PushObject
-    PushBitmapToGPU(OpenGL, AssetManager, AssetManager->BitmapPendingLoad[i]);
-  }
-  AssetManager->BitmapPendingLoadCount = 0;
 
 
-  u32 QuadCount = 1;
-
-  bitmap_keeper* BitmapKeeper;
-  GetAsset(AssetManager, BitmapHandle, &BitmapKeeper);
-
-  textured_overlay_quad_data* QuadBuffer = PushArray(&RenderGroup->Arena, QuadCount, textured_overlay_quad_data);
-  QuadBuffer->QuadRect = Rect2f(0,0,1,1); // 
-  QuadBuffer->UVRect = Rect2f(0,0,1,1); // 
-  QuadBuffer->TextureSlot = BitmapKeeper->TextureSlot;
-
-  u32 QuadBufferSize = sizeof(textured_overlay_quad_data)*QuadCount;
-
-  glBindBuffer(GL_ARRAY_BUFFER, OpenGL->InstanceVBO);
-  glBufferSubData(GL_ARRAY_BUFFER,         // Target
-                  OpenGL->QuadBaseOffset,  // Offset in instance buffer
-                  QuadBufferSize,          // Size of data
-                  (GLvoid*) QuadBuffer);   // Data
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-
-
-  r32 R = 0x1E / (r32) 0xFF;
-  r32 G = 0x46 / (r32) 0xFF;
-  r32 B = 0x5A / (r32) 0xFF;
-  glClearColor(R,G,B, 1.f);
-  glDisable(GL_DEPTH_TEST); // No need to clearh the depth buffer if we disable depth test
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-  // Enable Textures
-  glEnable(GL_TEXTURE_2D);
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glUseProgram(OpenGL->TexturedQuadProgram.Program);
-  glUniformMatrix4fv(OpenGL->TexturedQuadProgram.ProjectionMat, 1, GL_TRUE, RenderGroup->ProjectionMatrix.E);
-  buffer_keeper* ElementObjectKeeper = 0;
-  object_handle ObjectHandle = GetEnumeratedObjectHandle(AssetManager, predefined_mesh::QUAD);
-  GetAsset(AssetManager, ObjectHandle, &ElementObjectKeeper);
-  glBindVertexArray( OpenGL->QuadVAO );
-  glBindTexture( GL_TEXTURE_2D_ARRAY, OpenGL->TextureArray);
-  glDrawElementsInstancedBaseVertex(GL_TRIANGLES,                           // Mode,
-                                    ElementObjectKeeper->Count,             // Nr of Elements (Triangles*3)
-                                    GL_UNSIGNED_INT,                        // Index Data Type  
-                                    (GLvoid*)(ElementObjectKeeper->Index),  // Pointer somewhere in the index buffer
-                                    QuadCount,                              // How many Instances to draw
-                                    ElementObjectKeeper->VertexOffset);     // Base Offset into the geometry vbo
-  glBindVertexArray(0);
-
-}
-#else
-void OpenGLRenderGroupToOutput(game_render_commands* Commands)
-{  
-  TIMED_FUNCTION();
-  render_group* RenderGroup = Commands->WorldGroup;
-  game_asset_manager* AssetManager = Commands->AssetManager;
-  open_gl* OpenGL = &Commands->OpenGL;
-  
-  for (u32 i = 0; i < AssetManager->ObjectPendingLoadCount; ++i)
-  {
-    // PushObject
-    PushObjectToGPU(OpenGL, AssetManager, AssetManager->ObjectPendingLoad[i]);
-  }
-  AssetManager->ObjectPendingLoadCount = 0;
-  
-  for (u32 i = 0; i < AssetManager->BitmapPendingLoadCount; ++i)
-  {
-    // PushObject
-    PushBitmapToGPU(OpenGL, AssetManager, AssetManager->BitmapPendingLoad[i]);
-  }
-  AssetManager->BitmapPendingLoadCount = 0;
-  
-  r32 R = 0x1E / (r32) 0xFF;
-  r32 G = 0x46 / (r32) 0xFF;
-  r32 B = 0x5A / (r32) 0xFF;
-  glClearColor(R,G,B, 1.f);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  
-  glEnable(GL_BLEND);
-  //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
-  
-  glEnable(GL_DEPTH_TEST);
-  glDepthFunc(GL_LESS);
-  
-  // TODO: Screen Width is now also used for the resolution. Should we decouple ScreenHeightPixels and ResolutionHeightPixels?
-  r32 DesiredAspectRatio = 1.77968526f;
-  DesiredAspectRatio = (r32)Commands->ScreenWidthPixels / (r32)Commands->ScreenHeightPixels;
-  OpenGLSetViewport( DesiredAspectRatio, Commands->ScreenWidthPixels,  Commands->ScreenHeightPixels );
-  glActiveTexture(GL_TEXTURE0);
-  m4 Identity = M4Identity();
-  
-
-  glBindTexture( GL_TEXTURE_2D_ARRAY, OpenGL->TextureArray);
-  //glUniformMatrix4fv(PhongShadingProgram.ProjectionMat, 1, GL_TRUE, RenderGroup->ProjectionMatrix.E);
-  //glUniformMatrix4fv(PhongShadingProgram.ViewMat, 1, GL_TRUE, RenderGroup->ViewMatrix.E);
-
+void DrawRenderGroup(open_gl* OpenGL, render_group* RenderGroup, game_asset_manager* AssetManager)
+{
   if( !RenderGroup->First) {return;}
   temporary_memory TempMem = BeginTemporaryMemory(&RenderGroup->Arena);
   {
@@ -1125,7 +1009,7 @@ void OpenGLRenderGroupToOutput(game_render_commands* Commands)
     while(StartEntry)
     {
       u32 OverlayTextEntryCount = 0;
-      u32 OverlayQuadEntryCount = 0;
+      u32 OverlayColoredQuadCount = 0;
       u32 OverlayTexturedQuadEntryCount = 0;
       u32 TexturedQuadEntryCount = 0;
       for( push_buffer_header* Entry = StartEntry;
@@ -1133,7 +1017,7 @@ void OpenGLRenderGroupToOutput(game_render_commands* Commands)
           Entry = Entry->Next )
       {
         OverlayTextEntryCount         += ((Entry->Type == render_buffer_entry_type::TEXT)                  ? 1 : 0);
-        OverlayQuadEntryCount         += ((Entry->Type == render_buffer_entry_type::OVERLAY_COLORED_QUAD)  ? 1 : 0);
+        OverlayColoredQuadCount       += ((Entry->Type == render_buffer_entry_type::OVERLAY_COLORED_QUAD)  ? 1 : 0);
         OverlayTexturedQuadEntryCount += ((Entry->Type == render_buffer_entry_type::OVERLAY_TEXTURED_QUAD) ? 1 : 0);
         TexturedQuadEntryCount        += ((Entry->Type == render_buffer_entry_type::TEXTURED_QUAD)         ? 1 : 0);
         
@@ -1146,7 +1030,7 @@ void OpenGLRenderGroupToOutput(game_render_commands* Commands)
       
       { // Send data to VBO
         text_data* OverlayTextBuffer = PushArray(&RenderGroup->Arena, OverlayTextEntryCount, text_data);
-        overlay_color_quad_data* OverlayQuadBuffer = PushArray(&RenderGroup->Arena, OverlayQuadEntryCount, overlay_color_quad_data);
+        overlay_color_quad_data* OverlayColoredQuadBuffer = PushArray(&RenderGroup->Arena, OverlayColoredQuadCount, overlay_color_quad_data);
         textured_overlay_quad_data* OverlayTexQuadBuffer = PushArray(&RenderGroup->Arena, OverlayTexturedQuadEntryCount, textured_overlay_quad_data);
         textured_quad_data* TexQuadBuffer = PushArray(&RenderGroup->Arena, OverlayTexturedQuadEntryCount, textured_quad_data);
 
@@ -1167,7 +1051,7 @@ void OpenGLRenderGroupToOutput(game_render_commands* Commands)
               overlay_color_quad_data QuadData = {};
               QuadData.QuadRect = Quad->QuadRect;
               QuadData.Color = Quad->Colour;
-              OverlayQuadBuffer[OverlayColorQuadInstanceIndex++] = QuadData;
+              OverlayColoredQuadBuffer[OverlayColorQuadInstanceIndex++] = QuadData;
             }break;
             case render_buffer_entry_type::TEXT:
             {
@@ -1218,7 +1102,7 @@ void OpenGLRenderGroupToOutput(game_render_commands* Commands)
           }
         }
         
-        u32 OverlayColorQuadBufferSize = sizeof(overlay_color_quad_data)*OverlayQuadEntryCount;
+        u32 OverlayColorQuadBufferSize = sizeof(overlay_color_quad_data)*OverlayColoredQuadCount;
         u32 OverlayTextBufferSize = sizeof(text_data)*OverlayTextEntryCount;
         u32 OverlayTexQuadBufferSize = sizeof(textured_overlay_quad_data)*OverlayTexturedQuadEntryCount;
         u32 TexQuadBufferSize = sizeof(textured_quad_data)*TexturedQuadEntryCount;
@@ -1227,7 +1111,7 @@ void OpenGLRenderGroupToOutput(game_render_commands* Commands)
         glBufferSubData( GL_ARRAY_BUFFER,                   // Target
                         OpenGL->OverlayColorQuadBaseOffset, // Offset
                         OverlayColorQuadBufferSize,         // Size
-                        (GLvoid*) OverlayQuadBuffer);       // Data
+                        (GLvoid*) OverlayColoredQuadBuffer);       // Data
         glBufferSubData( GL_ARRAY_BUFFER,                   // Target
                         OpenGL->OverlayTextBaseOffset,      // Offset
                         OverlayTextBufferSize,              // Size
@@ -1243,30 +1127,16 @@ void OpenGLRenderGroupToOutput(game_render_commands* Commands)
         glBindBuffer(GL_ARRAY_BUFFER, 0);
       }
       
-      opengl_program QuadOverlayProgram = Commands->OpenGL.QuadOverlayProgram;
-      glUseProgram(QuadOverlayProgram.Program);
-      glBindTexture( GL_TEXTURE_2D_ARRAY, OpenGL->TextureArray);
-      glUniformMatrix4fv(QuadOverlayProgram.ProjectionMat, 1, GL_TRUE, RenderGroup->ProjectionMatrix.E);
-      
-      // No need to clearh the depth buffer if we disable depth test
-      glDisable(GL_DEPTH_TEST);
-      // Enable Textures
-      glEnable(GL_TEXTURE_2D);
-      glEnable(GL_BLEND);
-      glBlendFunc(GL_SRC_COLOR, GL_ONE_MINUS_SRC_COLOR);
-      
+
       buffer_keeper* ElementObjectKeeper = 0;
       object_handle ObjectHandle = GetEnumeratedObjectHandle(AssetManager, predefined_mesh::QUAD);
       GetAsset(AssetManager, ObjectHandle, &ElementObjectKeeper);
       
       {
-        opengl_program TexturedQuadProgram = Commands->OpenGL.TexturedQuadProgram;
+        opengl_program TexturedQuadProgram = OpenGL->TexturedQuadProgram;
         glUseProgram(TexturedQuadProgram.Program);
-        
-        glBindTexture( GL_TEXTURE_2D_ARRAY, OpenGL->TextureArray);
         glUniformMatrix4fv(TexturedQuadProgram.ProjectionMat, 1, GL_TRUE, RenderGroup->ProjectionMatrix.E);
         glUniformMatrix4fv(TexturedQuadProgram.ViewMat,       1, GL_TRUE, RenderGroup->ViewMatrix.E);
-
         glBindVertexArray(OpenGL->TexQuadVAO);
         glDrawElementsInstancedBaseVertex(GL_TRIANGLES,                           // Mode,
                                           ElementObjectKeeper->Count,             // Nr of Elements (Triangles*3)
@@ -1278,21 +1148,23 @@ void OpenGLRenderGroupToOutput(game_render_commands* Commands)
       }
 
       {
-        glBindVertexArray( OpenGL->OverlayQuadVAO );
+        opengl_program QuadOverlayProgram = OpenGL->QuadOverlayProgram;
+        glUseProgram(QuadOverlayProgram.Program);
+        glUniformMatrix4fv(QuadOverlayProgram.ProjectionMat, 1, GL_TRUE, RenderGroup->ProjectionMatrix.E);
+        glBindVertexArray(OpenGL->OverlayQuadVAO);
         glDrawElementsInstancedBaseVertex(GL_TRIANGLES,                           // Mode,
                                           ElementObjectKeeper->Count,             // Nr of Elements (Triangles*3)
                                           GL_UNSIGNED_INT,                        // Index Data Type  
                                           (GLvoid*)(ElementObjectKeeper->Index),  // Pointer somewhere in the index buffer
-                                          OverlayQuadEntryCount,                  // How many Instances to draw
+                                          OverlayColoredQuadCount,                  // How many Instances to draw
                                           ElementObjectKeeper->VertexOffset);     // Base Offset into the geometry vbo
         glBindVertexArray(0);
-        
-        opengl_program TextRenderProgram = Commands->OpenGL.TextOverlayProgram;
-        glUseProgram(TextRenderProgram.Program);
+      }
 
-        //glBindTexture( GL_TEXTURE_2D_ARRAY, OpenGL->TextureArray);
+      {
+        opengl_program TextRenderProgram = OpenGL->TextOverlayProgram;
+        glUseProgram(TextRenderProgram.Program);
         glUniformMatrix4fv(TextRenderProgram.ProjectionMat, 1, GL_TRUE, RenderGroup->ProjectionMatrix.E);
-        
         glBindVertexArray(OpenGL->OverlayTextVAO);
         glDrawElementsInstancedBaseVertex(GL_TRIANGLES,                           // Mode,
                                           ElementObjectKeeper->Count,             // Nr of Elements (Triangles*3)
@@ -1309,10 +1181,54 @@ void OpenGLRenderGroupToOutput(game_render_commands* Commands)
         StartEntry = BreakEntry->Next;
         BreakEntry = 0;
       }
-    }
-    
+    }  
   }
-  
   EndTemporaryMemory(TempMem);
 }
-#endif
+
+void OpenGLRenderGroupToOutput(game_render_commands* Commands)
+{  
+  TIMED_FUNCTION();
+  game_asset_manager* AssetManager = Commands->AssetManager;
+  open_gl* OpenGL = &Commands->OpenGL;
+  
+  for (u32 i = 0; i < AssetManager->ObjectPendingLoadCount; ++i)
+  {
+    // PushObject
+    PushObjectToGPU(OpenGL, AssetManager, AssetManager->ObjectPendingLoad[i]);
+  }
+  AssetManager->ObjectPendingLoadCount = 0;
+  
+  for (u32 i = 0; i < AssetManager->BitmapPendingLoadCount; ++i)
+  {
+    // PushObject
+    PushBitmapToGPU(OpenGL, AssetManager, AssetManager->BitmapPendingLoad[i]);
+  }
+  AssetManager->BitmapPendingLoadCount = 0;
+  
+  r32 R = 0x1E / (r32) 0xFF;
+  r32 G = 0x46 / (r32) 0xFF;
+  r32 B = 0x5A / (r32) 0xFF;
+  glClearColor(R,G,B, 1.f);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  
+  glEnable(GL_BLEND);
+  glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+  // No need to clearh the depth buffer if we disable depth test
+  glDisable(GL_DEPTH_TEST);
+  // glEnable(GL_DEPTH_TEST);
+  // glDepthFunc(GL_LESS);
+
+  // Enable Textures
+  glEnable(GL_TEXTURE_2D);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture( GL_TEXTURE_2D_ARRAY, OpenGL->TextureArray);      
+
+  r32 DesiredAspectRatio = (r32)Commands->ScreenWidthPixels / (r32)Commands->ScreenHeightPixels;
+  OpenGLSetViewport( DesiredAspectRatio, Commands->ScreenWidthPixels,  Commands->ScreenHeightPixels );
+  
+  DrawRenderGroup(OpenGL, Commands->WorldGroup, AssetManager);
+  DrawRenderGroup(OpenGL, Commands->OverlayGroup, AssetManager);
+}
