@@ -74,4 +74,5 @@ void GetIntersectingTiles(tile_map* TileMap, list<tile_map_position>* OutputList
 inline tile_contents GetTileContents(tile_map* TileMap, tile_page* TilePage, s32 RelTileIndexX, s32 RelTileIndexY );
 inline tile_contents GetTileContents(tile_map* TileMap, s32 AbsTileX, s32 AbsTileY, s32 AbsTileZ);
 inline tile_contents GetTileContents(tile_map* TileMap, tile_map_position CanPos);
+inline void SetTileContentsAbs(memory_arena* Arena, tile_map* TileMap, s32 AbsTileX, s32 AbsTileY, s32 AbsTileZ, tile_contents TileContents);
 aabb3f GetTileAABB(tile_map* TileMap, tile_map_position CanPos );
