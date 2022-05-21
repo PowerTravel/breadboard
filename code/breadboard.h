@@ -18,6 +18,49 @@ struct picked_entity
   v3 MousePointOnPlane;
 };
 
+#define MAX_ELECTRICAL_IO 32
+
+struct electrical_component_node
+{
+  u32 IOCount;
+  u32 IOCountMax;
+  electrical_component_node* IO[MAX_ELECTRICAL_IO];
+};
+
+struct electrical_connection
+{
+  r32 Volt;
+  electrical_component_node* IO[2];
+};
+
+struct source_volt : public electrical_component_node
+{
+  r32 SourceVolt;
+};
+
+struct ground : public electrical_component_node
+{
+};
+
+enum LEDColor
+{
+  LED_COLOR_RED,
+  LED_COLOR_GREEN,
+  LED_COLOR_BLUE
+};
+
+struct led : public electrical_component_node
+{
+  LEDColor Color;
+  r32 HeatThreshold; // The heat in degrees needed to destroy the component
+  b32 Broken;
+};
+
+struct resistor : public electrical_component_node
+{
+  r32 Resistance; // Ohm
+};
+
 struct world
 {
   r32 GlobalTimeSec;
@@ -26,6 +69,7 @@ struct world
   memory_arena* Arena;
   
   tile_map TileMap;
+  source_volt* Source;
 };
 
 typedef void(*func_ptr_void)(void);

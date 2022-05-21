@@ -162,11 +162,69 @@ GameOutputSound(game_sound_output_buffer* SoundBuffer, int ToneHz)
   }
 }
 
+
+void ElectricalComponentNode(electrical_component_node* Node, u32 IOCountMax)
+{
+  Assert(IOCountMax <= MAX_ELECTRICAL_IO );
+  Node->IOCount = 0;
+  Node->IOCountMax = IOCountMax;
+}
+
+source_volt* SourceVolt(memory_arena* Arena, r32 SourceVolt )
+{
+  source_volt* Result =PushStruct(Arena, source_volt);
+  ElectricalComponentNode((electrical_component_node*) Result, 1);
+  Result->SourceVolt = SourceVolt;
+  return Result;
+}
+
+ground* Ground(memory_arena* Arena)
+{
+  ground* Result =PushStruct(Arena, ground);
+  ElectricalComponentNode((electrical_component_node*) Result, 1);
+  return Result;
+}
+
+led* Led(memory_arena* Arena, LEDColor Color, r32 HeatThreshold)
+{
+  led* Result =PushStruct(Arena, led);
+  ElectricalComponentNode((electrical_component_node*) Result, 2);
+  Result->Broken = false;
+  Result->HeatThreshold = HeatThreshold;
+  return Result;
+}
+
+resistor* Resistor(memory_arena* Arena, r32 Resistance)
+{
+  resistor* Result = PushStruct(Arena, resistor);
+  ElectricalComponentNode( (electrical_component_node*) Result, 2);
+  Result->Resistance = Resistance;
+  return Result;
+}
+
+void _ConnectElectricalComponent(electrical_component_node* A, electrical_component_node* B) 
+{
+  Assert(A->IOCount < A->IOCountMax);
+  Assert(B->IOCount < B->IOCountMax);
+  A->IO[A->IOCount++] = B;
+  B->IO[B->IOCount++] = A;
+}
+
+#define ConnectElectricalComponent(A,B) _ConnectElectricalComponent((electrical_component_node*) A, (electrical_component_node*) B);
+
 world* CreateWorld( )
 {
   world* World = PushStruct(GlobalGameState->PersistentArena, world);
   InitializeTileMap( &World->TileMap );
   World->Arena = GlobalGameState->PersistentArena;
+
+  World->Source = SourceVolt(World->Arena, 5);
+  resistor* res = Resistor(World->Arena, 1000);
+  led* ledLamp = Led(World->Arena, LED_COLOR_RED, 100);
+  ground* gr = Ground(World->Arena);
+  ConnectElectricalComponent(World->Source, res);
+  ConnectElectricalComponent(res, ledLamp);
+  ConnectElectricalComponent(ledLamp, gr);
   return World;
 }
 
