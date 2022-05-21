@@ -330,16 +330,13 @@ void FillRenderPushBuffer(world* World)
       RenderGroup->CameraPosition = V3(Column(RigidInverse(Camera->V),3));
     }
   }
-    
 
   bitmap_handle TileHandle;
   GetHandle(AssetManager, "TileSheet", &TileHandle);
-  bitmap* SpriteSheet = GetAsset(AssetManager, TileHandle);
+  bitmap* ElectricalComponentSpriteSheet = GetAsset(AssetManager, TileHandle);
+  r32 SpriteSheetWidth =  (r32) ElectricalComponentSpriteSheet->Width;
+  r32 SpriteSheetHeight = (r32) ElectricalComponentSpriteSheet->Height;
 
-
-  hash_map<bitmap_coordinate>* BreadboardTilesheetCoordinates = &GlobalGameState->World->BreadboardTilesheet;
-  //rect2f Subtexture = Rect2f(0,0,64/512.f,64/512.f);
-      
   r32 GridSide = 63.5/512.f;
   game_window_size WindowSize = GameGetWindowSize();
   
@@ -347,10 +344,10 @@ void FillRenderPushBuffer(world* World)
   r32 AspectRatio = WindowSize.WidthPx / (r32) WindowSize.HeightPx;
 
   r32 MinY_Tiles = -10;
-  r32 MaxY_Tiles = 10;
+  r32 MaxY_Tiles =  10;
 
   r32 MinX_Tiles = -10;
-  r32 MaxX_Tiles = 10;
+  r32 MaxX_Tiles =  10;
 
   for(r32 Row_Tiles  = MinY_Tiles;
           Row_Tiles <= MaxY_Tiles;
@@ -364,30 +361,13 @@ void FillRenderPushBuffer(world* World)
       entry_type_textured_quad* Body = PushStruct(&RenderGroup->Arena, entry_type_textured_quad);
 
       r32 RotationAngle = 0;
-      v3 RitationAxis = V3(0,0,1);
+      v3 RotationAxis = V3(0,0,1);
       r32 Scale = 1;
-      Body->M = GetModelMatrix(V3(Col_Tiles, Row_Tiles, 0), Scale, RotationAngle, RitationAxis);
+      Body->M = GetModelMatrix(V3(Col_Tiles, Row_Tiles, 0), Scale, RotationAngle, RotationAxis);
 
-    #if 1
-      s32 X0_pixel = 0;
-      s32 Y0_pixel = 0;
-      s32 Width_pixel = 64;
-      s32 Height_pixel = 64;
-      s32 TextureWidth_pixel = 512;
-      s32 TextureHeight_pixel = 512;
-      
-      Body->TM = GetTextureTranslationMatrix_OriginTopLeft(X0_pixel, Y0_pixel, Width_pixel, Height_pixel, TextureWidth_pixel, TextureHeight_pixel);
-#else
-      u32 RandomNumber = GetRandomUint( (u32)(Row_Tiles * Col_Tiles) );
-
-      const char* TileName = GetBreadBoardTileWithIndex(RandomNumber);
-      bitmap_coordinate* TileCoordinate = BreadboardTilesheetCoordinates->Get(TileName);
-      m4 TM_M4 = GetSpriteSheetTranslationMatrix(SpriteSheet, TileCoordinate);
-      Body->TM.r0 = V3(TM_M4.r0);
-      Body->TM.r1 = V3(TM_M4.r1);
-      Body->TM.r2 = V3(TM_M4.r2);
-      Body->TM.E[8] = 1;
-#endif
+      u32 RandomNumber = GetRandomUint( (u32)(Row_Tiles * (MaxY_Tiles-MinY_Tiles) + Col_Tiles) );
+      bitmap_coordinate TileCoordinate = GetElectricalComponentSpriteBitmapCoordinate(RandomNumber);
+      Body->TM = GetSpriteSheetTranslationMatrixM3(&TileCoordinate, SpriteSheetWidth, SpriteSheetHeight);
 
       Body->Bitmap = TileHandle;
     }

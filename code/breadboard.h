@@ -25,8 +25,6 @@ struct world
 
   memory_arena* Arena;
   
-
-  hash_map<bitmap_coordinate> BreadboardTilesheet;
   tile_map TileMap;
 };
 

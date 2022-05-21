@@ -35,10 +35,10 @@ bool GetPixelValue(bitmap* BitMap, const u32 X,  const u32 Y, u32* Result)
 
 struct bitmap_coordinate
 {
-  u32 x;
-  u32 y;
-  u32 w;
-  u32 h;
+  r32 x;
+  r32 y;
+  r32 w;
+  r32 h;
 };
 
 struct sprite_sheet

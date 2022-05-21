@@ -4,44 +4,44 @@
 #include "data_containers.h"
 #include "math/affine_transformations.h"
 
-const char* GetBreadBoardTileWithIndex(u32 Index)
+enum ElectricalComponentSprite
 {
-  Index = Index % 12;
+  ElectricalComponentSprite_Empty,
+  ElectricalComponentSprite_Ground,
+  ElectricalComponentSprite_Source,
+  ElectricalComponentSprite_Resistor,
+  ElectricalComponentSprite_LedRedOff,
+  ElectricalComponentSprite_LedBlueOff,
+  ElectricalComponentSprite_LedGreenOff,
+  ElectricalComponentSprite_WireBlack,
+  ElectricalComponentSprite_WireYellow,
+  ElectricalComponentSprite_LedRedOn,
+  ElectricalComponentSprite_LedBlueOn,
+  ElectricalComponentSprite_LedGreenOn,
+  ElectricalComponentSprite_MaxSize,
+};
+
+inline bitmap_coordinate GetElectricalComponentSpriteBitmapCoordinate(u32 Index)
+{
+  Index = Index % ElectricalComponentSprite_MaxSize;
+  bitmap_coordinate Coordinate = {};
+  r32 size = 64;
   switch(Index)
   {
-    case  0: return "empty";
-    case  1: return "ground";
-    case  2: return "source";
-    case  3: return "resistor";
-    case  4: return "led_red_off";
-    case  5: return "led_blue_off";
-    case  6: return "led_green_off";
-    case  7: return "wire_straight";
-    case  8: return "wire_corner";
-    case  9: return "led_red_on";
-    case 10: return "led_blue_on";
-    case 11: return "led_green_on";
+    case ElectricalComponentSprite_Empty: {Coordinate = { 0 * size, 0 * size, size, size };} break;
+    case ElectricalComponentSprite_Ground: {Coordinate = { 1 * size, 0 * size, size, size };} break;
+    case ElectricalComponentSprite_Source: {Coordinate = { 2 * size, 0 * size, size, size };} break;
+    case ElectricalComponentSprite_Resistor: {Coordinate = { 3 * size, 0 * size, size, size };} break;
+    case ElectricalComponentSprite_LedRedOff: {Coordinate = { 4 * size, 0 * size, size, size };} break;
+    case ElectricalComponentSprite_LedBlueOff: {Coordinate = { 5 * size, 0 * size, size, size };} break;
+    case ElectricalComponentSprite_LedGreenOff: {Coordinate = { 6 * size, 0 * size, size, size };} break;
+    case ElectricalComponentSprite_WireBlack: {Coordinate = { 0 * size, 1 * size, size, size };} break;
+    case ElectricalComponentSprite_WireYellow: {Coordinate = { 1 * size, 1 * size, size, size };} break;
+    case ElectricalComponentSprite_LedRedOn: {Coordinate = { 4 * size, 1 * size, size, size };} break;
+    case ElectricalComponentSprite_LedBlueOn: {Coordinate = { 5 * size, 1 * size, size, size };} break;
+    case ElectricalComponentSprite_LedGreenOn: {Coordinate = { 6 * size, 1 * size, size, size };} break;
   }
-  return "empty";
-}
-
-hash_map<bitmap_coordinate> LoadTileMapSpriteSheet(memory_arena* Arena)
-{
-  u32 size = 64;
-  hash_map<bitmap_coordinate> Result(Arena, 1);
-  Result.Insert( "empty",         { 0 * size, 0 * size, size, size });
-  Result.Insert( "ground",        { 1 * size, 0 * size, size, size });
-  Result.Insert( "source",        { 2 * size, 0 * size, size, size });
-  Result.Insert( "resistor",      { 3 * size, 0 * size, size, size });
-  Result.Insert( "led_red_off",   { 4 * size, 0 * size, size, size });
-  Result.Insert( "led_blue_off",  { 5 * size, 0 * size, size, size });
-  Result.Insert( "led_green_off", { 6 * size, 0 * size, size, size });
-  Result.Insert( "wire_straight", { 0 * size, 1 * size, size, size });
-  Result.Insert( "wire_corner",   { 1 * size, 1 * size, size, size });
-  Result.Insert( "led_red_on",    { 4 * size, 1 * size, size, size });
-  Result.Insert( "led_blue_on",   { 5 * size, 1 * size, size, size });
-  Result.Insert( "led_green_on",  { 6 * size, 1 * size, size, size });
-  return Result;
+  return Coordinate;
 }
 
 hash_map<bitmap_coordinate> LoadTileSpriteSheetCoordinates(memory_arena* Arena)
@@ -268,5 +268,25 @@ m4 GetSpriteSheetTranslationMatrix(bitmap* SpriteSheet, bitmap_coordinate* Coord
   r32 Yoffset = YMin / (r32) SpriteSheet->Height;
   r32 ScaleY  =  (r32) Coordinate->h / (r32) SpriteSheet->Height;
   m4 Result = GetTranslationMatrix(V4(Xoffset,Yoffset,0,1)) * GetScaleMatrix(V4(ScaleX,ScaleY,0,1));
+  return Result;
+}
+
+
+m3 GetSpriteSheetTranslationMatrixM3(bitmap_coordinate* Coordinate, r32 SpriteSheetWidth_Pixels, r32 SpriteSheetHeight_Pixels, bool invertY = true)
+{
+  // We want the bitmap_coordinate to fall in the middle of the pixel so that it's clamped to the correct edge
+  r32 X0_PixelCorrected = Coordinate->x + 0.5f;
+  r32 Y0_PixelCorrected = invertY ? SpriteSheetHeight_Pixels - (Coordinate->y + Coordinate->h - 0.5f) : Coordinate->y + 0.5f;
+  r32 Width_PixelCorrected = Coordinate->w - 1.f;
+  r32 Height_PixelCorrected = Coordinate->h - 1.f;
+
+
+  r32 X0 = X0_PixelCorrected / SpriteSheetWidth_Pixels;
+  r32 Y0 = Y0_PixelCorrected / SpriteSheetHeight_Pixels;
+  r32 ScaleX = Width_PixelCorrected / SpriteSheetWidth_Pixels;
+  r32 ScaleY = Height_PixelCorrected / SpriteSheetHeight_Pixels;
+  v3 Translation = V3(X0,Y0,1);
+  v3 Scale = V3(ScaleX,ScaleY,1);
+  m3 Result = GetTranslationMatrix(Translation) * GetScaleMatrix(Scale);
   return Result;
 }

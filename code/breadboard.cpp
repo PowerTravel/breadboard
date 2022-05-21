@@ -233,8 +233,6 @@ void InitiateGame(game_memory* Memory, game_render_commands* RenderCommands, gam
   Controller->Mouse = &Input->Mouse;
   Controller->Type = ControllerType_FlyingCamera;
 
-  GlobalGameState->World->BreadboardTilesheet = LoadTileMapSpriteSheet(GlobalGameState->PersistentArena);
-
   Memory->GameState = GlobalGameState;
   RenderCommands->AssetManager = GlobalGameState->AssetManager;
 
@@ -324,6 +322,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
   world* World = GlobalGameState->World;
   World->dtForFrame = Input->dt;
+
 
   entity_manager* EM = GlobalGameState->EntityManager;
   ControllerSystemUpdate(World);
