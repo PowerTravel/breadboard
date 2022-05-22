@@ -370,7 +370,8 @@ void InitOpenGL(open_gl* OpenGL)
   OpenGL->TextOverlayProgram = OpenGLCreateTextProgram();
   OpenGL->TexturedQuadProgram = OpenGLCreateTexturedQuadProgram();
   
-  OpenGL->BufferSize = Megabytes(2);
+  // 
+  OpenGL->BufferSize = Megabytes(512);
   
   // Enable 2D Textures
   glEnable(GL_TEXTURE_2D);
@@ -480,9 +481,9 @@ void InitOpenGL(open_gl* OpenGL)
   glBindVertexArray(0);
 
   OpenGL->OverlayColorQuadBaseOffset = 0;
-  OpenGL->OverlayTextBaseOffset = OpenGL->BufferSize/4;
-  OpenGL->OverlayTexQuadBaseOffset = (2*OpenGL->BufferSize)/4;
-  OpenGL->TexQuadBaseOffset = (3*OpenGL->BufferSize)/4;
+  OpenGL->OverlayTextBaseOffset = Megabytes(1);
+  OpenGL->OverlayTexQuadBaseOffset = Megabytes(2);
+  OpenGL->TexQuadBaseOffset = Megabytes(3);
 
   
   {
@@ -990,12 +991,8 @@ void PushBitmapToGPU(open_gl* OpenGL, game_asset_manager* AssetManager, bitmap_h
                    GL_RGBA, GL_UNSIGNED_BYTE,
                    RenderTarget->Pixels);
       }
-
     }
-    
-    
   }
-  
 }
 
 
