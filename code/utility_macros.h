@@ -95,6 +95,8 @@ FormatStringsList( u32 DestSize, char* Dest, char* Format, arg_list )
 
 #define NextElement(Base, Stride, Type) (Type*)(((bptr)Base) + ByteStride);
 
+#define DownCastPtr(HeaderType, BodyType, Variable) ( (BodyType*) ( (u8*) Variable ) + sizeof(HeaderType) )
+#define UpCastPtr(HeaderType, Variable) ( (HeaderType*) ( (u8*) Variable ) - sizeof(HeaderType) )
 
 #define HexToColorV4( Red, Green, Blue )  V4((Red)/(r32) 0xFF,(Green)/(r32) 0xFF,(Blue)/(r32)0xFF,1);
 #define HexCodeToColorV4( Code )  V4( \
