@@ -130,6 +130,13 @@ inline game_window_size GameGetWindowSize()
   return Result;
 }
 
+inline r32 GameGetAspectRatio()
+{
+  game_window_size GameWindowSize = GameGetWindowSize();
+  r32 Result = GameWindowSize.WidthPx/GameWindowSize.HeightPx;
+  return Result;
+}
+
 /* Types of screen coordinate systems,
  *   AR = AspectRatio = Width/Height
  *   W_px = Width in pixels

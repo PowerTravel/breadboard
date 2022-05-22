@@ -324,7 +324,7 @@ void FillRenderPushBuffer(world* World)
   game_asset_manager* AssetManager = GlobalGameState->AssetManager;
   entity_manager* EM = GlobalGameState->EntityManager;
   game_asset_manager* AM = GlobalGameState->AssetManager;
-  v3 CameraPosition = {};
+  rect2f ScreenRect = {};
   {
     BeginScopedEntityManagerMemory();
     component_result* ComponentList = GetComponentsOfType(EM, COMPONENT_FLAG_CAMERA);
@@ -334,6 +334,7 @@ void FillRenderPushBuffer(world* World)
       RenderGroup->ProjectionMatrix = Camera->P;
       RenderGroup->ViewMatrix       = Camera->V;
       RenderGroup->CameraPosition = V3(Column(RigidInverse(Camera->V),3));
+      ScreenRect = GetCameraScreenRect(Camera->OrthoZoom);
     }
   }
 
@@ -343,17 +344,12 @@ void FillRenderPushBuffer(world* World)
   r32 SpriteSheetWidth =  (r32) ElectricalComponentSpriteSheet->Width;
   r32 SpriteSheetHeight = (r32) ElectricalComponentSpriteSheet->Height;
 
-  r32 GridSide = 63.5/512.f;
-  game_window_size WindowSize = GameGetWindowSize();
-  
-  rect2f Subtexture = Rect2f(0,1-GridSide, GridSide, GridSide); // UW Coordinates
-  r32 AspectRatio = WindowSize.WidthPx / (r32) WindowSize.HeightPx;
 
-  r32 MinY_Tiles = -10;
-  r32 MaxY_Tiles =  10;
+  r32 MinY_Tiles = Floor(ScreenRect.Y + RenderGroup->CameraPosition.Y);
+  r32 MaxY_Tiles = Ciel(ScreenRect.Y + ScreenRect.H + RenderGroup->CameraPosition.Y);
 
-  r32 MinX_Tiles = -10;
-  r32 MaxX_Tiles =  10;
+  r32 MinX_Tiles = Floor(ScreenRect.X + RenderGroup->CameraPosition.X);
+  r32 MaxX_Tiles = Ciel(ScreenRect.X + ScreenRect.W + RenderGroup->CameraPosition.X);
 
   for(r32 Row_Tiles  = MinY_Tiles;
           Row_Tiles <= MaxY_Tiles;
@@ -369,6 +365,9 @@ void FillRenderPushBuffer(world* World)
       r32 RotationAngle = 0;
       v3 RotationAxis = V3(0,0,1);
       r32 Scale = 1;
+      // TODO: Use same render program as text-rendering, IE Don't send whole matrices to the gpu, just position and scale
+      //       and do the multiplication gpu side. Uses way less memory and is faster.
+      //       Don't know what I was thinking when I decided to send mostly empty matrices there.
       Body->M = GetModelMatrix(V3(Col_Tiles, Row_Tiles, 0), Scale, RotationAngle, RotationAxis);
 
       u32 RandomNumber = GetRandomUint( (u32)(Row_Tiles * (MaxY_Tiles-MinY_Tiles) + Col_Tiles) );

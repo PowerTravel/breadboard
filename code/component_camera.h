@@ -2,6 +2,23 @@
 
 #include "math/affine_transformations.h"
 
+rect2f GetCameraScreenRect(r32 Zoom, r32 AspectRatio)
+{
+  const r32 Right = Zoom*AspectRatio;
+  const r32 Left  = -Right;
+  const r32 Top   = Zoom;
+  const r32 Bot   = -Top;
+  rect2f Result = Rect2f(Left, Bot, Right-Left, Top-Bot);
+  return Result;
+}
+
+rect2f GetCameraScreenRect(r32 Zoom)
+{
+  r32 AspectRatio = GameGetAspectRatio();
+  rect2f Result = GetCameraScreenRect(Zoom, AspectRatio);
+  return Result;
+}
+
 void LookAt( component_camera* Camera, v3 aFrom,  v3 aTo,  v3 aTmp = V3(0,1,0) )
 {
   v3 Forward = Normalize(aFrom - aTo);

@@ -339,8 +339,7 @@ void BeginFrame(game_memory* Memory, game_render_commands* RenderCommands, game_
   ResetRenderGroup(RenderCommands->WorldGroup);
   ResetRenderGroup(RenderCommands->OverlayGroup);
 
-  game_window_size WindowSize = GameGetWindowSize();
-  r32 AspectRatio = WindowSize.WidthPx/WindowSize.HeightPx;
+  r32 AspectRatio = GameGetAspectRatio();
 
   m4 ScreenToCubeScale =  M4( 2/AspectRatio, 0, 0, 0,
                                            0, 2, 0, 0,
