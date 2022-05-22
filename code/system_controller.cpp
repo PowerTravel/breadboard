@@ -6,8 +6,8 @@ GetMousePosInProjectionWindow(r32 MouseX, r32 MouseY, r32 Zoom, r32 AspectRatio)
 {
   rect2f ScreenRect = GetCameraScreenRect(Zoom, AspectRatio);
   v2 Result = {};
-  Result.X = MouseX *  (ScreenRect.W)/2.f; // (Right - Left)
-  Result.Y = MouseY * -(ScreenRect.H)/2.f;   // (Top - Bot)
+  Result.X = 0.5f * MouseX * ScreenRect.W;
+  Result.Y = 0.5f * MouseY * ScreenRect.H;
   return Result;
 }
 
@@ -56,8 +56,11 @@ void HandleTranslate(component_camera* Camera, b32 MouseActive, r32 MouseX, r32 
     v2 ScreenSpaceStart = CanonicalToScreenSpace(V2(MouseX-MouseDX,MouseY-MouseDY));
     v2 ScreenSpaceEnd   = CanonicalToScreenSpace(V2(MouseX, MouseY));
     v2 DeltaScreenSpace = ScreenSpaceEnd - ScreenSpaceStart;
-    DeltaScreenSpace.X = DeltaScreenSpace.X * ScreenRect.W/2.f;
-    DeltaScreenSpace.Y = DeltaScreenSpace.Y * ScreenRect.H/2.f;
+
+    
+    DeltaScreenSpace.X = 0.5f * DeltaScreenSpace.X * ScreenRect.W;
+    DeltaScreenSpace.Y = 0.5f * DeltaScreenSpace.Y * ScreenRect.H;
+
     TranslateCamera(Camera, V3(-DeltaScreenSpace,0));
   }
 }

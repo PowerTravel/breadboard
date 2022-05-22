@@ -9,37 +9,28 @@
 #include "entity_components.h"
 #include "menu_interface.h"
 
-struct picked_entity
-{
-  b32 Active;
-  u32 EntityID;
-  v3 Point;
-  v3 PointObjectSpace;
-  v3 MousePointOnPlane;
-};
-
 #define MAX_ELECTRICAL_IO 32
 
-struct electrical_component_node
+enum ElectricalComponentType
 {
-  u32 IOCount;
-  u32 IOCountMax;
-  electrical_component_node* IO[MAX_ELECTRICAL_IO];
+  ElectricalComponentType_Source,
+  ElectricalComponentType_Ground,
+  ElectricalComponentType_Led_Red,
+  ElectricalComponentType_Led_Green,
+  ElectricalComponentType_Led_Blue,
+  ElectricalComponentType_Resistor,
+  ElectricalComponentType_Wire
 };
 
-struct electrical_connection
+enum ElectricalPinType
 {
-  r32 Volt;
-  electrical_component_node* IO[2];
-};
-
-struct source_volt : public electrical_component_node
-{
-  r32 SourceVolt;
-};
-
-struct ground : public electrical_component_node
-{
+  ElectricalPinType_Positive,
+  ElectricalPinType_Negative,
+  ElectricalPinType_Output,
+  ElectricalPinType_Input,
+  ElectricalPinType_A,
+  ElectricalPinType_B,
+  ElectricalPinType_Count
 };
 
 enum LEDColor
@@ -49,17 +40,64 @@ enum LEDColor
   LED_COLOR_BLUE
 };
 
-struct led : public electrical_component_node
+struct electric_dynamic_state
 {
-  LEDColor Color;
-  r32 HeatThreshold; // The heat in degrees needed to destroy the component
-  b32 Broken;
+  u32 Volt;
+  u32 Current;
+  u32 Temperature;
 };
 
-struct resistor : public electrical_component_node
+struct electric_static_state
 {
-  r32 Resistance; // Ohm
+  u32 Resistance;
 };
+
+struct io_pin
+{
+  struct electrical_component* Component;
+};
+
+struct electrical_component
+{
+  u32 Type;
+  u32 PinCount;
+  io_pin Pins[6];
+  electric_dynamic_state DynamicState;
+  electric_static_state StaticState;
+};
+
+void ConnectPin(electrical_component* ComponentA, ElectricalPinType PinA, electrical_component* ComponentB, ElectricalPinType PinB)
+{
+  Assert(ArrayCount(ComponentA->Pins) == ElectricalPinType_Count);
+  Assert(ArrayCount(ComponentB->Pins) == ElectricalPinType_Count);
+  Assert(PinA <= ElectricalPinType_Count);
+  Assert(PinB <= ElectricalPinType_Count);
+  Assert(!ComponentA->Pins[PinA].Component);
+  Assert(!ComponentB->Pins[PinB].Component);
+  ComponentA->Pins[PinA].Component = ComponentB;
+  ComponentB->Pins[PinB].Component = ComponentA;
+}
+
+void DisconnectPin(electrical_component* ComponentA, ElectricalPinType PinA, electrical_component* ComponentB, ElectricalPinType PinB)
+{
+  Assert(ArrayCount(ComponentA->Pins) == ElectricalPinType_Count);
+  Assert(ArrayCount(ComponentB->Pins) == ElectricalPinType_Count);
+  Assert(PinA <= ElectricalPinType_Count);
+  Assert(PinB <= ElectricalPinType_Count);
+  Assert(ComponentA->Pins[PinA].Component == ComponentB);
+  Assert(ComponentB->Pins[PinB].Component == ComponentA);
+  ComponentA->Pins[PinA].Component = 0;
+  ComponentB->Pins[PinB].Component = 0;
+}
+
+electrical_component* GetComponentConnectedAtPin(electrical_component* Component, ElectricalPinType PinType)
+{
+  Assert(ArrayCount(Component->Pins) == ElectricalPinType_Count);
+  Assert(PinType <= ElectricalPinType_Count);
+  electrical_component* Result = Component->Pins[PinType].Component;
+  Assert(Result);
+  return Result;
+}
 
 struct world
 {
@@ -69,7 +107,7 @@ struct world
   memory_arena* Arena;
   
   tile_map TileMap;
-  source_volt* Source;
+  electrical_component* Source;
 };
 
 typedef void(*func_ptr_void)(void);

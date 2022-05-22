@@ -308,12 +308,29 @@ m3 GetTextureTranslationMatrix_OriginTopLeft(s32 X0_pixel, s32 Y0_pixel, s32 Wid
   return Result;
 }
 
-m4 GetModelMatrix(v3 Position, r32 Scale, r32 RotationAngle, v3 RotationAxis)
+m4 GetModelMatrix(v3 Position, v2 Scale, r32 RotationAngle, v3 RotationAxis)
 {
-  v3 ScaleVec = V3(Scale, Scale, Scale);
+  v3 ScaleVec = V3(Scale, 1);
   v4 Rotation = RotateQuaternion(RotationAngle, V4(RotationAxis,0));
   m4 ModelMatrix = GetModelMatrix(Position, Rotation, ScaleVec);
   return ModelMatrix;
+}
+
+void PushElectricalComponent(r32 xPos, r32 yPos, r32 SizeX, r32 SizeY, r32 RotationAngle,
+  u32 TileType, r32 BitmapWidth, r32 BitmapHeight, bitmap_handle TileHandle)
+{
+  render_group* RenderGroup = GlobalGameState->RenderCommands->WorldGroup;
+  push_buffer_header* Header = PushNewHeader(RenderGroup, render_buffer_entry_type::TEXTURED_QUAD, sizeof(entry_type_textured_quad), RENDER_STATE_FILL);
+  entry_type_textured_quad* Body = (entry_type_textured_quad*) GetBody(Header);
+
+  v3 RotationAxis = V3(0,0,1);
+  // TODO: Use same render program as text-rendering, IE Don't send whole matrices to the gpu, just position and scale
+  //       and do the multiplication gpu side. Uses way less memory and is faster.
+  //       Don't know what I was thinking when I decided to send mostly empty matrices there.
+  Body->M = GetModelMatrix(V3(xPos, yPos, 0), V2(SizeX, SizeY), RotationAngle, RotationAxis);
+  bitmap_coordinate TileCoordinate = GetElectricalComponentSpriteBitmapCoordinate(TileType);
+  Body->TM = GetSpriteSheetTranslationMatrixM3(&TileCoordinate, BitmapWidth, BitmapHeight);
+  Body->Bitmap = TileHandle;
 }
 
 void FillRenderPushBuffer(world* World)
@@ -341,9 +358,9 @@ void FillRenderPushBuffer(world* World)
   bitmap_handle TileHandle;
   GetHandle(AssetManager, "TileSheet", &TileHandle);
   bitmap* ElectricalComponentSpriteSheet = GetAsset(AssetManager, TileHandle);
+
   r32 SpriteSheetWidth =  (r32) ElectricalComponentSpriteSheet->Width;
   r32 SpriteSheetHeight = (r32) ElectricalComponentSpriteSheet->Height;
-
 
   r32 MinY_Tiles = Floor(ScreenRect.Y + RenderGroup->CameraPosition.Y);
   r32 MaxY_Tiles = Ciel(ScreenRect.Y + ScreenRect.H + RenderGroup->CameraPosition.Y);
@@ -351,6 +368,60 @@ void FillRenderPushBuffer(world* World)
   r32 MinX_Tiles = Floor(ScreenRect.X + RenderGroup->CameraPosition.X);
   r32 MaxX_Tiles = Ciel(ScreenRect.X + ScreenRect.W + RenderGroup->CameraPosition.X);
 
+  PushElectricalComponent(RenderGroup->CameraPosition.X, RenderGroup->CameraPosition.Y, ScreenRect.W, ScreenRect.H, 0,
+  ElectricalComponentSprite_Empty, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
+  
+#if 1
+  electrical_component* Component = World->Source;
+  r32 xPos = 0;
+  while(Component)
+  {
+    switch(Component->Type)
+    {
+      case ElectricalComponentType_Source:
+      {
+        PushElectricalComponent(xPos, 0, 1, 1, Tau32/4.f, ElectricalComponentSprite_Source, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
+        Component = GetComponentConnectedAtPin(Component, ElectricalPinType_Output);
+      }break;
+      case ElectricalComponentType_Ground:
+      {
+        PushElectricalComponent(xPos, 0, 1, 1, Tau32/4.f, ElectricalComponentSprite_Ground, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
+        Component = 0;
+      }break;
+      case ElectricalComponentType_Led_Red:
+      case ElectricalComponentType_Led_Green:
+      case ElectricalComponentType_Led_Blue:
+      {
+        u32 LedState = 0;
+        if(Component->DynamicState.Volt < 2.5f)
+        {
+          LedState = ElectricalComponentSprite_LedRedOff;
+        }
+        else
+        {
+          LedState = ElectricalComponentSprite_LedRedOn;
+        }
+        PushElectricalComponent(xPos, 0, 1, 1,  Tau32/4.f, ElectricalComponentSprite_WireBlack, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
+        PushElectricalComponent(xPos, 0, 1, 1, -Tau32/4.f, ElectricalComponentSprite_WireBlack, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
+        PushElectricalComponent(xPos, 0, 1, 1, 0, LedState, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
+        Component = GetComponentConnectedAtPin(Component, ElectricalPinType_Negative);
+      }break;
+      case ElectricalComponentType_Resistor:
+      {
+        PushElectricalComponent(xPos, 0, 1, 1, -Tau32/4.f, ElectricalComponentSprite_Resistor, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
+        Component = GetComponentConnectedAtPin(Component, ElectricalPinType_B);
+      }break;
+      case ElectricalComponentType_Wire:
+      {
+      }break;
+    }
+    xPos++;
+  }
+#else
+  MinY_Tiles = -10;
+  MaxY_Tiles = 10;
+  MinX_Tiles = -10;
+  MaxX_Tiles = 10;
   for(r32 Row_Tiles  = MinY_Tiles;
           Row_Tiles <= MaxY_Tiles;
           Row_Tiles++)
@@ -359,22 +430,9 @@ void FillRenderPushBuffer(world* World)
             Col_Tiles <= MaxX_Tiles;
             Col_Tiles++)
     {
-      push_buffer_header* Header = PushNewHeader(RenderGroup, render_buffer_entry_type::TEXTURED_QUAD, sizeof(entry_type_textured_quad), RENDER_STATE_FILL);
-      entry_type_textured_quad* Body = (entry_type_textured_quad*) GetBody(Header);
-
-      r32 RotationAngle = 0;
-      v3 RotationAxis = V3(0,0,1);
-      r32 Scale = 1;
-      // TODO: Use same render program as text-rendering, IE Don't send whole matrices to the gpu, just position and scale
-      //       and do the multiplication gpu side. Uses way less memory and is faster.
-      //       Don't know what I was thinking when I decided to send mostly empty matrices there.
-      Body->M = GetModelMatrix(V3(Col_Tiles, Row_Tiles, 0), Scale, RotationAngle, RotationAxis);
-
       u32 RandomNumber = GetRandomUint( (u32)(Row_Tiles * (MaxY_Tiles-MinY_Tiles) + Col_Tiles) );
-      bitmap_coordinate TileCoordinate = GetElectricalComponentSpriteBitmapCoordinate(RandomNumber);
-      Body->TM = GetSpriteSheetTranslationMatrixM3(&TileCoordinate, SpriteSheetWidth, SpriteSheetHeight);
-
-      Body->Bitmap = TileHandle;
+      PushElectricalComponent(Col_Tiles, Row_Tiles, 1, 1, 0, RandomNumber, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
     }
   }
+#endif
 }

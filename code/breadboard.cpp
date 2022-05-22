@@ -162,69 +162,27 @@ GameOutputSound(game_sound_output_buffer* SoundBuffer, int ToneHz)
   }
 }
 
-
-void ElectricalComponentNode(electrical_component_node* Node, u32 IOCountMax)
-{
-  Assert(IOCountMax <= MAX_ELECTRICAL_IO );
-  Node->IOCount = 0;
-  Node->IOCountMax = IOCountMax;
-}
-
-source_volt* SourceVolt(memory_arena* Arena, r32 SourceVolt )
-{
-  source_volt* Result =PushStruct(Arena, source_volt);
-  ElectricalComponentNode((electrical_component_node*) Result, 1);
-  Result->SourceVolt = SourceVolt;
-  return Result;
-}
-
-ground* Ground(memory_arena* Arena)
-{
-  ground* Result =PushStruct(Arena, ground);
-  ElectricalComponentNode((electrical_component_node*) Result, 1);
-  return Result;
-}
-
-led* Led(memory_arena* Arena, LEDColor Color, r32 HeatThreshold)
-{
-  led* Result =PushStruct(Arena, led);
-  ElectricalComponentNode((electrical_component_node*) Result, 2);
-  Result->Broken = false;
-  Result->HeatThreshold = HeatThreshold;
-  return Result;
-}
-
-resistor* Resistor(memory_arena* Arena, r32 Resistance)
-{
-  resistor* Result = PushStruct(Arena, resistor);
-  ElectricalComponentNode( (electrical_component_node*) Result, 2);
-  Result->Resistance = Resistance;
-  return Result;
-}
-
-void _ConnectElectricalComponent(electrical_component_node* A, electrical_component_node* B) 
-{
-  Assert(A->IOCount < A->IOCountMax);
-  Assert(B->IOCount < B->IOCountMax);
-  A->IO[A->IOCount++] = B;
-  B->IO[B->IOCount++] = A;
-}
-
-#define ConnectElectricalComponent(A,B) _ConnectElectricalComponent((electrical_component_node*) A, (electrical_component_node*) B);
-
 world* CreateWorld( )
 {
   world* World = PushStruct(GlobalGameState->PersistentArena, world);
   InitializeTileMap( &World->TileMap );
   World->Arena = GlobalGameState->PersistentArena;
 
-  World->Source = SourceVolt(World->Arena, 5);
-  resistor* res = Resistor(World->Arena, 1000);
-  led* ledLamp = Led(World->Arena, LED_COLOR_RED, 100);
-  ground* gr = Ground(World->Arena);
-  ConnectElectricalComponent(World->Source, res);
-  ConnectElectricalComponent(res, ledLamp);
-  ConnectElectricalComponent(ledLamp, gr);
+  electrical_component* Source = PushStruct(World->Arena, electrical_component);
+  Source->Type = ElectricalComponentType_Source;
+  electrical_component* res    = PushStruct(World->Arena, electrical_component);
+  res->Type = ElectricalComponentType_Resistor;
+  electrical_component* l      = PushStruct(World->Arena, electrical_component);
+  l->Type = ElectricalComponentType_Led_Red;
+  electrical_component* gr     = PushStruct(World->Arena, electrical_component);
+  gr->Type = ElectricalComponentType_Ground;
+
+  ConnectPin(Source, ElectricalPinType_Output, res, ElectricalPinType_A);
+  ConnectPin(res, ElectricalPinType_B, l, ElectricalPinType_Positive);
+  ConnectPin(l, ElectricalPinType_Negative, gr, ElectricalPinType_Input);
+
+  World->Source = Source;
+
   return World;
 }
 
