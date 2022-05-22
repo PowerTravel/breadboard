@@ -1,11 +1,17 @@
 #include "render_push_buffer.h"
 #include "entity_components.h"
+#include "component_camera.h"
 #include "random.h"
 
-push_buffer_header* PushNewHeader(render_group* RenderGroup, render_buffer_entry_type Type, u32 RenderState, u32 SortKey = 0)
+#define GetBody(Header) ((u8*) (Header) + sizeof(push_buffer_header))
+push_buffer_header* PushNewHeader(render_group* RenderGroup, render_buffer_entry_type Type, u32 BodyMemorySize, u32 RenderState, u32 SortKey = 0)
 {
   RenderGroup->ElementCount++;
-  push_buffer_header* NewEntryHeader = PushStruct(&RenderGroup->Arena, push_buffer_header);
+  // Note: Header and body needs to be allocated in one call to ensure they end up on the same block.
+  //       If the header is in another memory block as the header they won't be located togeather
+  //       in memory.
+  //       Alternate solution is to let the header carry a pointer to the body.
+  push_buffer_header* NewEntryHeader = (push_buffer_header*) PushSize(&RenderGroup->Arena, sizeof(push_buffer_header) + BodyMemorySize);
   NewEntryHeader->SortKey = SortKey;
   NewEntryHeader->Next = 0;
 
@@ -26,14 +32,14 @@ push_buffer_header* PushNewHeader(render_group* RenderGroup, render_buffer_entry
 
 void PushNewRenderLevel(render_group* RenderGroup)
 {
-  push_buffer_header* Header = PushNewHeader(RenderGroup, render_buffer_entry_type::NEW_LEVEL, RENDER_STATE_NONE);
+  push_buffer_header* Header = PushNewHeader(RenderGroup, render_buffer_entry_type::NEW_LEVEL, 0, RENDER_STATE_NONE);
 }
 
 void PushTexturedOverlayQuad(rect2f QuadRect, rect2f TextureRect, bitmap_handle Handle)
 {
   render_group* RenderGroup = GlobalGameState->RenderCommands->OverlayGroup;
-  push_buffer_header* Header = PushNewHeader(RenderGroup, render_buffer_entry_type::OVERLAY_TEXTURED_QUAD, RENDER_STATE_FILL);
-  entry_type_overlay_textured_quad* Body = PushStruct(&RenderGroup->Arena, entry_type_overlay_textured_quad);
+  push_buffer_header* Header = PushNewHeader(RenderGroup, render_buffer_entry_type::OVERLAY_TEXTURED_QUAD, sizeof(entry_type_overlay_textured_quad), RENDER_STATE_FILL);
+  entry_type_overlay_textured_quad* Body = (entry_type_overlay_textured_quad*) GetBody(Header);
   Body->TextureRect = TextureRect;
   QuadRect.X += QuadRect.W/2.f;
   QuadRect.Y += QuadRect.H/2.f;
@@ -44,8 +50,8 @@ void PushTexturedOverlayQuad(rect2f QuadRect, rect2f TextureRect, bitmap_handle 
 void PushOverlayQuad(rect2f QuadRect, v4 Color)
 {
   render_group* RenderGroup = GlobalGameState->RenderCommands->OverlayGroup;
-  push_buffer_header* Header = PushNewHeader(RenderGroup, render_buffer_entry_type::OVERLAY_COLORED_QUAD, RENDER_STATE_FILL);
-  entry_type_overlay_color_quad* Body = PushStruct(&RenderGroup->Arena, entry_type_overlay_color_quad);
+  push_buffer_header* Header = PushNewHeader(RenderGroup, render_buffer_entry_type::OVERLAY_COLORED_QUAD, sizeof(entry_type_overlay_color_quad), RENDER_STATE_FILL);
+  entry_type_overlay_color_quad* Body = (entry_type_overlay_color_quad*) GetBody(Header);
   Body->Colour = Color;
   Body->QuadRect = QuadRect;
 }
@@ -53,8 +59,8 @@ void PushOverlayQuad(rect2f QuadRect, v4 Color)
 void PushOverlayText(rect2f QuadRect, rect2f TextureRect, v4 Color, bitmap_handle BitmapHandle)
 {
   render_group* RenderGroup = GlobalGameState->RenderCommands->OverlayGroup;
-  push_buffer_header* Header = PushNewHeader( RenderGroup, render_buffer_entry_type::TEXT, RENDER_STATE_FILL);
-  entry_type_text* Body = PushStruct(&RenderGroup->Arena, entry_type_text);
+  push_buffer_header* Header = PushNewHeader( RenderGroup, render_buffer_entry_type::TEXT, sizeof(entry_type_text), RENDER_STATE_FILL);
+  entry_type_text* Body = (entry_type_text*) GetBody(Header);
   Body->BitmapHandle = BitmapHandle;
   Body->QuadRect = QuadRect;
   Body->UVRect = TextureRect;
@@ -212,8 +218,8 @@ PushLine(render_group* RenderGroup, v3 Start, v3 End, v3 CameraPosition, r32 Lin
   TransMat.E[7]  = MidPoint.Y;
   TransMat.E[11] = MidPoint.Z;
 
-  push_buffer_header* Header = PushNewHeader( RenderGroup, render_buffer_entry_type::RENDER_ASSET, RENDER_STATE_CULL_BACK | RENDER_STATE_FILL );
-  entry_type_render_asset* Body = PushStruct(&RenderGroup->Arena, entry_type_render_asset);
+  push_buffer_header* Header = PushNewHeader( RenderGroup, render_buffer_entry_type::RENDER_ASSET, sizeof(entry_type_render_asset), RENDER_STATE_CULL_BACK | RENDER_STATE_FILL );
+  entry_type_render_asset* Body = (entry_type_render_asset*) GetBody(Header);
 
   GetHandle(GlobalGameState->AssetManager, "quad", &Body->Object);
   GetHandle(GlobalGameState->AssetManager, MaterialName, &Body->Material);
@@ -262,8 +268,8 @@ void PushArrow(render_group* RenderGroup, v3 Start, v3 Vector, c8* Color)
   M = ObjRotation * M;
   Translate(V4(Start), M);
 
-  push_buffer_header* Header = PushNewHeader(RenderGroup, render_buffer_entry_type::RENDER_ASSET, RENDER_STATE_FILL | RENDER_STATE_CULL_BACK);
-  entry_type_render_asset* Body = PushStruct(&RenderGroup->Arena, entry_type_render_asset);
+  push_buffer_header* Header = PushNewHeader(RenderGroup, render_buffer_entry_type::RENDER_ASSET, sizeof(entry_type_render_asset), RENDER_STATE_FILL | RENDER_STATE_CULL_BACK);
+  entry_type_render_asset* Body = (entry_type_render_asset*) GetBody(Header);
   GetHandle(GlobalGameState->AssetManager,"voxel", &Body->Object);
   GetHandle(GlobalGameState->AssetManager, Color, &Body->Material);
 
@@ -273,8 +279,8 @@ void PushArrow(render_group* RenderGroup, v3 Start, v3 Vector, c8* Color)
 
 void PushCube(render_group* RenderGroup, v3 Position, r32 Scale, c8* Color)
 {
-  push_buffer_header* Header = PushNewHeader( RenderGroup, render_buffer_entry_type::RENDER_ASSET, RENDER_STATE_FILL | RENDER_STATE_CULL_BACK );
-  entry_type_render_asset* Body = PushStruct(&RenderGroup->Arena, entry_type_render_asset);
+  push_buffer_header* Header = PushNewHeader( RenderGroup, render_buffer_entry_type::RENDER_ASSET, sizeof(entry_type_render_asset), RENDER_STATE_FILL | RENDER_STATE_CULL_BACK );
+  entry_type_render_asset* Body = (entry_type_render_asset*) GetBody(Header);
   GetHandle(GlobalGameState->AssetManager, "voxel", &Body->Object);
   GetHandle(GlobalGameState->AssetManager, Color, &Body->Material);
 
@@ -357,8 +363,8 @@ void FillRenderPushBuffer(world* World)
             Col_Tiles <= MaxX_Tiles;
             Col_Tiles++)
     {
-      push_buffer_header* Header = PushNewHeader(RenderGroup, render_buffer_entry_type::TEXTURED_QUAD, RENDER_STATE_FILL);
-      entry_type_textured_quad* Body = PushStruct(&RenderGroup->Arena, entry_type_textured_quad);
+      push_buffer_header* Header = PushNewHeader(RenderGroup, render_buffer_entry_type::TEXTURED_QUAD, sizeof(entry_type_textured_quad), RENDER_STATE_FILL);
+      entry_type_textured_quad* Body = (entry_type_textured_quad*) GetBody(Header);
 
       r32 RotationAngle = 0;
       v3 RotationAxis = V3(0,0,1);
