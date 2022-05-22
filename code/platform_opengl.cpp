@@ -1029,7 +1029,7 @@ void DrawRenderGroup(open_gl* OpenGL, render_group* RenderGroup, game_asset_mana
         text_data* OverlayTextBuffer = PushArray(&RenderGroup->Arena, OverlayTextEntryCount, text_data);
         overlay_color_quad_data* OverlayColoredQuadBuffer = PushArray(&RenderGroup->Arena, OverlayColoredQuadCount, overlay_color_quad_data);
         textured_overlay_quad_data* OverlayTexQuadBuffer = PushArray(&RenderGroup->Arena, OverlayTexturedQuadEntryCount, textured_overlay_quad_data);
-        textured_quad_data* TexQuadBuffer = PushArray(&RenderGroup->Arena, OverlayTexturedQuadEntryCount, textured_quad_data);
+        textured_quad_data* TexQuadBuffer = PushArray(&RenderGroup->Arena, TexturedQuadEntryCount, textured_quad_data);
 
         u32 OverlayColorQuadInstanceIndex = 0;
         u32 OverlayTextInstanceIndex = 0;
