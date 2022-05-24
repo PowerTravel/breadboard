@@ -22,6 +22,21 @@ enum ElectricalComponentType
   ElectricalComponentType_Wire
 };
 
+const char* ComponentTypeToString(u32 Type)
+{
+  switch(Type)
+  { 
+    case ElectricalComponentType_Source: return "Source";
+    case ElectricalComponentType_Ground: return "Ground";
+    case ElectricalComponentType_Led_Red: return "Led_Red";
+    case ElectricalComponentType_Led_Green: return "Led_Green";
+    case ElectricalComponentType_Led_Blue: return "Led_Blue";
+    case ElectricalComponentType_Resistor: return "Resistor";
+    case ElectricalComponentType_Wire: return "Wire";
+  }
+  return "";
+};
+
 enum ElectricalPinType
 {
   ElectricalPinType_Positive,
