@@ -309,7 +309,10 @@ void BeginFrame(game_memory* Memory, game_render_commands* RenderCommands, game_
                               0, 0, 0,  1);
 
   RenderCommands->OverlayGroup->ProjectionMatrix = ScreenToCubeTrans*ScreenToCubeScale;
+
+  GlobalGameState->World->GlobalTimeSec += Input->dt;
 }
+
 
 
 /*
@@ -343,7 +346,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
   ControllerSystemUpdate(World);
   CameraSystemUpdate(World);
   SpriteAnimationSystemUpdate(World);
-  World->GlobalTimeSec += Input->dt;
 
   FillRenderPushBuffer(World);
 
