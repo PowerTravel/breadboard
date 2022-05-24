@@ -318,3 +318,9 @@ GetModelMatrix( v3 Position, v4 Rotation, v3 Scale)
   const m4 Result = TranslationMat * RotationMat * ScaleMat; 
   return Result;
 }
+
+v3 GetPositionFromMatrix( const m4* M )
+{
+  m4 inv = RigidInverse(*M);
+  return V3(Column(inv,3));
+}

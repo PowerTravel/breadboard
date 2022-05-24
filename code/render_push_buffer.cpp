@@ -1,6 +1,7 @@
 #include "render_push_buffer.h"
 #include "entity_components.h"
 #include "component_camera.h"
+#include "breadboard_tile.h"
 #include "random.h"
 
 #define GetBody(Header) ((u8*) (Header) + sizeof(push_buffer_header))
@@ -341,6 +342,7 @@ void FillRenderPushBuffer(world* World)
   game_asset_manager* AssetManager = GlobalGameState->AssetManager;
   entity_manager* EM = GlobalGameState->EntityManager;
   game_asset_manager* AM = GlobalGameState->AssetManager;
+
   rect2f ScreenRect = {};
   {
     BeginScopedEntityManagerMemory();
@@ -350,7 +352,7 @@ void FillRenderPushBuffer(world* World)
       component_camera* Camera = (component_camera*) GetComponent(EM, ComponentList, COMPONENT_FLAG_CAMERA);
       RenderGroup->ProjectionMatrix = Camera->P;
       RenderGroup->ViewMatrix       = Camera->V;
-      RenderGroup->CameraPosition = V3(Column(RigidInverse(Camera->V),3));
+      RenderGroup->CameraPosition = GetPositionFromMatrix( &Camera->V);
       ScreenRect = GetCameraScreenRect(Camera->OrthoZoom);
     }
   }
@@ -362,16 +364,10 @@ void FillRenderPushBuffer(world* World)
   r32 SpriteSheetWidth =  (r32) ElectricalComponentSpriteSheet->Width;
   r32 SpriteSheetHeight = (r32) ElectricalComponentSpriteSheet->Height;
 
-  r32 MinY_Tiles = Floor(ScreenRect.Y + RenderGroup->CameraPosition.Y);
-  r32 MaxY_Tiles = Ciel(ScreenRect.Y + ScreenRect.H + RenderGroup->CameraPosition.Y);
-
-  r32 MinX_Tiles = Floor(ScreenRect.X + RenderGroup->CameraPosition.X);
-  r32 MaxX_Tiles = Ciel(ScreenRect.X + ScreenRect.W + RenderGroup->CameraPosition.X);
-
   PushElectricalComponent(RenderGroup->CameraPosition.X, RenderGroup->CameraPosition.Y, ScreenRect.W, ScreenRect.H, 0,
   ElectricalComponentSprite_Empty, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
   
-#if 1
+
   electrical_component* Component = World->Source;
   r32 xPos = 0;
   while(Component)
@@ -417,11 +413,14 @@ void FillRenderPushBuffer(world* World)
     }
     xPos++;
   }
-#else
-  MinY_Tiles = -10;
-  MaxY_Tiles = 10;
-  MinX_Tiles = -10;
-  MaxX_Tiles = 10;
+
+  r32 MinY_Tiles = Floor(ScreenRect.Y + RenderGroup->CameraPosition.Y);
+  r32 MaxY_Tiles = Ciel(ScreenRect.Y + ScreenRect.H + RenderGroup->CameraPosition.Y);
+
+  r32 MinX_Tiles = Floor(ScreenRect.X + RenderGroup->CameraPosition.X);
+  r32 MaxX_Tiles = Ciel(ScreenRect.X + ScreenRect.W + RenderGroup->CameraPosition.X);
+
+  tile_map* TileMap = &GlobalGameState->World->TileMap;
   for(r32 Row_Tiles  = MinY_Tiles;
           Row_Tiles <= MaxY_Tiles;
           Row_Tiles++)
@@ -430,9 +429,14 @@ void FillRenderPushBuffer(world* World)
             Col_Tiles <= MaxX_Tiles;
             Col_Tiles++)
     {
-      u32 RandomNumber = GetRandomUint( (u32)(Row_Tiles * (MaxY_Tiles-MinY_Tiles) + Col_Tiles) );
-      PushElectricalComponent(Col_Tiles, Row_Tiles, 1, 1, 0, RandomNumber, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
+      tile_map_position TilePos = CanonicalizePosition(TileMap, V3( Col_Tiles, Row_Tiles, 0 ) );
+      tile_contents Content = GetTileContents(TileMap, TilePos);
+      if(Content.Component)
+      {
+        PushElectricalComponent(Col_Tiles, Row_Tiles, 1, 1, 0, Content.Component->Type, SpriteSheetWidth, SpriteSheetHeight, TileHandle);  
+      }
+      
     }
   }
-#endif
+
 }

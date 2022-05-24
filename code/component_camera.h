@@ -19,6 +19,7 @@ rect2f GetCameraScreenRect(r32 Zoom)
   return Result;
 }
 
+
 void LookAt( component_camera* Camera, v3 aFrom,  v3 aTo,  v3 aTmp = V3(0,1,0) )
 {
   v3 Forward = Normalize(aFrom - aTo);

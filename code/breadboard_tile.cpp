@@ -50,7 +50,7 @@ CanonicalizePosition( tile_map* TileMap, v3 Pos )
   return Result;
 }
 
-internal tile_map_position
+inline tile_map_position
 MoveNewTileMapPosition(tile_map* TileMap, tile_map_position OldCanPos, r32 dx, r32 dy, r32 dz)
 {
   tile_map_position TempResult = OldCanPos;
@@ -63,7 +63,6 @@ MoveNewTileMapPosition(tile_map* TileMap, tile_map_position OldCanPos, r32 dx, r
 
 aabb3f GetTileAABB(tile_map* TileMap, tile_map_position CanPos )
 {
-
   r32 HalfWidth  = TileMap->TileWidth;
   r32 HalfHeight = TileMap->TileHeight;
   r32 HalfDepth  = TileMap->TileDepth;
@@ -242,7 +241,7 @@ SetTileContentsAbs(memory_arena* Arena, tile_map* TileMap, s32 AbsTileX, s32 Abs
 }
 
 
-internal b32
+inline b32
 IsTileMapPointEmpty(tile_map* TileMap, tile_map_position CanPos)
 {
   tile_index TilePosition = GetTileIndex(TileMap,

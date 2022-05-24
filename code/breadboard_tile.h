@@ -5,8 +5,7 @@
 #include "data_containers.h"
 #include "math/aabb.h"
 
-struct bitmap;
-
+struct electrical_component;
 struct tile_map_position{
 
   // Position within a tile
@@ -43,6 +42,7 @@ enum tile_type
 struct tile_contents
 {
   tile_type Type;
+  electrical_component* Component;
 };
 
 struct tile_page{
@@ -66,6 +66,8 @@ struct tile_map{
 
   // NOTE(Jakob): At the moment this needs to be a power of 2
   tile_page MapHash[4096];
+
+  tile_map_position MousePosition;
 };
 
 
@@ -76,3 +78,5 @@ inline tile_contents GetTileContents(tile_map* TileMap, s32 AbsTileX, s32 AbsTil
 inline tile_contents GetTileContents(tile_map* TileMap, tile_map_position CanPos);
 inline void SetTileContentsAbs(memory_arena* Arena, tile_map* TileMap, s32 AbsTileX, s32 AbsTileY, s32 AbsTileZ, tile_contents TileContents);
 aabb3f GetTileAABB(tile_map* TileMap, tile_map_position CanPos );
+b32 IsTileMapPointEmpty(tile_map* TileMap, tile_map_position CanPos);
+inline tile_map_position CanonicalizePosition( tile_map* TileMap, v3 Pos );

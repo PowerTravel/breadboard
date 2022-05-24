@@ -812,12 +812,6 @@ internal void setOpenGLState(u32 State)
   }
 }
 
-v3 GetPositionFromMatrix( const m4* M )
-{
-  m4 inv = RigidInverse(*M);
-  return V3(Column(inv,3));
-}
-
 void PushObjectToGPU(open_gl* OpenGL, game_asset_manager* AssetManager, object_handle ObjectHandle)
 { 
   buffer_keeper* ObjectKeeper = 0;
