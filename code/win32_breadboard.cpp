@@ -873,7 +873,7 @@ Win32ToggleFullscreen(HWND Window)
 
 void Win32HandleInternalCommands(win32_state* WinState, game_input* GameInput)
 {
-  if(GameInput->Keyboard.Key_L.Active && GameInput->Keyboard.Key_L.Edge)
+  if(Pushed(GameInput->Keyboard.Key_L) && GameInput->Keyboard.Key_ALT.Active)
   {
     if(GameInput->Keyboard.Key_ALT.Active){
       Win32BeginInputPlayBack(WinState,1);
@@ -894,18 +894,16 @@ void Win32HandleInternalCommands(win32_state* WinState, game_input* GameInput)
     }
   }
 
-  if(GameInput->Keyboard.Key_P.Active && GameInput->Keyboard.Key_P.Edge)
+  if(Pushed(GameInput->Keyboard.Key_P) && GameInput->Keyboard.Key_ALT.Active)
   {
     GlobalPause = !GlobalPause;
   }
 
-  if((GameInput->Keyboard.Key_F4.Active  && GameInput->Keyboard.Key_F4.Edge) && 
-     (GameInput->Keyboard.Key_ALT.Active && GameInput->Keyboard.Key_ALT.Edge))
+  if(Pushed(GameInput->Keyboard.Key_F4) && GameInput->Keyboard.Key_ALT.Active)
   {
     GlobalRunning=false;
   }
-  if((GameInput->Keyboard.Key_ENTER.Active && GameInput->Keyboard.Key_ENTER.Edge) && 
-     (GameInput->Keyboard.Key_ALT.Active && GameInput->Keyboard.Key_ALT.Edge))
+  if(Pushed(GameInput->Keyboard.Key_ENTER) && GameInput->Keyboard.Key_ALT.Active)
   {
     Win32ToggleFullscreen(GlobalWindowHandle);
   }
@@ -914,6 +912,8 @@ void Win32HandleInternalCommands(win32_state* WinState, game_input* GameInput)
 internal void
 Win32ProcessKeyboardAndScrollWheel(keyboard_input* Keyboard, r32* MouseScroll)
 {
+  bool ButtonRecievedEvent[KeyboardButton_COUNT] = {};
+  bool ButtonState[KeyboardButton_COUNT] = {};
   Assert(ArrayCount(Keyboard->Keys) == KeyboardButton_COUNT);
   MSG Message;
   while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
@@ -951,108 +951,108 @@ Win32ProcessKeyboardAndScrollWheel(keyboard_input* Keyboard, r32* MouseScroll)
           ////case VK_MBUTTON:    {}break; // 0x04 Middle Button **
           ////case VK_XBUTTON1:   {}break; // 0x05 X Button 1 **
           ////case VK_XBUTTON2:   {}break; // 0x06 X Button 2 **
-          case VK_BACK:       { Update(&Keyboard->Key_BACK, IsDown); }break; // 0x08 Backspace
-          case VK_TAB:        { Update(&Keyboard->Key_TAB, IsDown); }break; // 0x09 Tab
-          case 0x10:          { Update(&Keyboard->Key_SHIFT, IsDown); }break; // 0x10 SHIFT
-          case 0x11:          { Update(&Keyboard->Key_CTRL, IsDown); }break; // 0x011 CTRL
-          case 0x12:          { Update(&Keyboard->Key_ALT, IsDown); }break; // 0x012 ALT
-          case VK_CLEAR:      { Update(&Keyboard->Key_CLR, IsDown);}break; // 0x0C Clear
-          case VK_RETURN:     { Update(&Keyboard->Key_ENTER, IsDown); }break; // 0x0D Enter
-          case VK_PAUSE:      { Update(&Keyboard->Key_PAUSE, IsDown); }break; // 0x13 Pause
-          case VK_CAPITAL:    { Update(&Keyboard->Key_CPSLCK, IsDown); }break; // 0x14 Caps Lock
+          case VK_BACK:       { ButtonState[KeyboardButton_BACK] = IsDown; ButtonRecievedEvent[KeyboardButton_BACK] = true;  }break; // 0x08 Backspace
+          case VK_TAB:        { ButtonState[KeyboardButton_TAB] = IsDown; ButtonRecievedEvent[KeyboardButton_TAB] = true;  }break; // 0x09 Tab
+          case 0x10:          { ButtonState[KeyboardButton_SHIFT] = IsDown; ButtonRecievedEvent[KeyboardButton_SHIFT] = true;  }break; // 0x10 SHIFT
+          case 0x11:          { ButtonState[KeyboardButton_CTRL] = IsDown; ButtonRecievedEvent[KeyboardButton_CTRL] = true;  }break; // 0x011 CTRL
+          case 0x12:          { ButtonState[KeyboardButton_ALT] = IsDown; ButtonRecievedEvent[KeyboardButton_ALT] = true;  }break; // 0x012 ALT
+          case VK_CLEAR:      { ButtonState[KeyboardButton_CLR] = IsDown; ButtonRecievedEvent[KeyboardButton_CLR] = true; }break; // 0x0C Clear
+          case VK_RETURN:     { ButtonState[KeyboardButton_ENTER] = IsDown; ButtonRecievedEvent[KeyboardButton_ENTER] = true;  }break; // 0x0D Enter
+          case VK_PAUSE:      { ButtonState[KeyboardButton_PAUSE] = IsDown; ButtonRecievedEvent[KeyboardButton_PAUSE] = true;  }break; // 0x13 Pause
+          case VK_CAPITAL:    { ButtonState[KeyboardButton_CPSLCK] = IsDown; ButtonRecievedEvent[KeyboardButton_CPSLCK] = true;  }break; // 0x14 Caps Lock
           ////case VK_KANA:       {}break; // 0x15 Kana
           ////case VK_JUNJA:      {}break; // 0x17 Junja
           ////case VK_FINAL:      {}break; // 0x18 Final
           ////case VK_KANJI:      {}break; // 0x19 Kanji
-          case VK_ESCAPE:     { Update(&Keyboard->Key_ESCAPE, IsDown); GlobalRunning = false; }break; // 0x1B Esc
+          case VK_ESCAPE:     { ButtonState[KeyboardButton_ESCAPE] = IsDown; ButtonRecievedEvent[KeyboardButton_ESCAPE] = true;  GlobalRunning = false; }break; // 0x1B Esc
           ////case VK_CONVERT:    {}break; // 0x1C Convert
           ////case VK_NONCONVERT: {}break; // 0x1D Non Convert
           ////case VK_ACCEPT:     {}break; // 0x1E Accept
           ////case VK_MODECHANGE: {}break; // 0x1F Mode Change
-          case VK_SPACE:      { Update(&Keyboard->Key_SPACE, IsDown);}break; // 0x20 Space
-          case VK_PRIOR:      { Update(&Keyboard->Key_PGUP, IsDown);}break;  // 0x21 Page Up
-          case VK_NEXT:       { Update(&Keyboard->Key_PDWN, IsDown);}break;  // 0x22 Page Down
-          case VK_END:        { Update(&Keyboard->Key_END, IsDown);}break;    //  0x23  End
-          case VK_HOME:       { Update(&Keyboard->Key_HOME, IsDown);}break;     // 0x24  Home
-          case VK_LEFT:       { Update(&Keyboard->Key_LEFT, IsDown);}break;     // 0x25  Arrow Left
-          case VK_UP:         { Update(&Keyboard->Key_UP, IsDown);}break;     // 0x26  Arrow Up
-          case VK_RIGHT:      { Update(&Keyboard->Key_RIGHT, IsDown);}break;    //  0x27  Arrow Right
-          case VK_DOWN:       { Update(&Keyboard->Key_DOWN, IsDown);}break;     // 0x28  Arrow Down
+          case VK_SPACE:      { ButtonState[KeyboardButton_SPACE] = IsDown; ButtonRecievedEvent[KeyboardButton_SPACE] = true; }break; // 0x20 Space
+          case VK_PRIOR:      { ButtonState[KeyboardButton_PGUP] = IsDown; ButtonRecievedEvent[KeyboardButton_PGUP] = true; }break;  // 0x21 Page Up
+          case VK_NEXT:       { ButtonState[KeyboardButton_PDWN] = IsDown; ButtonRecievedEvent[KeyboardButton_PDWN] = true; }break;  // 0x22 Page Down
+          case VK_END:        { ButtonState[KeyboardButton_END] = IsDown; ButtonRecievedEvent[KeyboardButton_END] = true; }break;    //  0x23  End
+          case VK_HOME:       { ButtonState[KeyboardButton_HOME] = IsDown; ButtonRecievedEvent[KeyboardButton_HOME] = true; }break;     // 0x24  Home
+          case VK_LEFT:       { ButtonState[KeyboardButton_LEFT] = IsDown; ButtonRecievedEvent[KeyboardButton_LEFT] = true; }break;     // 0x25  Arrow Left
+          case VK_UP:         { ButtonState[KeyboardButton_UP] = IsDown; ButtonRecievedEvent[KeyboardButton_UP] = true; }break;     // 0x26  Arrow Up
+          case VK_RIGHT:      { ButtonState[KeyboardButton_RIGHT] = IsDown; ButtonRecievedEvent[KeyboardButton_RIGHT] = true; }break;    //  0x27  Arrow Right
+          case VK_DOWN:       { ButtonState[KeyboardButton_DOWN] = IsDown; ButtonRecievedEvent[KeyboardButton_DOWN] = true; }break;     // 0x28  Arrow Down
           ////case VK_SELECT:     {}break; // 0x29 Select
           ////case VK_PRINT:      {}break; // 0x2A Print
           ////case VK_EXECUTE:    {}break; // 0x2B Execute
-          case VK_SNAPSHOT:   { Update(&Keyboard->Key_PRTSC, IsDown);} break;     // 0x2C  Print Screen
-          case VK_INSERT:     { Update(&Keyboard->Key_INS, IsDown);} break;     // 0x2D  Insert
-          case VK_DELETE:     { Update(&Keyboard->Key_DEL, IsDown);} break;     // 0x2E  Delete
+          case VK_SNAPSHOT:   { ButtonState[KeyboardButton_PRTSC] = IsDown; ButtonRecievedEvent[KeyboardButton_PRTSC] = true; } break;     // 0x2C  Print Screen
+          case VK_INSERT:     { ButtonState[KeyboardButton_INS] = IsDown; ButtonRecievedEvent[KeyboardButton_INS] = true; } break;     // 0x2D  Insert
+          case VK_DELETE:     { ButtonState[KeyboardButton_DEL] = IsDown; ButtonRecievedEvent[KeyboardButton_DEL] = true; } break;     // 0x2E  Delete
           ////case VK_HELP:       {}break; // 0x2F  Help
-          case '0':     { Update(&Keyboard->Key_0, IsDown);  } break; //  0x30 ('0')  0
-          case '1':     { Update(&Keyboard->Key_1, IsDown);  } break; //  0x31 ('1')  1
-          case '2':     { Update(&Keyboard->Key_2, IsDown);  } break; //  0x32 ('2')  2
-          case '3':     { Update(&Keyboard->Key_3, IsDown);  } break; //  0x33 ('3')  3
-          case '4':     { Update(&Keyboard->Key_4, IsDown);  } break; //  0x34 ('4')  4
-          case '5':     { Update(&Keyboard->Key_5, IsDown);  } break; //  0x35 ('5')  5
-          case '6':     { Update(&Keyboard->Key_6, IsDown);  } break; //  0x36 ('6')  6
-          case '7':     { Update(&Keyboard->Key_7, IsDown);  } break; //  0x37 ('7')  7
-          case '8':     { Update(&Keyboard->Key_8, IsDown);  } break; //  0x38 ('8')  8
-          case '9':     { Update(&Keyboard->Key_9, IsDown);  } break; //  0x39 ('9')  9
-          case 'A':     { Update(&Keyboard->Key_A, IsDown); } break; //  0x41 ('A')  A
-          case 'B':     { Update(&Keyboard->Key_B, IsDown); } break; //  0x42 ('B')  B
-          case 'C':     { Update(&Keyboard->Key_C, IsDown); } break; //  0x43 ('C')  C
-          case 'D':     { Update(&Keyboard->Key_D, IsDown); } break; //  0x44 ('D')  D
-          case 'E':     { Update(&Keyboard->Key_E, IsDown); } break; //  0x45 ('E')  E
-          case 'F':     { Update(&Keyboard->Key_F, IsDown); } break; //  0x46 ('F')  F
-          case 'G':     { Update(&Keyboard->Key_G, IsDown); } break; //  0x47 ('G')  G
-          case 'H':     { Update(&Keyboard->Key_H, IsDown); } break; //  0x48 ('H')  H
-          case 'I':     { Update(&Keyboard->Key_I, IsDown); } break; //  0x49 ('I')  I
-          case 'J':     { Update(&Keyboard->Key_J, IsDown); } break; //  0x4A ('J')  J
-          case 'K':     { Update(&Keyboard->Key_K, IsDown); } break; //  0x4B ('K')  K
-          case 'L':     { Update(&Keyboard->Key_L, IsDown); } break;//  0x4C ('L')  L
-          case 'M':    { Update(&Keyboard->Key_M, IsDown); }break; //  0x4D ('M')  M
-          case 'N':    { Update(&Keyboard->Key_N, IsDown); }break; //  0x4E ('N')  N
-          case 'O':    { Update(&Keyboard->Key_O, IsDown); }break; //  0x4F ('O')  O
-          case 'P':    { Update(&Keyboard->Key_P, IsDown); }break; //  0x50 ('P')  P
-          case 'Q':      { Update(&Keyboard->Key_Q, IsDown); }break; // 0x51 ('Q') Q
-          case 'R':      { Update(&Keyboard->Key_R, IsDown); }break; // 0x52 ('R') R
-          case 'S':      { Update(&Keyboard->Key_S, IsDown); }break; // 0x53 ('S') S
-          case 'T':      { Update(&Keyboard->Key_T, IsDown); }break; // 0x54 ('T') T
-          case 'U':      { Update(&Keyboard->Key_U, IsDown); }break; // 0x55 ('U') U
-          case 'V':      { Update(&Keyboard->Key_V, IsDown); }break; // 0x56 ('V') V
-          case 'W':      { Update(&Keyboard->Key_W, IsDown); }break; // 0x57 ('W') W
-          case 'X':      { Update(&Keyboard->Key_X, IsDown); }break; // 0x58 ('X') X
-          case 'Y':      { Update(&Keyboard->Key_Y, IsDown); }break; // 0x59 ('Y') Y
-          case 'Z':      { Update(&Keyboard->Key_Z, IsDown); }break; // 0x5A ('Z') Z
-          case VK_LWIN:      { Update(&Keyboard->Key_LWIN, IsDown); }break; // 0x5B  Left Win
-          case VK_RWIN:      { Update(&Keyboard->Key_RWIN, IsDown); }break; // 0x5C  Right Win
+          case '0':          { ButtonState[KeyboardButton_0] = IsDown; ButtonRecievedEvent[KeyboardButton_0] = true;   } break; //  0x30 ('0')  0
+          case '1':          { ButtonState[KeyboardButton_1] = IsDown; ButtonRecievedEvent[KeyboardButton_1] = true;   } break; //  0x31 ('1')  1
+          case '2':          { ButtonState[KeyboardButton_2] = IsDown; ButtonRecievedEvent[KeyboardButton_2] = true;   } break; //  0x32 ('2')  2
+          case '3':          { ButtonState[KeyboardButton_3] = IsDown; ButtonRecievedEvent[KeyboardButton_3] = true;   } break; //  0x33 ('3')  3
+          case '4':          { ButtonState[KeyboardButton_4] = IsDown; ButtonRecievedEvent[KeyboardButton_4] = true;   } break; //  0x34 ('4')  4
+          case '5':          { ButtonState[KeyboardButton_5] = IsDown; ButtonRecievedEvent[KeyboardButton_5] = true;   } break; //  0x35 ('5')  5
+          case '6':          { ButtonState[KeyboardButton_6] = IsDown; ButtonRecievedEvent[KeyboardButton_6] = true;   } break; //  0x36 ('6')  6
+          case '7':          { ButtonState[KeyboardButton_7] = IsDown; ButtonRecievedEvent[KeyboardButton_7] = true;   } break; //  0x37 ('7')  7
+          case '8':          { ButtonState[KeyboardButton_8] = IsDown; ButtonRecievedEvent[KeyboardButton_8] = true;   } break; //  0x38 ('8')  8
+          case '9':          { ButtonState[KeyboardButton_9] = IsDown; ButtonRecievedEvent[KeyboardButton_9] = true;   } break; //  0x39 ('9')  9
+          case 'A':          { ButtonState[KeyboardButton_A] = IsDown; ButtonRecievedEvent[KeyboardButton_A] = true;  } break; //  0x41 ('A')  A
+          case 'B':          { ButtonState[KeyboardButton_B] = IsDown; ButtonRecievedEvent[KeyboardButton_B] = true;  } break; //  0x42 ('B')  B
+          case 'C':          { ButtonState[KeyboardButton_C] = IsDown; ButtonRecievedEvent[KeyboardButton_C] = true;  } break; //  0x43 ('C')  C
+          case 'D':          { ButtonState[KeyboardButton_D] = IsDown; ButtonRecievedEvent[KeyboardButton_D] = true;  } break; //  0x44 ('D')  D
+          case 'E':          { ButtonState[KeyboardButton_E] = IsDown; ButtonRecievedEvent[KeyboardButton_E] = true;  } break; //  0x45 ('E')  E
+          case 'F':          { ButtonState[KeyboardButton_F] = IsDown; ButtonRecievedEvent[KeyboardButton_F] = true;  } break; //  0x46 ('F')  F
+          case 'G':          { ButtonState[KeyboardButton_G] = IsDown; ButtonRecievedEvent[KeyboardButton_G] = true;  } break; //  0x47 ('G')  G
+          case 'H':          { ButtonState[KeyboardButton_H] = IsDown; ButtonRecievedEvent[KeyboardButton_H] = true;  } break; //  0x48 ('H')  H
+          case 'I':          { ButtonState[KeyboardButton_I] = IsDown; ButtonRecievedEvent[KeyboardButton_I] = true;  } break; //  0x49 ('I')  I
+          case 'J':          { ButtonState[KeyboardButton_J] = IsDown; ButtonRecievedEvent[KeyboardButton_J] = true;  } break; //  0x4A ('J')  J
+          case 'K':          { ButtonState[KeyboardButton_K] = IsDown; ButtonRecievedEvent[KeyboardButton_K] = true;  } break; //  0x4B ('K')  K
+          case 'L':          { ButtonState[KeyboardButton_L] = IsDown; ButtonRecievedEvent[KeyboardButton_L] = true;  } break;//  0x4C ('L')  L
+          case 'M':          { ButtonState[KeyboardButton_M] = IsDown; ButtonRecievedEvent[KeyboardButton_M] = true;  }break; //  0x4D ('M')  M
+          case 'N':          { ButtonState[KeyboardButton_N] = IsDown; ButtonRecievedEvent[KeyboardButton_N] = true;  }break; //  0x4E ('N')  N
+          case 'O':          { ButtonState[KeyboardButton_O] = IsDown; ButtonRecievedEvent[KeyboardButton_O] = true;  }break; //  0x4F ('O')  O
+          case 'P':          { ButtonState[KeyboardButton_P] = IsDown; ButtonRecievedEvent[KeyboardButton_P] = true;  }break; //  0x50 ('P')  P
+          case 'Q':          { ButtonState[KeyboardButton_Q] = IsDown; ButtonRecievedEvent[KeyboardButton_Q] = true;  }break; // 0x51 ('Q') Q
+          case 'R':          { ButtonState[KeyboardButton_R] = IsDown; ButtonRecievedEvent[KeyboardButton_R] = true;  }break; // 0x52 ('R') R
+          case 'S':          { ButtonState[KeyboardButton_S] = IsDown; ButtonRecievedEvent[KeyboardButton_S] = true;  }break; // 0x53 ('S') S
+          case 'T':          { ButtonState[KeyboardButton_T] = IsDown; ButtonRecievedEvent[KeyboardButton_T] = true;  }break; // 0x54 ('T') T
+          case 'U':          { ButtonState[KeyboardButton_U] = IsDown; ButtonRecievedEvent[KeyboardButton_U] = true;  }break; // 0x55 ('U') U
+          case 'V':          { ButtonState[KeyboardButton_V] = IsDown; ButtonRecievedEvent[KeyboardButton_V] = true;  }break; // 0x56 ('V') V
+          case 'W':          { ButtonState[KeyboardButton_W] = IsDown; ButtonRecievedEvent[KeyboardButton_W] = true;  }break; // 0x57 ('W') W
+          case 'X':          { ButtonState[KeyboardButton_X] = IsDown; ButtonRecievedEvent[KeyboardButton_X] = true;  }break; // 0x58 ('X') X
+          case 'Y':          { ButtonState[KeyboardButton_Y] = IsDown; ButtonRecievedEvent[KeyboardButton_Y] = true;  }break; // 0x59 ('Y') Y
+          case 'Z':          { ButtonState[KeyboardButton_Z] = IsDown; ButtonRecievedEvent[KeyboardButton_Z] = true;  }break; // 0x5A ('Z') Z
+          case VK_LWIN:      { ButtonState[KeyboardButton_LWIN] = IsDown; ButtonRecievedEvent[KeyboardButton_LWIN] = true;  }break; // 0x5B  Left Win
+          case VK_RWIN:      { ButtonState[KeyboardButton_RWIN] = IsDown; ButtonRecievedEvent[KeyboardButton_RWIN] = true;  }break; // 0x5C  Right Win
           ////case VK_APPS:      {}break; // 0x5D  Context Menu
           ////case VK_SLEEP:     {}break; //  0x5F  Sleep
-          case VK_NUMPAD0:   { Update(&Keyboard->Key_NP_0, IsDown); }break; //  0x60  Numpad 0
-          case VK_NUMPAD1:   { Update(&Keyboard->Key_NP_1, IsDown); }break; //  0x61  Numpad 1
-          case VK_NUMPAD2:   { Update(&Keyboard->Key_NP_2, IsDown); }break; //  0x62  Numpad 2
-          case VK_NUMPAD3:   { Update(&Keyboard->Key_NP_3, IsDown); }break; //  0x63  Numpad 3
-          case VK_NUMPAD4:   { Update(&Keyboard->Key_NP_4, IsDown); }break; //  0x64  Numpad 4
-          case VK_NUMPAD5:   { Update(&Keyboard->Key_NP_5, IsDown); }break; //  0x65  Numpad 5
-          case VK_NUMPAD6:   { Update(&Keyboard->Key_NP_6, IsDown); }break; //  0x66  Numpad 6
-          case VK_NUMPAD7:   { Update(&Keyboard->Key_NP_7, IsDown); }break; //  0x67  Numpad 7
-          case VK_NUMPAD8:   { Update(&Keyboard->Key_NP_8, IsDown); }break; //  0x68  Numpad 8
-          case VK_NUMPAD9:   { Update(&Keyboard->Key_NP_9, IsDown); }break; //  0x69  Numpad 9
-          case VK_MULTIPLY:  { Update(&Keyboard->Key_NP_STAR, IsDown); }break; // 0x6A  Numpad *
-          case VK_ADD:       { Update(&Keyboard->Key_NP_PLUS, IsDown); }break; //  0x6B  Numpad +
-          //case VK_SEPARATOR: { Update(&Keyboard->Key_, IsDown); }break; //  0x6C  Separator
-          case VK_SUBTRACT:  { Update(&Keyboard->Key_NP_DASH, IsDown); }break; // 0x6D  Num -
-          case VK_DECIMAL:   { Update(&Keyboard->Key_NP_DEL, IsDown); }break; //  0x6E  Numpad .
-          case VK_DIVIDE:    { Update(&Keyboard->Key_NP_SLASH, IsDown); }break; // 0x6F  Numpad /
-          case VK_F1:        { Update(&Keyboard->Key_F1, IsDown); }break; // 0x70  F1
-          case VK_F2:        { Update(&Keyboard->Key_F2, IsDown); }break; // 0x71  F2
-          case VK_F3:        { Update(&Keyboard->Key_F3, IsDown); }break; // 0x72  F3
-          case VK_F4:        { Update(&Keyboard->Key_F4, IsDown); }break; // 0x73  F4
-          case VK_F5:        { Update(&Keyboard->Key_F5, IsDown); }break; // 0x74  F5
-          case VK_F6:        { Update(&Keyboard->Key_F6, IsDown); }break; // 0x75  F6
-          case VK_F7:        { Update(&Keyboard->Key_F7, IsDown); }break; // 0x76  F7
-          case VK_F8:        { Update(&Keyboard->Key_F8, IsDown); }break; // 0x77  F8
-          case VK_F9:        { Update(&Keyboard->Key_F9, IsDown); }break; // 0x78  F9
-          case VK_F10:       { Update(&Keyboard->Key_F10, IsDown); }break; //  0x79  F10
-          case VK_F11:       { Update(&Keyboard->Key_F11, IsDown); }break; //  0x7A  F11
-          case VK_F12:       { Update(&Keyboard->Key_F12, IsDown); }break; //  0x7B  F12
+          case VK_NUMPAD0:   { ButtonState[KeyboardButton_NP_0] = IsDown; ButtonRecievedEvent[KeyboardButton_NP_0] = true;  }break; //  0x60  Numpad 0
+          case VK_NUMPAD1:   { ButtonState[KeyboardButton_NP_1] = IsDown; ButtonRecievedEvent[KeyboardButton_NP_1] = true;  }break; //  0x61  Numpad 1
+          case VK_NUMPAD2:   { ButtonState[KeyboardButton_NP_2] = IsDown; ButtonRecievedEvent[KeyboardButton_NP_2] = true;  }break; //  0x62  Numpad 2
+          case VK_NUMPAD3:   { ButtonState[KeyboardButton_NP_3] = IsDown; ButtonRecievedEvent[KeyboardButton_NP_3] = true;  }break; //  0x63  Numpad 3
+          case VK_NUMPAD4:   { ButtonState[KeyboardButton_NP_4] = IsDown; ButtonRecievedEvent[KeyboardButton_NP_4] = true;  }break; //  0x64  Numpad 4
+          case VK_NUMPAD5:   { ButtonState[KeyboardButton_NP_5] = IsDown; ButtonRecievedEvent[KeyboardButton_NP_5] = true;  }break; //  0x65  Numpad 5
+          case VK_NUMPAD6:   { ButtonState[KeyboardButton_NP_6] = IsDown; ButtonRecievedEvent[KeyboardButton_NP_6] = true;  }break; //  0x66  Numpad 6
+          case VK_NUMPAD7:   { ButtonState[KeyboardButton_NP_7] = IsDown; ButtonRecievedEvent[KeyboardButton_NP_7] = true;  }break; //  0x67  Numpad 7
+          case VK_NUMPAD8:   { ButtonState[KeyboardButton_NP_8] = IsDown; ButtonRecievedEvent[KeyboardButton_NP_8] = true;  }break; //  0x68  Numpad 8
+          case VK_NUMPAD9:   { ButtonState[KeyboardButton_NP_9] = IsDown; ButtonRecievedEvent[KeyboardButton_NP_9] = true;  }break; //  0x69  Numpad 9
+          case VK_MULTIPLY:  { ButtonState[KeyboardButton_NP_STAR] = IsDown; ButtonRecievedEvent[KeyboardButton_NP_STAR] = true;  }break; // 0x6A  Numpad *
+          case VK_ADD:       { ButtonState[KeyboardButton_NP_PLUS] = IsDown; ButtonRecievedEvent[KeyboardButton_NP_PLUS] = true;  }break; //  0x6B  Numpad +
+          //case VK_SEPARATOR: { ButtonState[KeyboardButton_] = IsDown; ButtonRecievedEvent[KeyboardButton_] = true;  }break; //  0x6C  Separator
+          case VK_SUBTRACT:  { ButtonState[KeyboardButton_NP_DASH] = IsDown; ButtonRecievedEvent[KeyboardButton_NP_DASH] = true;  }break; // 0x6D  Num -
+          case VK_DECIMAL:   { ButtonState[KeyboardButton_NP_DEL] = IsDown; ButtonRecievedEvent[KeyboardButton_NP_DEL] = true;  }break; //  0x6E  Numpad .
+          case VK_DIVIDE:    { ButtonState[KeyboardButton_NP_SLASH] = IsDown; ButtonRecievedEvent[KeyboardButton_NP_SLASH] = true;  }break; // 0x6F  Numpad /
+          case VK_F1:        { ButtonState[KeyboardButton_F1] = IsDown; ButtonRecievedEvent[KeyboardButton_F1] = true;  }break; // 0x70  F1
+          case VK_F2:        { ButtonState[KeyboardButton_F2] = IsDown; ButtonRecievedEvent[KeyboardButton_F2] = true;  }break; // 0x71  F2
+          case VK_F3:        { ButtonState[KeyboardButton_F3] = IsDown; ButtonRecievedEvent[KeyboardButton_F3] = true;  }break; // 0x72  F3
+          case VK_F4:        { ButtonState[KeyboardButton_F4] = IsDown; ButtonRecievedEvent[KeyboardButton_F4] = true;  }break; // 0x73  F4
+          case VK_F5:        { ButtonState[KeyboardButton_F5] = IsDown; ButtonRecievedEvent[KeyboardButton_F5] = true;  }break; // 0x74  F5
+          case VK_F6:        { ButtonState[KeyboardButton_F6] = IsDown; ButtonRecievedEvent[KeyboardButton_F6] = true;  }break; // 0x75  F6
+          case VK_F7:        { ButtonState[KeyboardButton_F7] = IsDown; ButtonRecievedEvent[KeyboardButton_F7] = true;  }break; // 0x76  F7
+          case VK_F8:        { ButtonState[KeyboardButton_F8] = IsDown; ButtonRecievedEvent[KeyboardButton_F8] = true;  }break; // 0x77  F8
+          case VK_F9:        { ButtonState[KeyboardButton_F9] = IsDown; ButtonRecievedEvent[KeyboardButton_F9] = true;  }break; // 0x78  F9
+          case VK_F10:       { ButtonState[KeyboardButton_F10] = IsDown; ButtonRecievedEvent[KeyboardButton_F10] = true;  }break; //  0x79  F10
+          case VK_F11:       { ButtonState[KeyboardButton_F11] = IsDown; ButtonRecievedEvent[KeyboardButton_F11] = true;  }break; //  0x7A  F11
+          case VK_F12:       { ButtonState[KeyboardButton_F12] = IsDown; ButtonRecievedEvent[KeyboardButton_F12] = true;  }break; //  0x7B  F12
           ////case VK_F13:       {}break; //  0x7C  F13
           ////case VK_F14:       {}break; //  0x7D  F14
           ////case VK_F15:       {}break; //  0x7E  F15
@@ -1065,19 +1065,19 @@ Win32ProcessKeyboardAndScrollWheel(keyboard_input* Keyboard, r32* MouseScroll)
           ////case VK_F22:       {}break; //  0x85  F22
           ////case VK_F23:       {}break; //  0x86  F23
           ////case VK_F24:       {}break; //  0x87  F24
-          case VK_NUMLOCK:   {Update(&Keyboard->Key_NP_NMLK, IsDown);}break; //  0x90  Num Lock
-          case VK_SCROLL:    {Update(&Keyboard->Key_SCRLK, IsDown);}break; // 0x91  Scrol Lock
+          case VK_NUMLOCK:   {ButtonState[KeyboardButton_NP_NMLK] = IsDown; ButtonRecievedEvent[KeyboardButton_NP_NMLK] = true; }break; //  0x90  Num Lock
+          case VK_SCROLL:    {ButtonState[KeyboardButton_SCRLK] = IsDown; ButtonRecievedEvent[KeyboardButton_SCRLK] = true; }break; // 0x91  Scrol Lock
           ////case VK_OEM_FJ_JISHO:    {}break; // 0x92  Jisho
           ////case VK_OEM_FJ_MASSHOU:  {}break; // 0x93  Mashu
           ////case VK_OEM_FJ_TOUROKU:  {}break; // 0x94  Touroku
           ////case VK_OEM_FJ_LOYA:     {}break; //  0x95  Loya
           ////case VK_OEM_FJ_ROYA:     {}break; //  0x96  Roya
-          case VK_LSHIFT:          {Update(&Keyboard->Key_LSHIFT, IsDown);}break; // 0xA0  Left Shift
-          case VK_RSHIFT:          {Update(&Keyboard->Key_RSHIFT, IsDown);}break; // 0xA1  Right Shift
-          case VK_LCONTROL:        {Update(&Keyboard->Key_LCTRL, IsDown);}break; // 0xA2  Left Ctrl
-          case VK_RCONTROL:        {Update(&Keyboard->Key_RCTRL, IsDown);}break; // 0xA3  Right Ctrl
-          //case VK_LMENU:           {Update(&Keyboard->Key_, IsDown);}break; //  0xA4  Left Alt
-          //case VK_RMENU:           {Update(&Keyboard->Key_, IsDown);}break; //  0xA5  Right Alt
+          case VK_LSHIFT:          {ButtonState[KeyboardButton_LSHIFT] = IsDown; ButtonRecievedEvent[KeyboardButton_LSHIFT] = true; }break; // 0xA0  Left Shift
+          case VK_RSHIFT:          {ButtonState[KeyboardButton_RSHIFT] = IsDown; ButtonRecievedEvent[KeyboardButton_RSHIFT] = true; }break; // 0xA1  Right Shift
+          case VK_LCONTROL:        {ButtonState[KeyboardButton_LCTRL] = IsDown; ButtonRecievedEvent[KeyboardButton_LCTRL] = true; }break; // 0xA2  Left Ctrl
+          case VK_RCONTROL:        {ButtonState[KeyboardButton_RCTRL] = IsDown; ButtonRecievedEvent[KeyboardButton_RCTRL] = true; }break; // 0xA3  Right Ctrl
+          //case VK_LMENU:           {ButtonState[KeyboardButton_] = IsDown; ButtonRecievedEvent[KeyboardButton_] = true; }break; //  0xA4  Left Alt
+          //case VK_RMENU:           {ButtonState[KeyboardButton_] = IsDown; ButtonRecievedEvent[KeyboardButton_] = true; }break; //  0xA5  Right Alt
           ////case VK_BROWSER_BACK:    {}break; // 0xA6  Browser Back
           ////case VK_BROWSER_FORWARD: {}break; //  0xA7  Browser Forward
           ////case VK_BROWSER_REFRESH: {}break; //  0xA8  Browser Refresh
@@ -1096,22 +1096,22 @@ Win32ProcessKeyboardAndScrollWheel(keyboard_input* Keyboard, r32* MouseScroll)
           ////case VK_LAUNCH_MEDIA_SELECT: {}break; //  0xB5  Media
           ////case VK_LAUNCH_APP1:         {}break; //  0xB6  App1
           ////case VK_LAUNCH_APP2:         {}break; //  0xB7  App2
-          case VK_OEM_1:       {Update(&Keyboard->Key_COLON, IsDown);}break; //  0xBA  OEM_1 (: ;)
-          case VK_OEM_PLUS:    {Update(&Keyboard->Key_EQUAL, IsDown);}break; // 0xBB  OEM_PLUS (+ =)
-          case VK_OEM_COMMA:   {Update(&Keyboard->Key_COMMA, IsDown);}break; //  0xBC  OEM_COMMA (< ,)
-          case VK_OEM_MINUS:   {Update(&Keyboard->Key_DASH, IsDown);}break; //  0xBD  OEM_MINUS (_ -)
-          case VK_OEM_PERIOD:  {Update(&Keyboard->Key_DOT, IsDown);}break; // 0xBE  OEM_PERIOD (> .)
-          case VK_OEM_2:       {Update(&Keyboard->Key_FSLASH, IsDown);}break; //  0xBF  OEM_2 (? /)
-          case VK_OEM_3:       {Update(&Keyboard->Key_TILDE, IsDown);}break; //  0xC0  OEM_3 (~ `)
+          case VK_OEM_1:       {ButtonState[KeyboardButton_COLON] = IsDown; ButtonRecievedEvent[KeyboardButton_COLON] = true; }break; //  0xBA  OEM_1 (: ;)
+          case VK_OEM_PLUS:    {ButtonState[KeyboardButton_EQUAL] = IsDown; ButtonRecievedEvent[KeyboardButton_EQUAL] = true; }break; // 0xBB  OEM_PLUS (+ =)
+          case VK_OEM_COMMA:   {ButtonState[KeyboardButton_COMMA] = IsDown; ButtonRecievedEvent[KeyboardButton_COMMA] = true; }break; //  0xBC  OEM_COMMA (< ,)
+          case VK_OEM_MINUS:   {ButtonState[KeyboardButton_DASH] = IsDown; ButtonRecievedEvent[KeyboardButton_DASH] = true; }break; //  0xBD  OEM_MINUS (_ -)
+          case VK_OEM_PERIOD:  {ButtonState[KeyboardButton_DOT] = IsDown; ButtonRecievedEvent[KeyboardButton_DOT] = true; }break; // 0xBE  OEM_PERIOD (> .)
+          case VK_OEM_2:       {ButtonState[KeyboardButton_FSLASH] = IsDown; ButtonRecievedEvent[KeyboardButton_FSLASH] = true; }break; //  0xBF  OEM_2 (? /)
+          case VK_OEM_3:       {ButtonState[KeyboardButton_TILDE] = IsDown; ButtonRecievedEvent[KeyboardButton_TILDE] = true; }break; //  0xC0  OEM_3 (~ `)
           // case VK_ABNT_C1:     {}break; //  0xC1  Abnt C1
           // case VK_ABNT_C2:     {}break; //  0xC2  Abnt C2
-          case VK_OEM_4:       {Update(&Keyboard->Key_LBRACKET, IsDown);}break; //  0xDB  OEM_4 ({ [)
-          case VK_OEM_5:       {Update(&Keyboard->Key_RBSLASH, IsDown);}break; //  0xDC  OEM_5 (| \)
-          case VK_OEM_6:       {Update(&Keyboard->Key_RBRACKET, IsDown);}break; //  0xDD  OEM_6 (} ])
-          case VK_OEM_7:       {Update(&Keyboard->Key_QUOTE, IsDown);}break; //  0xDE  OEM_7 (" ')
-          //case VK_OEM_8:       {Update(&Keyboard->Key_, IsDown);}break; //  0xDF  OEM_8 (§ !)
+          case VK_OEM_4:       {ButtonState[KeyboardButton_LBRACKET] = IsDown; ButtonRecievedEvent[KeyboardButton_LBRACKET] = true; }break; //  0xDB  OEM_4 ({ [)
+          case VK_OEM_5:       {ButtonState[KeyboardButton_RBSLASH] = IsDown; ButtonRecievedEvent[KeyboardButton_RBSLASH] = true; }break; //  0xDC  OEM_5 (| \)
+          case VK_OEM_6:       {ButtonState[KeyboardButton_RBRACKET] = IsDown; ButtonRecievedEvent[KeyboardButton_RBRACKET] = true; }break; //  0xDD  OEM_6 (} ])
+          case VK_OEM_7:       {ButtonState[KeyboardButton_QUOTE] = IsDown; ButtonRecievedEvent[KeyboardButton_QUOTE] = true; }break; //  0xDE  OEM_7 (" ')
+          //case VK_OEM_8:       {ButtonState[KeyboardButton_] = IsDown; ButtonRecievedEvent[KeyboardButton_] = true; }break; //  0xDF  OEM_8 (§ !)
           ////case VK_OEM_AX:      {}break; // 0xE1  Ax
-          case VK_OEM_102:     {Update(&Keyboard->Key_LBSLASH, IsDown);}break; // 0xE2  OEM_102 (> <)
+          case VK_OEM_102:     {ButtonState[KeyboardButton_LBSLASH] = IsDown; ButtonRecievedEvent[KeyboardButton_LBSLASH] = true; }break; // 0xE2  OEM_102 (> <)
           ////case VK_ICO_HELP:    {}break; // 0xE3  IcoHlp
           ////case VK_ICO_00:      {}break; // 0xE4  Ico00 *
           ////case VK_PROCESSKEY:  {}break; // 0xE5  Process
@@ -1148,6 +1148,16 @@ Win32ProcessKeyboardAndScrollWheel(keyboard_input* Keyboard, r32* MouseScroll)
         TranslateMessage(&Message);
         DispatchMessage(&Message);
       }break;
+    }
+  }
+
+  for(s32 ButtonIndex = 0; ButtonIndex < KeyboardButton_COUNT; ++ButtonIndex)
+  {
+    if(ButtonRecievedEvent[ButtonIndex])
+    {
+      Update(&Keyboard->Keys[ButtonIndex], ButtonState[ButtonIndex]);
+    }else{
+      Update(&Keyboard->Keys[ButtonIndex], Keyboard->Keys[ButtonIndex].Active);
     }
   }
 }
