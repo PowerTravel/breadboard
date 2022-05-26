@@ -5,7 +5,6 @@
   - Raw Input (support for multiple keyboards)
   - Sleep/timeBeginPeriod
   - WM_SETCURSOR (control cursor visibility)
-  - WM_ACTIVATEAPP (for when we are not the active application)
   - GetKeyboardLayout (for French keyboards, international WASD support)
   Just a partial list of stuff!!
 */
@@ -27,6 +26,7 @@ global_variable b32 DEBUGGlobalShowCursor;
 global_variable WINDOWPLACEMENT GlobalWindowPosition = {sizeof(GlobalWindowPosition)};
 global_variable game_input GlobalInput = {};
 global_variable HWND GlobalWindowHandle;
+global_variable bool GlobalWindowInFocus = true;
 
 // Note:  We don't want to rely on the libraries needed to run the functions
 //      XInputGetState and XInputSetState defined in <xinput.h> as they have
@@ -524,14 +524,7 @@ MainWindowCallback( HWND Window,
     // Or user has deactivated this app by tabbing or whatever
     case WM_ACTIVATEAPP:
     {
-#if 0
-      if( WParam == TRUE)
-      {
-        SetLayeredWindowwgl_create_context_attrib_arbutes(Window, RGB(0,0,0), 255, LWA_ALPHA);
-      }else{
-        SetLayeredWindowAttributes(Window, RGB(0,0,0), 64, LWA_ALPHA);
-      }
-#endif
+     GlobalWindowInFocus = WParam;
     }break;
 
     // Windows deletes window
@@ -551,7 +544,6 @@ MainWindowCallback( HWND Window,
 
     case WM_PAINT:
     {
-
       PAINTSTRUCT Paint;
       HDC DeviceContext = BeginPaint(Window, &Paint);
       win32_window_dimension Dimension = Win32GetWindowDimension(Window);
@@ -1300,6 +1292,18 @@ void Win32ProcessMouse(mouse_input* Mouse, r32 MouseScroll, HWND WindowHandle, r
   {
     Update(&Mouse->Button[ButtonIndex], GetKeyState(WinButtonID[ButtonIndex]) & (1<<15));
   }
+
+  // Clear dx/dy/dz input if we are not in focus;
+  // Clearing x,y,z will cause jumping-issues when gaining focus again
+  // If we start using X,Y,Z in a way  that cause not-in-focus issues, 
+  // try 0ing x,y,z and cache old values, and restore upon gaining focus again
+  if(!GlobalWindowInFocus)
+  {
+    // Save X,Y and Z though
+    Mouse->dX = 0;
+    Mouse->dY = 0;
+    Mouse->dZ = 0;
+  }
 }
 
 inline LARGE_INTEGER
@@ -2008,6 +2012,7 @@ WinMain(  HINSTANCE Instance,
     Win32HandleInternalCommands(&GlobalWin32State, GameInput);
     #endif
 
+    
     
     END_BLOCK(ProcessInput);
 
