@@ -662,37 +662,37 @@ Win32GetReplayBuffer(win32_state *aState, s32 Index)
 internal void
 Win32BeginRecordingInput(win32_state *aState, s32 aRecordingIndex)
 {
-    char FileName[WIN32_STATE_FILE_NAME_COUNT];
-    Win32GetInputFileLocation(aState, true, aRecordingIndex, sizeof(FileName), FileName);
-    aState->RecordingHandle = CreateFileA(FileName, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
-    if(aState->RecordingHandle != INVALID_HANDLE_VALUE)
+  char FileName[WIN32_STATE_FILE_NAME_COUNT];
+  Win32GetInputFileLocation(aState, true, aRecordingIndex, sizeof(FileName), FileName);
+  aState->RecordingHandle = CreateFileA(FileName, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+  if(aState->RecordingHandle != INVALID_HANDLE_VALUE)
+  {
+    DWORD BytesWritten;
+
+    aState->RecordingIndex = aRecordingIndex;
+    win32_memory_block* Sentinel = &aState->MemorySentinel;
+
+    BeginTicketMutex(&GlobalWin32State.MemoryMutex);
+    for(win32_memory_block *SourceBlock = Sentinel->Next;
+        SourceBlock != Sentinel;
+        SourceBlock = SourceBlock->Next)
     {
-        DWORD BytesWritten;
-
-        aState->RecordingIndex = aRecordingIndex;
-        win32_memory_block* Sentinel = &aState->MemorySentinel;
-
-        BeginTicketMutex(&GlobalWin32State.MemoryMutex);
-        for(win32_memory_block *SourceBlock = Sentinel->Next;
-            SourceBlock != Sentinel;
-            SourceBlock = SourceBlock->Next)
-        {
-            if( !(SourceBlock->Block.Flags & PlatformMemory_NotRestored))
-            {
-                win32_saved_memory_block DestBlock;
-                void* BasePointer = SourceBlock->Block.Base;
-                DestBlock.BasePointer = (u64)BasePointer;
-                DestBlock.Size = SourceBlock->Block.Size;
-                WriteFile(aState->RecordingHandle, &DestBlock, sizeof(DestBlock), &BytesWritten, 0);
-                Assert(DestBlock.Size <= U32Max);
-                WriteFile(aState->RecordingHandle, BasePointer, (u32)DestBlock.Size, &BytesWritten, 0);
-            }
-        }
-        EndTicketMutex(&GlobalWin32State.MemoryMutex);
-
-        win32_saved_memory_block DestBlock = {};
+      if( !(SourceBlock->Block.Flags & PlatformMemory_NotRestored))
+      {
+        win32_saved_memory_block DestBlock;
+        void* BasePointer = SourceBlock->Block.Base;
+        DestBlock.BasePointer = (u64)BasePointer;
+        DestBlock.Size = SourceBlock->Block.Size;
         WriteFile(aState->RecordingHandle, &DestBlock, sizeof(DestBlock), &BytesWritten, 0);
+        Assert(DestBlock.Size <= U32Max);
+        WriteFile(aState->RecordingHandle, BasePointer, (u32)DestBlock.Size, &BytesWritten, 0);
+      }
     }
+    EndTicketMutex(&GlobalWin32State.MemoryMutex);
+
+    win32_saved_memory_block DestBlock = {};
+    WriteFile(aState->RecordingHandle, &DestBlock, sizeof(DestBlock), &BytesWritten, 0);
+  }
 }
 
 internal void
@@ -705,65 +705,65 @@ Win32EndRecordingInput(win32_state* aState)
 internal void
 Win32FreeMemoryBlock(win32_memory_block *aBlock)
 {
-    BeginTicketMutex(&GlobalWin32State.MemoryMutex);
-    aBlock->Prev->Next = aBlock->Next;
-    aBlock->Next->Prev = aBlock->Prev;
-    EndTicketMutex(&GlobalWin32State.MemoryMutex);
+  BeginTicketMutex(&GlobalWin32State.MemoryMutex);
+  aBlock->Prev->Next = aBlock->Next;
+  aBlock->Next->Prev = aBlock->Prev;
+  EndTicketMutex(&GlobalWin32State.MemoryMutex);
 
-    BOOL Result = VirtualFree(aBlock, 0, MEM_RELEASE);
-    Assert(Result);
+  BOOL Result = VirtualFree(aBlock, 0, MEM_RELEASE);
+  Assert(Result);
 }
 
 internal void
 Win32ClearBlocksByMask(win32_state *aState, u64 aMask)
 {
-    for(win32_memory_block* BlockIter =   aState->MemorySentinel.Next;
-                  BlockIter != &aState->MemorySentinel;)
-    {
-        win32_memory_block* Block = BlockIter;
-        BlockIter = BlockIter->Next;
+  for(win32_memory_block* BlockIter =   aState->MemorySentinel.Next;
+                BlockIter != &aState->MemorySentinel;)
+  {
+    win32_memory_block* Block = BlockIter;
+    BlockIter = BlockIter->Next;
 
-        if((Block->LoopingFlags & aMask) == aMask)
-        {
-            Win32FreeMemoryBlock(Block);
-        }
-        else
-        {
-            Block->LoopingFlags = 0;
-        }
+    if((Block->LoopingFlags & aMask) == aMask)
+    {
+        Win32FreeMemoryBlock(Block);
     }
+    else
+    {
+        Block->LoopingFlags = 0;
+    }
+  } 
 }
 
 internal void
 Win32BeginInputPlayBack(win32_state *aState, s32 aPlayingIndex)
 {
-    Win32ClearBlocksByMask(aState, Win32Mem_AllocatedDuringLooping);
+  Win32ClearBlocksByMask(aState, Win32Mem_AllocatedDuringLooping);
 
-    char FileName[WIN32_STATE_FILE_NAME_COUNT];
-    Win32GetInputFileLocation(aState, true, aPlayingIndex, sizeof(FileName), FileName);
-    aState->PlaybackHandle = CreateFileA(FileName, GENERIC_READ, 0, 0, OPEN_EXISTING, 0, 0);
-    if(aState->PlaybackHandle != INVALID_HANDLE_VALUE)
+  char FileName[WIN32_STATE_FILE_NAME_COUNT];
+  Win32GetInputFileLocation(aState, true, aPlayingIndex, sizeof(FileName), FileName);
+  aState->PlaybackHandle = CreateFileA(FileName, GENERIC_READ, 0, 0, OPEN_EXISTING, 0, 0);
+  if(aState->PlaybackHandle != INVALID_HANDLE_VALUE)
+  {
+    aState->PlayingIndex = aPlayingIndex;
+
+    for(;;)
     {
-        aState->PlayingIndex = aPlayingIndex;
-
-        for(;;)
-        {
-            win32_saved_memory_block Block = {};
-            DWORD BytesRead;
-            ReadFile(aState->PlaybackHandle, &Block, sizeof(Block), &BytesRead, 0);
-            if(Block.BasePointer != 0)
-            {
-                void *BasePointer = (void *)Block.BasePointer;
-                Assert(Block.Size <= U32Max);
-                ReadFile(aState->PlaybackHandle, BasePointer, (u32)Block.Size, &BytesRead, 0);
-            }
-            else
-            {
-                break;
-            }
-        }
-        // TODO(casey): Stream memory in from the file!
+      win32_saved_memory_block Block = {};
+      DWORD BytesRead;
+      ReadFile(aState->PlaybackHandle, &Block, sizeof(Block), &BytesRead, 0);
+      if(Block.BasePointer != 0)
+      {
+          void *BasePointer = (void *)Block.BasePointer;
+          Assert(Block.Size <= U32Max);
+          ReadFile(aState->PlaybackHandle, BasePointer, (u32)Block.Size, &BytesRead, 0);
+      }
+      else
+      {
+          break;
+      }
     }
+    // TODO(casey): Stream memory in from the file!
+  }
 }
 
 internal void
