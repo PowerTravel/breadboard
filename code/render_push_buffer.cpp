@@ -57,7 +57,7 @@ void Push2DColoredQuad(render_group* RenderGroup, rect2f QuadRect, v4 Color)
   Body->QuadRect = QuadRect;
 }
 
-void Push2DQuad(render_group* RenderGroup, rect2f QuadRect, rect2f UVRect, v4 Color, bitmap_handle BitmapHandle)
+void Push2DQuad(render_group* RenderGroup, rect2f QuadRect, float Rotation, rect2f UVRect, v4 Color, bitmap_handle BitmapHandle)
 {
   push_buffer_header* Header = PushNewEntry(RenderGroup, render_buffer_entry_type::QUAD_2D);
   entry_type_2d_quad* Body = GetBody(Header, entry_type_2d_quad);
@@ -65,6 +65,7 @@ void Push2DQuad(render_group* RenderGroup, rect2f QuadRect, rect2f UVRect, v4 Co
   Body->QuadRect = QuadRect;
   Body->BitmapHandle = BitmapHandle;
   Body->Colour = Color;
+  Body->Rotation = Rotation;
 }
 
 void PushOverlayQuad(rect2f QuadRect, v4 Color)
@@ -80,7 +81,7 @@ void PushTexturedOverlayQuad(rect2f QuadRect,  rect2f UVRect,  bitmap_handle Bit
   QuadRect.X += QuadRect.W*0.5f;
   QuadRect.Y += QuadRect.H*0.5f;
   render_group* RenderGroup = GlobalGameState->RenderCommands->OverlayGroup;
-  Push2DQuad(RenderGroup, QuadRect, UVRect, V4(1,1,1,1), BitmapHandle);
+  Push2DQuad(RenderGroup, QuadRect, 0, UVRect, V4(1,1,1,1), BitmapHandle);
 }
 
 r32 GetTextLineHeightSize(u32 FontSize)
@@ -198,7 +199,7 @@ void PushTextAt(r32 CanPosX, r32 CanPosY, const c8* String, u32 FontSize, v4 Col
       GlyphOffset.Y *= ScreenScaleFactor;
       GlyphOffset.W *= ScreenScaleFactor;
       GlyphOffset.H *= ScreenScaleFactor;
-      Push2DQuad(RenderGroup, GlyphOffset, TextureRect,Color, FontMap->BitmapHandle);
+      Push2DQuad(RenderGroup, GlyphOffset, 0, TextureRect,Color, FontMap->BitmapHandle);
     }
     PixelPosX += CH->xadvance;
     ++String;
@@ -233,14 +234,15 @@ m3 GetTextureTranslationMatrix_OriginTopLeft(s32 X0_pixel, s32 Y0_pixel, s32 Wid
   return Result;
 }
 
-void PushElectricalComponent(r32 xPos, r32 yPos, r32 SizeX, r32 SizeY,
+void PushElectricalComponent(r32 xPos, r32 yPos, r32 SizeX, r32 SizeY, r32 Rotation,
   u32 TileType, r32 BitmapWidth, r32 BitmapHeight, bitmap_handle TileHandle)
 {
   render_group* RenderGroup = GlobalGameState->RenderCommands->WorldGroup;
   bitmap_coordinate TileCoordinate = GetElectricalComponentSpriteBitmapCoordinate(TileType);
   rect2f UVRect = GetTextureRect(&TileCoordinate, BitmapWidth, BitmapHeight);
   v4 Color = V4(1,1,1,1);
-  Push2DQuad(RenderGroup, Rect2f(xPos, yPos, SizeX, SizeY), UVRect, Color, TileHandle);
+  Push2DQuad(RenderGroup, Rect2f(xPos, yPos, SizeX, SizeY), Rotation, UVRect, Color, TileHandle);
+
 }
 
 void FillRenderPushBuffer(world* World)
@@ -276,7 +278,7 @@ void FillRenderPushBuffer(world* World)
   r32 SpriteSheetHeight = (r32) ElectricalComponentSpriteSheet->Height;
   
   rect2f ScreenRect = ScreenRect = GetCameraScreenRect(OrthoZoom);
-  PushElectricalComponent(RenderGroup->CameraPosition.X, RenderGroup->CameraPosition.Y, ScreenRect.W, ScreenRect.H,
+  PushElectricalComponent(RenderGroup->CameraPosition.X, RenderGroup->CameraPosition.Y, ScreenRect.W, ScreenRect.H, 0,
   ElectricalComponentSprite_Empty, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
   
   electrical_component* Component = World->Source;
@@ -287,12 +289,12 @@ void FillRenderPushBuffer(world* World)
     {
       case ElectricalComponentType_Source:
       {
-        PushElectricalComponent(xPos, 0, 1, 1, ElectricalComponentSprite_Source, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
+        PushElectricalComponent(xPos, 0, 1, 1, Tau32/4.f, ElectricalComponentSprite_Source, SpriteSheetWidth,SpriteSheetHeight, TileHandle);
         Component = GetComponentConnectedAtPin(Component, ElectricalPinType_Output);
       }break;
       case ElectricalComponentType_Ground:
       {
-        PushElectricalComponent(xPos, 0, 1, 1, ElectricalComponentSprite_Ground, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
+        PushElectricalComponent(xPos, 0, 1, 1, Tau32/4.f, ElectricalComponentSprite_Ground, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
         Component = 0;
       }break;
       case ElectricalComponentType_Led_Red:
@@ -308,14 +310,14 @@ void FillRenderPushBuffer(world* World)
         {
           LedState = ElectricalComponentSprite_LedRedOn;
         }
-        PushElectricalComponent(xPos, 0, 1, 1, ElectricalComponentSprite_WireBlack, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
-        PushElectricalComponent(xPos, 0, 1, 1, ElectricalComponentSprite_WireBlack, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
-        PushElectricalComponent(xPos, 0, 1, 1, LedState, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
+        PushElectricalComponent(xPos, 0, 1, 1,  Tau32/4.f, ElectricalComponentSprite_WireBlack, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
+        PushElectricalComponent(xPos, 0, 1, 1, -Tau32/4.f, ElectricalComponentSprite_WireBlack, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
+        PushElectricalComponent(xPos, 0, 1, 1,  Tau32/4.f, LedState, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
         Component = GetComponentConnectedAtPin(Component, ElectricalPinType_Negative);
       }break;
       case ElectricalComponentType_Resistor:
       {
-        PushElectricalComponent(xPos, 0, 1, 1, ElectricalComponentSprite_Resistor, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
+        PushElectricalComponent(xPos, 0, 1, 1, Tau32/4.f, ElectricalComponentSprite_Resistor, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
         Component = GetComponentConnectedAtPin(Component, ElectricalPinType_B);
       }break;
       case ElectricalComponentType_Wire:
@@ -344,7 +346,7 @@ void FillRenderPushBuffer(world* World)
       tile_contents Content = GetTileContents(TileMap, TilePos);
       if(Content.Component)
       {
-        PushElectricalComponent(Col_Tiles, Row_Tiles, 1, 1, Content.Component->Type, SpriteSheetWidth, SpriteSheetHeight, TileHandle);  
+        PushElectricalComponent(Col_Tiles, Row_Tiles, 1, 1, 0, Content.Component->Type, SpriteSheetWidth, SpriteSheetHeight, TileHandle);  
       }   
     }
   }

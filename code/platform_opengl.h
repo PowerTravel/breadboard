@@ -154,10 +154,11 @@ struct opengl_program
 
 struct quad_2d_data
 {
+  u32 TextureSlot;
   rect2f QuadRect;
+  r32 Rotation;
   rect2f UVRect;
   v4 Color;
-  u32 TextureSlot;
 };
 
 struct quad_3d_data

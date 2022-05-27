@@ -135,27 +135,34 @@ layout (location = 0) in vec3 normal; // Wasted in 2D. Always points in z+, Poss
 layout (location = 2) in vec2 uv;
 layout (location = 3) in int TexSlot;
 layout (location = 4) in vec4 QuadRect; // X,Y,W,H
-layout (location = 5) in vec4 UVRect;   // X,Y,W,H
-layout (location = 6) in vec4 Color;    // R,G,B,A
+layout (location = 5) in float RotationAngle; // X,Y,W,H
+layout (location = 6) in vec4 UVRect;   // X,Y,W,H
+layout (location = 7) in vec4 Color;    // R,G,B,A
 out vec4 VertexColor;
 out vec3 ArrayUV;
 void main()
 {
+  float CosAngle = cos(RotationAngle);
+  float SinAngle = sin(RotationAngle);
+  float Width = QuadRect.z;
+  float Height = QuadRect.w;
+  float X = QuadRect.x;
+  float Y = QuadRect.y;
   mat4 ModelMatrix;
-  ModelMatrix[0] = vec4(QuadRect.z, 0, 0, 0); // z=Width
-  ModelMatrix[1] = vec4(0, QuadRect.w, 0, 0); // w=Height
-  ModelMatrix[2] = vec4(0, 0, 0, 0);          // Depth, unused
-  ModelMatrix[3] = vec4(QuadRect.xy, 0, 1);   // x,y = x,y Translation
+  ModelMatrix[0] = vec4( CosAngle * Width,   SinAngle * Width,  0, 0);
+  ModelMatrix[1] = vec4(-SinAngle * Height,  CosAngle * Height, 0, 0);
+  ModelMatrix[2] = vec4(0, 0, 0, 0);
+  ModelMatrix[3] = vec4(X ,Y, 0, 1);
+  gl_Position = ProjectionMat*ViewMat*ModelMatrix*vec4(vertice.xyz,1);
 
   mat3 TextureTransform;
   TextureTransform[0] = vec3(UVRect.z, 0, 0);
   TextureTransform[1] = vec3(0, UVRect.w, 0);
   TextureTransform[2] = vec3(UVRect.xy, 1);
-
-  gl_Position = ProjectionMat*ViewMat*ModelMatrix*vec4(vertice.xyz,1);
   vec2 TextureCoordinate = (TextureTransform*vec3(uv.xy,1)).xy;
-  VertexColor = Color;
   ArrayUV = vec3(TextureCoordinate.x, TextureCoordinate.y, TexSlot);
+
+  VertexColor = Color;
 }
 )FOO";
   
@@ -512,14 +519,17 @@ void InitOpenGL(open_gl* OpenGL)
     glEnableVertexAttribArray(4);
     glEnableVertexAttribArray(5);
     glEnableVertexAttribArray(6);
+    glEnableVertexAttribArray(7);
     glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DOffset + OffsetOf(quad_2d_data,TextureSlot)));
     glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DOffset + OffsetOf(quad_2d_data,QuadRect)));
-    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DOffset + OffsetOf(quad_2d_data,UVRect)));
-    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DOffset + OffsetOf(quad_2d_data,Color)));
+    glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DOffset + OffsetOf(quad_2d_data,Rotation)));
+    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DOffset + OffsetOf(quad_2d_data,UVRect)));
+    glVertexAttribPointer(7, 4, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DOffset + OffsetOf(quad_2d_data,Color)));
     glVertexAttribDivisor(3, 1);
     glVertexAttribDivisor(4, 1);
     glVertexAttribDivisor(5, 1);
     glVertexAttribDivisor(6, 1);
+    glVertexAttribDivisor(7, 1);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     
     glBindVertexArray(0);
@@ -547,14 +557,17 @@ void InitOpenGL(open_gl* OpenGL)
     glEnableVertexAttribArray(4);
     glEnableVertexAttribArray(5);
     glEnableVertexAttribArray(6);
+    glEnableVertexAttribArray(7);
     glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DColorOffset + OffsetOf(quad_2d_data,TextureSlot)));
     glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DColorOffset + OffsetOf(quad_2d_data,QuadRect)));
-    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DColorOffset + OffsetOf(quad_2d_data,UVRect)));
-    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DColorOffset + OffsetOf(quad_2d_data,Color)));
+    glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DColorOffset + OffsetOf(quad_2d_data,Rotation)));
+    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DColorOffset + OffsetOf(quad_2d_data,UVRect)));
+    glVertexAttribPointer(7, 4, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DColorOffset + OffsetOf(quad_2d_data,Color)));
     glVertexAttribDivisor(3, 1);
     glVertexAttribDivisor(4, 1);
     glVertexAttribDivisor(5, 1);
     glVertexAttribDivisor(6, 1);
+    glVertexAttribDivisor(7, 1);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     
     glBindVertexArray(0);
@@ -938,24 +951,24 @@ void DrawRenderGroup(open_gl* OpenGL, render_group* RenderGroup, game_asset_mana
             case render_buffer_entry_type::TEXT:
             case render_buffer_entry_type::QUAD_2D:
             {
-              entry_type_2d_quad* EntryBody = (entry_type_2d_quad*) Body;
-              bitmap_keeper* FontKeeper;
-              GetAsset(AssetManager, EntryBody->BitmapHandle, &FontKeeper);
+              entry_type_2d_quad* Quad = (entry_type_2d_quad*) Body;
+              bitmap_keeper* BitmapKeeper;
+              GetAsset(AssetManager, Quad->BitmapHandle, &BitmapKeeper);
 
-              quad_2d_data Quad2dData = {};              
-              Quad2dData.TextureSlot = FontKeeper->TextureSlot;
-              Quad2dData.QuadRect = EntryBody->QuadRect;
-              Quad2dData.UVRect = EntryBody->UVRect;
-              Quad2dData.Color = EntryBody->Colour;
-              Quad2DBuffer[Quad2DBufferInstanceIndex++] = Quad2dData;
+              quad_2d_data* Quad2dData = &Quad2DBuffer[Quad2DBufferInstanceIndex++]; 
+              Quad2dData->TextureSlot  = BitmapKeeper->TextureSlot;
+              Quad2dData->QuadRect     = Quad->QuadRect;
+              Quad2dData->UVRect       = Quad->UVRect;
+              Quad2dData->Color        = Quad->Colour;
+              Quad2dData->Rotation     = Quad->Rotation;
             }break;
             case render_buffer_entry_type::QUAD_2D_COLOR:
             {
-              entry_type_2d_quad* Quad = (entry_type_2d_quad*) Body; 
-              quad_2d_data Quad2dData = {};
-              Quad2dData.QuadRect = Quad->QuadRect;
-              Quad2dData.Color = Quad->Colour;
-              Quad2DColoredBuffer[Quad2DBufferColorInstanceIndex++] = Quad2dData;
+              entry_type_2d_quad* Quad  = (entry_type_2d_quad*) Body; 
+              quad_2d_data* Quad2dData  = &Quad2DColoredBuffer[Quad2DBufferColorInstanceIndex++];
+              Quad2dData->QuadRect       = Quad->QuadRect;
+              Quad2dData->Color          = Quad->Colour;
+              Quad2dData->Rotation       = Quad->Rotation;
             }break;
           }
         }
