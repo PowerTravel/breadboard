@@ -7,70 +7,14 @@
 
 enum class render_buffer_entry_type
 {
-  LIGHT,
-  RENDER_ASSET,
-  TEXTURED_QUAD,
-  OVERLAY_COLORED_QUAD,
-  LINE, 
   TEXT,
-  OVERLAY_TEXTURED_QUAD,
   NEW_LEVEL,
+  QUAD_2D,
+  QUAD_2D_COLOR,
   COUNT
 };
 
-enum data_type
-{
-  DATA_TYPE_POINT,
-  DATA_TYPE_LINE,
-  DATA_TYPE_TRIANGLE
-};
-
-enum render_state
-{
-  RENDER_STATE_NONE         = 0x0,
-  RENDER_STATE_CULL_BACK    = 1<<1,
-  RENDER_STATE_POINTS       = 1<<2,
-  RENDER_STATE_WIREFRAME    = 1<<3,
-  RENDER_STATE_FILL         = 1<<4
-};
-
-struct entry_type_textured_quad
-{
-  bitmap_handle Bitmap;
-  m4 M;
-  m3 TM;
-};
-
-struct entry_type_line
-{
-  v3 Start;
-  v3 End;
-  material_handle MaterialHandle;
-  r32 LineThickness;
-};
-
-struct entry_type_overlay_line
-{
-  v4 Colour;
-  v2 p0;
-  v2 p1;
-  r32 Thickness;
-};
-
-struct entry_type_overlay_color_quad
-{
-  v4 Colour;
-  rect2f QuadRect;
-};
-
-struct entry_type_overlay_textured_quad
-{
-  bitmap_handle Handle;
-  rect2f TextureRect;
-  rect2f QuadRect;
-};
-
-struct entry_type_text
+struct entry_type_2d_quad
 {
   rect2f QuadRect;
   rect2f UVRect;
@@ -78,28 +22,9 @@ struct entry_type_text
   bitmap_handle BitmapHandle;
 };
 
-struct entry_type_light
-{
-  v4 Color;
-  m4 M;
-};
-
-struct entry_type_render_asset
-{
-  object_handle Object;
-  bitmap_handle Bitmap;
-  material_handle Material;
-
-  m4 M;
-  m4 NM;
-  m4 TM;
-};
-
 struct push_buffer_header
 {
   render_buffer_entry_type Type;
-  u32 RenderState;
-  u32 SortKey;
   push_buffer_header* Next;
 };
 

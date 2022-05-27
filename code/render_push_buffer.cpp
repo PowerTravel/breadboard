@@ -4,16 +4,30 @@
 #include "breadboard_tile.h"
 #include "random.h"
 
-#define GetBody(Header) ((u8*) (Header) + sizeof(push_buffer_header))
-push_buffer_header* PushNewHeader(render_group* RenderGroup, render_buffer_entry_type Type, u32 BodyMemorySize, u32 RenderState, u32 SortKey = 0)
+
+#define GetBody(Header, Type) ((Type*) (((push_buffer_header*) Header ) + 1))
+
+u32 RenderTypeToBodySize(render_buffer_entry_type Type)
+{
+  switch(Type)
+  {
+    case render_buffer_entry_type::NEW_LEVEL: return 0;
+    case render_buffer_entry_type::QUAD_2D: return sizeof(entry_type_2d_quad); 
+    case render_buffer_entry_type::QUAD_2D_COLOR: return sizeof(entry_type_2d_quad);
+  }
+  Assert(0);
+  return 0;
+}
+
+push_buffer_header* PushNewEntry(render_group* RenderGroup, render_buffer_entry_type Type)
 {
   RenderGroup->ElementCount++;
   // Note: Header and body needs to be allocated in one call to ensure they end up on the same block.
   //       If the header is in another memory block as the header they won't be located togeather
   //       in memory.
   //       Alternate solution is to let the header carry a pointer to the body.
-  push_buffer_header* NewEntryHeader = (push_buffer_header*) PushSize(&RenderGroup->Arena, sizeof(push_buffer_header) + BodyMemorySize);
-  NewEntryHeader->SortKey = SortKey;
+  u32 BodySize = RenderTypeToBodySize(Type);
+  push_buffer_header* NewEntryHeader = (push_buffer_header*) PushSize(&RenderGroup->Arena, sizeof(push_buffer_header) + BodySize);
   NewEntryHeader->Next = 0;
 
   if(!RenderGroup->First)
@@ -25,7 +39,6 @@ push_buffer_header* PushNewHeader(render_group* RenderGroup, render_buffer_entry
     RenderGroup->Last = NewEntryHeader;
   }
   NewEntryHeader->Type = Type;
-  NewEntryHeader->RenderState = RenderState;
   RenderGroup->BufferCounts[(u32) Type]++;
 
   return NewEntryHeader;
@@ -33,41 +46,42 @@ push_buffer_header* PushNewHeader(render_group* RenderGroup, render_buffer_entry
 
 void PushNewRenderLevel(render_group* RenderGroup)
 {
-  push_buffer_header* Header = PushNewHeader(RenderGroup, render_buffer_entry_type::NEW_LEVEL, 0, RENDER_STATE_NONE);
+  push_buffer_header* Header = PushNewEntry(RenderGroup, render_buffer_entry_type::NEW_LEVEL);
 }
 
-void PushTexturedOverlayQuad(rect2f QuadRect, rect2f TextureRect, bitmap_handle Handle)
+void Push2DColoredQuad(render_group* RenderGroup, rect2f QuadRect, v4 Color)
 {
-  render_group* RenderGroup = GlobalGameState->RenderCommands->OverlayGroup;
-  push_buffer_header* Header = PushNewHeader(RenderGroup, render_buffer_entry_type::OVERLAY_TEXTURED_QUAD, sizeof(entry_type_overlay_textured_quad), RENDER_STATE_FILL);
-  entry_type_overlay_textured_quad* Body = (entry_type_overlay_textured_quad*) GetBody(Header);
-  Body->TextureRect = TextureRect;
-  QuadRect.X += QuadRect.W/2.f;
-  QuadRect.Y += QuadRect.H/2.f;
+  push_buffer_header* Header = PushNewEntry(RenderGroup, render_buffer_entry_type::QUAD_2D_COLOR);
+  entry_type_2d_quad* Body = GetBody(Header, entry_type_2d_quad);
+  Body->Colour = Color;
   Body->QuadRect = QuadRect;
-  Body->Handle = Handle;
+}
+
+void Push2DQuad(render_group* RenderGroup, rect2f QuadRect, rect2f UVRect, v4 Color, bitmap_handle BitmapHandle)
+{
+  push_buffer_header* Header = PushNewEntry(RenderGroup, render_buffer_entry_type::QUAD_2D);
+  entry_type_2d_quad* Body = GetBody(Header, entry_type_2d_quad);
+  Body->UVRect = UVRect;
+  Body->QuadRect = QuadRect;
+  Body->BitmapHandle = BitmapHandle;
+  Body->Colour = Color;
 }
 
 void PushOverlayQuad(rect2f QuadRect, v4 Color)
 {
+  QuadRect.X += QuadRect.W*0.5f;
+  QuadRect.Y += QuadRect.H*0.5f;
   render_group* RenderGroup = GlobalGameState->RenderCommands->OverlayGroup;
-  push_buffer_header* Header = PushNewHeader(RenderGroup, render_buffer_entry_type::OVERLAY_COLORED_QUAD, sizeof(entry_type_overlay_color_quad), RENDER_STATE_FILL);
-  entry_type_overlay_color_quad* Body = (entry_type_overlay_color_quad*) GetBody(Header);
-  Body->Colour = Color;
-  Body->QuadRect = QuadRect;
+  Push2DColoredQuad(RenderGroup, QuadRect, Color);
 }
 
-void PushOverlayText(rect2f QuadRect, rect2f TextureRect, v4 Color, bitmap_handle BitmapHandle)
+void PushTexturedOverlayQuad(rect2f QuadRect,  rect2f UVRect,  bitmap_handle BitmapHandle)
 {
+  QuadRect.X += QuadRect.W*0.5f;
+  QuadRect.Y += QuadRect.H*0.5f;
   render_group* RenderGroup = GlobalGameState->RenderCommands->OverlayGroup;
-  push_buffer_header* Header = PushNewHeader( RenderGroup, render_buffer_entry_type::TEXT, sizeof(entry_type_text), RENDER_STATE_FILL);
-  entry_type_text* Body = (entry_type_text*) GetBody(Header);
-  Body->BitmapHandle = BitmapHandle;
-  Body->QuadRect = QuadRect;
-  Body->UVRect = TextureRect;
-  Body->Colour = Color;
+  Push2DQuad(RenderGroup, QuadRect, UVRect, V4(1,1,1,1), BitmapHandle);
 }
-
 
 r32 GetTextLineHeightSize(u32 FontSize)
 {
@@ -158,6 +172,7 @@ GetSTBGlyphRect(r32 xPosPx, r32 yPosPx, stbtt_bakedchar* CH )
 
 void PushTextAt(r32 CanPosX, r32 CanPosY, const c8* String, u32 FontSize, v4 Color)
 {
+  render_group* RenderGroup = GlobalGameState->RenderCommands->OverlayGroup;
   game_window_size WindowSize = GameGetWindowSize();
   r32 PixelPosX = Floor(CanPosX*WindowSize.HeightPx);
   r32 PixelPosY = Floor(CanPosY*WindowSize.HeightPx);
@@ -183,7 +198,7 @@ void PushTextAt(r32 CanPosX, r32 CanPosY, const c8* String, u32 FontSize, v4 Col
       GlyphOffset.Y *= ScreenScaleFactor;
       GlyphOffset.W *= ScreenScaleFactor;
       GlyphOffset.H *= ScreenScaleFactor;
-      PushOverlayText(GlyphOffset, TextureRect,Color, FontMap->BitmapHandle);
+      Push2DQuad(RenderGroup, GlyphOffset, TextureRect,Color, FontMap->BitmapHandle);
     }
     PixelPosX += CH->xadvance;
     ++String;
@@ -197,97 +212,6 @@ render_group* InitiateRenderGroup()
 
   ResetRenderGroup(Result);
   return Result;
-}
-
-internal inline void
-PushLine(render_group* RenderGroup, v3 Start, v3 End, v3 CameraPosition, r32 LineThickness, c8* MaterialName)
-{
-  v3 xAxis = End-Start;
-  v3 cameraDir = CameraPosition - Start;
-
-  m4 RotMat = GetRotationMatrix_X_ZHint(xAxis, cameraDir);
-
-  r32 Length = Norm(End-Start);
-
-  m4 ScaleMat = M4Identity();
-  ScaleMat.E[0] = Length;
-  ScaleMat.E[5] = LineThickness;
-
-  v3 MidPoint = (Start + End) / 2;
-  m4 TransMat = M4Identity();
-  TransMat.E[3]  = MidPoint.X;
-  TransMat.E[7]  = MidPoint.Y;
-  TransMat.E[11] = MidPoint.Z;
-
-  push_buffer_header* Header = PushNewHeader( RenderGroup, render_buffer_entry_type::RENDER_ASSET, sizeof(entry_type_render_asset), RENDER_STATE_CULL_BACK | RENDER_STATE_FILL );
-  entry_type_render_asset* Body = (entry_type_render_asset*) GetBody(Header);
-
-  GetHandle(GlobalGameState->AssetManager, "quad", &Body->Object);
-  GetHandle(GlobalGameState->AssetManager, MaterialName, &Body->Material);
-  GetHandle(GlobalGameState->AssetManager, "null", &Body->Bitmap);
-  Body->M = TransMat*RotMat*ScaleMat;
-  Body->NM = Transpose(RigidInverse(Body->M));
-  Body->TM = M4Identity();
-}
-
-internal inline void
-PushBoxFrame(render_group* RenderGroup, m4 M, aabb3f AABB, v3 CameraPosition, r32 LineThickness, c8* MaterialName)
-{
-  v3 P[8] = {};
-  GetAABBVertices(&AABB, P);
-  for(u32 i = 0; i < ArrayCount(P); ++i)
-  {
-    P[i] = V3(M*V4(P[i],1));
-  }
-
-  // Negative Z
-  PushLine(RenderGroup, P[0], P[1], CameraPosition, LineThickness, MaterialName);
-  PushLine(RenderGroup, P[1], P[2], CameraPosition, LineThickness, MaterialName);
-  PushLine(RenderGroup, P[2], P[3], CameraPosition, LineThickness, MaterialName);
-  PushLine(RenderGroup, P[3], P[0], CameraPosition, LineThickness, MaterialName);
-  // Positive Z
-  PushLine(RenderGroup, P[4], P[5], CameraPosition, LineThickness, MaterialName);
-  PushLine(RenderGroup, P[5], P[6], CameraPosition, LineThickness, MaterialName);
-  PushLine(RenderGroup, P[6], P[7], CameraPosition, LineThickness, MaterialName);
-  PushLine(RenderGroup, P[7], P[4], CameraPosition, LineThickness, MaterialName);
-  // Joining Lines
-  PushLine(RenderGroup, P[0], P[4], CameraPosition, LineThickness, MaterialName);
-  PushLine(RenderGroup, P[1], P[5], CameraPosition, LineThickness, MaterialName);
-  PushLine(RenderGroup, P[2], P[6], CameraPosition, LineThickness, MaterialName);
-  PushLine(RenderGroup, P[3], P[7], CameraPosition, LineThickness, MaterialName);
-}
-
-
-void PushArrow(render_group* RenderGroup, v3 Start, v3 Vector, c8* Color)
-{
-  v4 Q = GetRotation( V3(1,0,0), Vector);
-  const m4 ObjRotation = GetRotationMatrix(Q);
-
-  r32 Length = Norm(Vector);
-  m4 M = GetScaleMatrix(V4(Length, 0.05, 0.05, 1));
-  Translate(V4(Length/2.f,0,0,1), M);
-  M = ObjRotation * M;
-  Translate(V4(Start), M);
-
-  push_buffer_header* Header = PushNewHeader(RenderGroup, render_buffer_entry_type::RENDER_ASSET, sizeof(entry_type_render_asset), RENDER_STATE_FILL | RENDER_STATE_CULL_BACK);
-  entry_type_render_asset* Body = (entry_type_render_asset*) GetBody(Header);
-  GetHandle(GlobalGameState->AssetManager,"voxel", &Body->Object);
-  GetHandle(GlobalGameState->AssetManager, Color, &Body->Material);
-
-  Body->M = M;
-  Body->NM = Transpose(RigidInverse(Body->M));
-}
-
-void PushCube(render_group* RenderGroup, v3 Position, r32 Scale, c8* Color)
-{
-  push_buffer_header* Header = PushNewHeader( RenderGroup, render_buffer_entry_type::RENDER_ASSET, sizeof(entry_type_render_asset), RENDER_STATE_FILL | RENDER_STATE_CULL_BACK );
-  entry_type_render_asset* Body = (entry_type_render_asset*) GetBody(Header);
-  GetHandle(GlobalGameState->AssetManager, "voxel", &Body->Object);
-  GetHandle(GlobalGameState->AssetManager, Color, &Body->Material);
-
-  const m4 ScaleMatrix = GetScaleMatrix(V4(Scale,Scale,Scale,1));
-  Body->M = GetTranslationMatrix( V4(Position,1))*ScaleMatrix;
-  Body->NM = Transpose(RigidInverse(Body->M));
 }
 
 // Our Bitmap Origin is [0,0]->Left,Bottom, [TextureWidth_pixel,TextureHeight_pixel] -> TopRight
@@ -309,29 +233,14 @@ m3 GetTextureTranslationMatrix_OriginTopLeft(s32 X0_pixel, s32 Y0_pixel, s32 Wid
   return Result;
 }
 
-m4 GetModelMatrix(v3 Position, v2 Scale, r32 RotationAngle, v3 RotationAxis)
-{
-  v3 ScaleVec = V3(Scale, 1);
-  v4 Rotation = RotateQuaternion(RotationAngle, V4(RotationAxis,0));
-  m4 ModelMatrix = GetModelMatrix(Position, Rotation, ScaleVec);
-  return ModelMatrix;
-}
-
-void PushElectricalComponent(r32 xPos, r32 yPos, r32 SizeX, r32 SizeY, r32 RotationAngle,
+void PushElectricalComponent(r32 xPos, r32 yPos, r32 SizeX, r32 SizeY,
   u32 TileType, r32 BitmapWidth, r32 BitmapHeight, bitmap_handle TileHandle)
 {
   render_group* RenderGroup = GlobalGameState->RenderCommands->WorldGroup;
-  push_buffer_header* Header = PushNewHeader(RenderGroup, render_buffer_entry_type::TEXTURED_QUAD, sizeof(entry_type_textured_quad), RENDER_STATE_FILL);
-  entry_type_textured_quad* Body = (entry_type_textured_quad*) GetBody(Header);
-
-  v3 RotationAxis = V3(0,0,1);
-  // TODO: Use same render program as text-rendering, IE Don't send whole matrices to the gpu, just position and scale
-  //       and do the multiplication gpu side. Uses way less memory and is faster.
-  //       Don't know what I was thinking when I decided to send mostly empty matrices there.
-  Body->M = GetModelMatrix(V3(xPos, yPos, 0), V2(SizeX, SizeY), RotationAngle, RotationAxis);
   bitmap_coordinate TileCoordinate = GetElectricalComponentSpriteBitmapCoordinate(TileType);
-  Body->TM = GetSpriteSheetTranslationMatrixM3(&TileCoordinate, BitmapWidth, BitmapHeight);
-  Body->Bitmap = TileHandle;
+  rect2f UVRect = GetTextureRect(&TileCoordinate, BitmapWidth, BitmapHeight);
+  v4 Color = V4(1,1,1,1);
+  Push2DQuad(RenderGroup, Rect2f(xPos, yPos, SizeX, SizeY), UVRect, Color, TileHandle);
 }
 
 void FillRenderPushBuffer(world* World)
@@ -343,7 +252,7 @@ void FillRenderPushBuffer(world* World)
   entity_manager* EM = GlobalGameState->EntityManager;
   game_asset_manager* AM = GlobalGameState->AssetManager;
 
-  rect2f ScreenRect = {};
+  r32 OrthoZoom = 0;
   {
     BeginScopedEntityManagerMemory();
     component_result* ComponentList = GetComponentsOfType(EM, COMPONENT_FLAG_CAMERA);
@@ -353,7 +262,9 @@ void FillRenderPushBuffer(world* World)
       RenderGroup->ProjectionMatrix = Camera->P;
       RenderGroup->ViewMatrix       = Camera->V;
       RenderGroup->CameraPosition = GetPositionFromMatrix( &Camera->V);
-      ScreenRect = GetCameraScreenRect(Camera->OrthoZoom);
+      OrthoZoom = Camera->OrthoZoom;
+      
+
     }
   }
 
@@ -363,11 +274,11 @@ void FillRenderPushBuffer(world* World)
 
   r32 SpriteSheetWidth =  (r32) ElectricalComponentSpriteSheet->Width;
   r32 SpriteSheetHeight = (r32) ElectricalComponentSpriteSheet->Height;
-
-  PushElectricalComponent(RenderGroup->CameraPosition.X, RenderGroup->CameraPosition.Y, ScreenRect.W, ScreenRect.H, 0,
+  
+  rect2f ScreenRect = ScreenRect = GetCameraScreenRect(OrthoZoom);
+  PushElectricalComponent(RenderGroup->CameraPosition.X, RenderGroup->CameraPosition.Y, ScreenRect.W, ScreenRect.H,
   ElectricalComponentSprite_Empty, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
   
-
   electrical_component* Component = World->Source;
   r32 xPos = 0;
   while(Component)
@@ -376,12 +287,12 @@ void FillRenderPushBuffer(world* World)
     {
       case ElectricalComponentType_Source:
       {
-        PushElectricalComponent(xPos, 0, 1, 1, Tau32/4.f, ElectricalComponentSprite_Source, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
+        PushElectricalComponent(xPos, 0, 1, 1, ElectricalComponentSprite_Source, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
         Component = GetComponentConnectedAtPin(Component, ElectricalPinType_Output);
       }break;
       case ElectricalComponentType_Ground:
       {
-        PushElectricalComponent(xPos, 0, 1, 1, Tau32/4.f, ElectricalComponentSprite_Ground, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
+        PushElectricalComponent(xPos, 0, 1, 1, ElectricalComponentSprite_Ground, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
         Component = 0;
       }break;
       case ElectricalComponentType_Led_Red:
@@ -397,14 +308,14 @@ void FillRenderPushBuffer(world* World)
         {
           LedState = ElectricalComponentSprite_LedRedOn;
         }
-        PushElectricalComponent(xPos, 0, 1, 1,  Tau32/4.f, ElectricalComponentSprite_WireBlack, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
-        PushElectricalComponent(xPos, 0, 1, 1, -Tau32/4.f, ElectricalComponentSprite_WireBlack, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
-        PushElectricalComponent(xPos, 0, 1, 1, 0, LedState, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
+        PushElectricalComponent(xPos, 0, 1, 1, ElectricalComponentSprite_WireBlack, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
+        PushElectricalComponent(xPos, 0, 1, 1, ElectricalComponentSprite_WireBlack, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
+        PushElectricalComponent(xPos, 0, 1, 1, LedState, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
         Component = GetComponentConnectedAtPin(Component, ElectricalPinType_Negative);
       }break;
       case ElectricalComponentType_Resistor:
       {
-        PushElectricalComponent(xPos, 0, 1, 1, -Tau32/4.f, ElectricalComponentSprite_Resistor, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
+        PushElectricalComponent(xPos, 0, 1, 1, ElectricalComponentSprite_Resistor, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
         Component = GetComponentConnectedAtPin(Component, ElectricalPinType_B);
       }break;
       case ElectricalComponentType_Wire:
@@ -433,10 +344,8 @@ void FillRenderPushBuffer(world* World)
       tile_contents Content = GetTileContents(TileMap, TilePos);
       if(Content.Component)
       {
-        PushElectricalComponent(Col_Tiles, Row_Tiles, 1, 1, 0, Content.Component->Type, SpriteSheetWidth, SpriteSheetHeight, TileHandle);  
-      }
-      
+        PushElectricalComponent(Col_Tiles, Row_Tiles, 1, 1, Content.Component->Type, SpriteSheetWidth, SpriteSheetHeight, TileHandle);  
+      }   
     }
   }
-
 }

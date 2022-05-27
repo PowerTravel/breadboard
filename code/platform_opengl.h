@@ -152,7 +152,7 @@ struct opengl_program
   u32 TextureIndex;
 };
 
-struct text_data
+struct quad_2d_data
 {
   rect2f QuadRect;
   rect2f UVRect;
@@ -160,20 +160,7 @@ struct text_data
   u32 TextureSlot;
 };
 
-struct overlay_color_quad_data
-{
-  rect2f QuadRect;
-  v4 Color;
-};
-
-struct textured_overlay_quad_data
-{
-  rect2f QuadRect;
-  rect2f UVRect;
-  u32 TextureSlot;
-};
-
-struct textured_quad_data
+struct quad_3d_data
 {
   u32 TextureSlot;
   v4 M_Row0;
@@ -197,9 +184,17 @@ struct open_gl
   u32 DefaultInternalTextureFormat;
   u32 DefaultTextureFormat;
 
-  opengl_program QuadOverlayProgram;
-  opengl_program TextOverlayProgram;
-  opengl_program TexturedQuadProgram;
+  // Programs using quad_2d_data instance struct
+  u32 Quad2DOffset;
+  u32 Quad2DColorOffset;
+  opengl_program Quad2DProgram;
+  opengl_program Colored2DQuadProgram;
+
+  u32 Quad3DOffset; // unused atm
+  opengl_program Quad3DProgram; // unused atm
+
+  // Programs using quad_3d_data instance struct
+
   // Frame Buffers (Intermediate Render Targets)
   
   // Texture Queue (Keeping all our textures?)
@@ -226,24 +221,13 @@ struct open_gl
   u32 ElementEBOOffset;
   glHandle ElementEBO;
   
-  // Keeps Instance data, whatever we like that's per instance.
+  // Keeps Instance data, whatever we like that's per instance of a geometry.
   glHandle InstanceVBO;
   
-  // Draw a colored quad on top of everything else
-  glHandle OverlayQuadVAO;
+  // A 2D object rendered in x-y-Plane. Specifies how to interpret data in the VBO
+  glHandle Quad2DVAO;
+  glHandle Quad2DColoredVAO;
   u32 OverlayColorQuadBaseOffset;
-
-  // Draw text on top of eveything else
-  glHandle OverlayTextVAO;
-  u32 OverlayTextBaseOffset;
-  
-  // Draw a textured quad ontop of everything else
-  glHandle OverlayTexQuadVAO;
-  u32 OverlayTexQuadBaseOffset;
-
-  // Draw a textured quad in world-space
-  u32 TexQuadBaseOffset;
-  glHandle TexQuadVAO;
 };
 
 void InitOpenGL(open_gl* OpenGL);

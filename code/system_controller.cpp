@@ -2,27 +2,6 @@
 #include "entity_components.h"
 #include "breadboard_tile.h"
 
-// Mouse Input in Screen Space
-// Cam Pos in World Space
-internal v2
-GetMousePosInProjectionWindow(r32 MouseX, r32 MouseY, r32 Zoom, r32 AspectRatio)
-{
-  rect2f ScreenRect = GetCameraScreenRect(Zoom, AspectRatio);
-  v2 Result = {};
-
-  Result.X = 0.5f * MouseX * ScreenRect.W;
-  Result.Y = 0.5f * MouseY * ScreenRect.H;
-  return Result;
-}
-
-v2 GetMousePosInWorld(component_camera* Camera, v2 MouseScreenSpace)
-{
-  v3 CamPos = GetPositionFromMatrix(&Camera->V);
-  v2 MousePosScreenSpace = GetMousePosInProjectionWindow(MouseScreenSpace.X, MouseScreenSpace.Y, Camera->OrthoZoom, GameGetAspectRatio());
-  v2 MousePosWorldSpace = MousePosScreenSpace + V2(CamPos);
-  return MousePosWorldSpace;
-}
-
 // Input in Screen Space
 void HandleZoom(component_camera* Camera, r32 MouseX, r32 MouseY, r32 ScrollWheel)
 {
@@ -93,7 +72,9 @@ void ControllerSystemUpdate( world* World )
 
         tile_map* TileMap = &GlobalGameState->World->TileMap;
 
-        v2 MousePosWorldSpace = GetMousePosInWorld(Camera, MouseScreenSpace);
+        v3 CamPos = GetPositionFromMatrix(&Camera->V);
+        r32 OrthoZoom = Camera->OrthoZoom;
+        v2 MousePosWorldSpace = GetMousePosInWorld(CamPos, OrthoZoom, MouseScreenSpace);
         
         TileMap->MousePosition = CanonicalizePosition( TileMap, V3(MousePosWorldSpace.X, MousePosWorldSpace.Y,0));
         
@@ -156,7 +137,7 @@ void ControllerSystemUpdate( world* World )
         //Platform.DEBUGFormatString(StringBuffer, 1024, 1024-1, "%f %f", MousePosWorldSpace.X, MousePosWorldSpace.Y);
         Platform.DEBUGFormatString(StringBuffer, 1024, 1024-1, "%s", Pushed(Keyboard->Key_S) ? "Down" : "Up");
         #endif
-        PushTextAt(Mouse->X, Mouse->Y, StringBuffer, 8, V4(0,0,0,1));
+        //PushTextAt(Mouse->X, Mouse->Y, StringBuffer, 8, V4(0,0,0,1));
       }break;
       case ControllerType_Hero:
       {

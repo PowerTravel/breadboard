@@ -272,7 +272,7 @@ m4 GetSpriteSheetTranslationMatrix(bitmap* SpriteSheet, bitmap_coordinate* Coord
 }
 
 
-m3 GetSpriteSheetTranslationMatrixM3(bitmap_coordinate* Coordinate, r32 SpriteSheetWidth_Pixels, r32 SpriteSheetHeight_Pixels, bool invertY = true)
+rect2f GetTextureRect(bitmap_coordinate* Coordinate, r32 SpriteSheetWidth_Pixels, r32 SpriteSheetHeight_Pixels, bool invertY = true)
 {
   // We want the bitmap_coordinate to fall in the middle of the pixel so that it's clamped to the correct edge
   r32 X0_PixelCorrected = Coordinate->x + 0.5f;
@@ -280,13 +280,9 @@ m3 GetSpriteSheetTranslationMatrixM3(bitmap_coordinate* Coordinate, r32 SpriteSh
   r32 Width_PixelCorrected = Coordinate->w - 1.f;
   r32 Height_PixelCorrected = Coordinate->h - 1.f;
 
-
   r32 X0 = X0_PixelCorrected / SpriteSheetWidth_Pixels;
   r32 Y0 = Y0_PixelCorrected / SpriteSheetHeight_Pixels;
   r32 ScaleX = Width_PixelCorrected / SpriteSheetWidth_Pixels;
   r32 ScaleY = Height_PixelCorrected / SpriteSheetHeight_Pixels;
-  v3 Translation = V3(X0,Y0,1);
-  v3 Scale = V3(ScaleX,ScaleY,1);
-  m3 Result = GetTranslationMatrix(Translation) * GetScaleMatrix(Scale);
-  return Result;
+  return Rect2f(X0,Y0,ScaleX,ScaleY);
 }

@@ -19,6 +19,24 @@ rect2f GetCameraScreenRect(r32 Zoom)
   return Result;
 }
 
+// Mouse Input in Screen Space
+// Cam Pos in World Space
+internal v2
+GetMousePosInProjectionWindow(r32 MouseX, r32 MouseY, r32 Zoom, r32 AspectRatio)
+{
+  rect2f ScreenRect = GetCameraScreenRect(Zoom, AspectRatio);
+  v2 Result = {};
+  Result.X = 0.5f * MouseX * ScreenRect.W;
+  Result.Y = 0.5f * MouseY * ScreenRect.H;
+  return Result;
+}
+
+v2 GetMousePosInWorld(v3 CameraPosition, r32 OrthoZoom, v2 MouseScreenSpace)
+{ 
+  v2 MousePosScreenSpace = GetMousePosInProjectionWindow(MouseScreenSpace.X, MouseScreenSpace.Y, OrthoZoom, GameGetAspectRatio());
+  v2 MousePosWorldSpace = MousePosScreenSpace + V2(CameraPosition);
+  return MousePosWorldSpace;
+}
 
 void LookAt( component_camera* Camera, v3 aFrom,  v3 aTo,  v3 aTmp = V3(0,1,0) )
 {

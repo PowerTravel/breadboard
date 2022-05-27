@@ -297,19 +297,8 @@ void BeginFrame(game_memory* Memory, game_render_commands* RenderCommands, game_
   ResetRenderGroup(RenderCommands->WorldGroup);
   ResetRenderGroup(RenderCommands->OverlayGroup);
 
-  r32 AspectRatio = GameGetAspectRatio();
-
-  m4 ScreenToCubeScale =  M4( 2/AspectRatio, 0, 0, 0,
-                                           0, 2, 0, 0,
-                                           0, 0, 0, 0,
-                                           0, 0, 0, 1);
-  m4 ScreenToCubeTrans =  M4( 1, 0, 0, -1,
-                              0, 1, 0, -1,
-                              0, 0, 1,  0,
-                              0, 0, 0,  1);
-
-  RenderCommands->OverlayGroup->ProjectionMatrix = ScreenToCubeTrans*ScreenToCubeScale;
-
+  // Transforms from canonical space to scre
+  RenderCommands->OverlayGroup->ProjectionMatrix = GetCanonicalSpaceProjectionMatrix();
   GlobalGameState->World->GlobalTimeSec += Input->dt;
 }
 

@@ -25,10 +25,10 @@ inline internal void OpenGLPrintShaderLog(GLuint Shader)
 }
 
 
-static GLuint OpenGLLoadShader( char* SourceCode, GLenum ShaderType )
+static GLuint OpenGLLoadShader(u32 ShaderCount, const char** SourceCode, GLenum ShaderType )
 {
   GLuint Shader = glCreateShader(ShaderType);
-  glShaderSource( Shader, 1, (const GLchar**) &SourceCode, NULL );
+  glShaderSource( Shader, ShaderCount, (const GLchar**) SourceCode, NULL );
   glCompileShader( Shader );
   GLint Compiled;
   glGetShaderiv(Shader, GL_COMPILE_STATUS, &Compiled);
@@ -41,10 +41,22 @@ static GLuint OpenGLLoadShader( char* SourceCode, GLenum ShaderType )
   return Shader;
 };
 
-static GLuint OpenGLCreateProgram( char* VertexShaderCode, char* FragmentShaderCode )
+static GLuint OpenGLCreateProgram(char* Defines, char* VertexShaderBody, char* FragmentShaderBody )
 {
-  GLuint VertexShader   = OpenGLLoadShader( VertexShaderCode,   GL_VERTEX_SHADER   );
-  GLuint FragmentShader = OpenGLLoadShader( FragmentShaderCode, GL_FRAGMENT_SHADER );
+  const char* VertexShaderCode[] = 
+  {
+    Defines,
+    VertexShaderBody
+  };
+
+  const char* FragmentShaderCode[] = 
+  {
+    Defines,
+    FragmentShaderBody
+  };
+
+  GLuint VertexShader   = OpenGLLoadShader(ArrayCount(VertexShaderCode), VertexShaderCode,   GL_VERTEX_SHADER   );
+  GLuint FragmentShader = OpenGLLoadShader(ArrayCount(FragmentShaderCode), FragmentShaderCode, GL_FRAGMENT_SHADER );
   
   GLuint Program = glCreateProgram();
 
@@ -82,42 +94,65 @@ static GLuint OpenGLCreateProgram( char* VertexShaderCode, char* FragmentShaderC
 
 // glDrawElementsInstanced is used when we have two buffers (1 Buffer with a geometry and another buffer with Instance Data )
 // https://stackoverflow.com/questions/24516993/is-it-possible-to-use-index-buffer-objects-ibo-with-the-function-glmultidrawe
-
 // glDrawElements uses 1 VertexBuffer and 1 IndexBuffer and draws the VertexBuffer using an offset into IndexBuffer
-
 // glMultiDrawElements uses 1 VertexBuffer and 1 IndexBuffer and draws n number of whats in the VertexBuffer using an offset into IndexBuffer specific for each n
 
-opengl_program OpenGLCreateTextProgram()
+
+// Draws a textured 2-D Quad on the X-Y Plane.
+// Expects geometry to be a Quad with side 1.
+// Options:
+//     - Texture
+//     - Color
+// -1,1                        1,1
+//   |------X,Y Screen Space----|
+//   |                          |
+//   |   -0.5,0.5     0.5,0.5   |
+//   |       |-----------|      |
+//   |       |---QUAD----|      |
+//   |       |----0.0----|      |
+//   |       |-----------|      |
+//   |       |-----------|      |
+//   |   -0.5,-0.5    0.5,0.5   |
+//   |                          |
+//   |--------------------------|
+// -1,-1                       1,1
+
+opengl_program OpenGLQuad2DProgram(u32 UseTexture, u32 UseColor)
 {
+  c8 Headers[4096] = {};
+
+  // We havent initialized Platform.DEBUGFormatString yet, so this  is a quick workaround for now
+  u32 Size = FormatString(Headers, sizeof(Headers),
+  "#version 330 core\n#define TEXTURE %d\n#define COLORIZE %d\n",
+    UseTexture,
+    UseColor);
+
   char VertexShaderCode[] = R"FOO(
-#version  330 core
 uniform mat4 ProjectionMat;  // Projection Matrix - Transforms points from ScreenSpace to UnitQube.
+uniform mat4 ViewMat;        // View Matrix - Transforms points from WorldSpace to ScreenSpace.
 layout (location = 0) in vec3 vertice;
+layout (location = 0) in vec3 normal; // Wasted in 2D. Always points in z+, Possible optimization
 layout (location = 2) in vec2 uv;
 layout (location = 3) in int TexSlot;
-layout (location = 4) in vec4 QuadRect;
-layout (location = 5) in vec4 UVRect;
-layout (location = 6) in vec4 Color;
+layout (location = 4) in vec4 QuadRect; // X,Y,W,H
+layout (location = 5) in vec4 UVRect;   // X,Y,W,H
+layout (location = 6) in vec4 Color;    // R,G,B,A
 out vec4 VertexColor;
 out vec3 ArrayUV;
 void main()
 {
-  mat3 projection;
-  projection[0] = vec3(ProjectionMat[0].x,0,0);
-  projection[1] = vec3(0,ProjectionMat[1].y,0);
-  projection[2] = vec3(ProjectionMat[3].x,ProjectionMat[3].y,1);
-
-  mat3 QuadTransform;
-  QuadTransform[0] = vec3(QuadRect.z, 0, 0); // z=Width
-  QuadTransform[1] = vec3(0, QuadRect.w, 0); // w=Height
-  QuadTransform[2] = vec3(QuadRect.xy, 1);   // x,y = x,y
+  mat4 ModelMatrix;
+  ModelMatrix[0] = vec4(QuadRect.z, 0, 0, 0); // z=Width
+  ModelMatrix[1] = vec4(0, QuadRect.w, 0, 0); // w=Height
+  ModelMatrix[2] = vec4(0, 0, 0, 0);          // Depth, unused
+  ModelMatrix[3] = vec4(QuadRect.xy, 0, 1);   // x,y = x,y Translation
 
   mat3 TextureTransform;
   TextureTransform[0] = vec3(UVRect.z, 0, 0);
   TextureTransform[1] = vec3(0, UVRect.w, 0);
   TextureTransform[2] = vec3(UVRect.xy, 1);
 
-  gl_Position = vec4((projection*QuadTransform*vec3(vertice.xy,1)).xy,0,1);
+  gl_Position = ProjectionMat*ViewMat*ModelMatrix*vec4(vertice.xyz,1);
   vec2 TextureCoordinate = (TextureTransform*vec3(uv.xy,1)).xy;
   VertexColor = Color;
   ArrayUV = vec3(TextureCoordinate.x, TextureCoordinate.y, TexSlot);
@@ -125,33 +160,42 @@ void main()
 )FOO";
   
   char* FragmentShaderCode = R"FOO(
-#version 330 core
 out vec4 fragColor;
 in vec4 VertexColor;
 in vec3 ArrayUV;
-uniform sampler2D ourTexture;
-uniform sampler2DArray TextureSampler;
+uniform sampler2D SpecialTexture;      // One per draw call (unused atm), Need to bind before draw
+uniform sampler2DArray TextureSampler; // 2D array of textures
 void main() 
 {
-  
-  vec4 Sample = texture(TextureSampler, ArrayUV);
-  fragColor = Sample * VertexColor;
+  fragColor = vec4(1,1,1,1);
+
+#if TEXTURE
+  fragColor = fragColor * texture(TextureSampler, ArrayUV);
+#endif
+
+#if COLORIZE
+// TODO: Have a uniform color key as well?
+// TODO: Could have a header section where we define a color-mixing function we use.
+  fragColor = fragColor * VertexColor;
+#endif
+
 }
 )FOO";
-  
+
   opengl_program Result = {};
-  Result.Program = OpenGLCreateProgram( VertexShaderCode, FragmentShaderCode );
+  Result.Program = OpenGLCreateProgram(Headers, VertexShaderCode, FragmentShaderCode );
   glUseProgram(Result.Program);
   Result.ProjectionMat = glGetUniformLocation(Result.Program, "ProjectionMat");
+  Result.ViewMat = glGetUniformLocation(Result.Program, "ViewMat");
   glUseProgram(0);
   
   return Result;
 }
 
-opengl_program OpenGLCreateTexturedQuadProgram()
+
+opengl_program OpenGLQuad3DProgram()
 {
   char VertexShaderCode[] = R"FOO(
-#version  330 core
 uniform mat4 ViewMat;        // View Matrix - Transforms points from WorldSpace to ScreenSpace.
 uniform mat4 ProjectionMat;  // Projection Matrix - Transforms points from ScreenSpace to UnitQube.
 layout (location = 0)  in vec3 vertice;
@@ -195,7 +239,6 @@ void main()
 )FOO";
   
   char* FragmentShaderCode = R"FOO(
-#version 330 core
 out vec4 fragColor;
 in vec3 ArrayUV;
 in vec4 TestColor;
@@ -209,7 +252,7 @@ void main()
 )FOO";
   
   opengl_program Result = {};
-  Result.Program = OpenGLCreateProgram( VertexShaderCode, FragmentShaderCode );
+  Result.Program = OpenGLCreateProgram("#version 330 core\n", VertexShaderCode, FragmentShaderCode );
   glUseProgram(Result.Program);
   Result.ProjectionMat = glGetUniformLocation(Result.Program, "ProjectionMat");
   Result.ViewMat = glGetUniformLocation(Result.Program, "ViewMat");
@@ -217,54 +260,6 @@ void main()
   
   return Result;
 }
-
-
-opengl_program OpenGLCreateUntexturedQuadOverlayQuadProgram()
-{
-  char VertexShaderCode[] = R"FOO(
-#version  330 core
-uniform mat4 ProjectionMat;
-layout (location = 0) in vec3 v;
-layout (location = 3) in vec4 rect;
-layout (location = 4) in vec4 color;
-out vec4 vertexColor;
-void main()
-{
-  mat3 projection;
-  projection[0] = vec3(ProjectionMat[0].x,0,0);
-  projection[1] = vec3(0,ProjectionMat[1].y,0);
-  projection[2] = vec3(ProjectionMat[3].x,ProjectionMat[3].y,1);
-
-  mat3 quadTransform;
-  quadTransform[0] = vec3(rect.z, 0, 0); // z=Width
-  quadTransform[1] = vec3(0, rect.w, 0); // w=Height
-  quadTransform[2] = vec3(rect.x + 0.5*rect.z,
-                          rect.y + 0.5*rect.w, 1);   // x,y = x,y
-
-  gl_Position = vec4((projection*quadTransform*vec3(v.xy,1)).xy,0,1);
-  vertexColor = color;
-}
-)FOO";
-  
-  char FragmentShaderCode[] = R"FOO(
-#version 330 core
-out vec4 fragColor;
-in vec4 vertexColor;
-void main() 
-{
-  fragColor = vertexColor;
-}
-)FOO";
-  
-  opengl_program Result = {};
-  Result.Program = OpenGLCreateProgram( VertexShaderCode, FragmentShaderCode );
-  glUseProgram(Result.Program);
-  Result.ProjectionMat    = glGetUniformLocation(Result.Program, "ProjectionMat");
-  glUseProgram(0);
-  
-  return Result;
-}
-
 
 internal opengl_info
 OpenGLGetExtensions()
@@ -366,18 +361,22 @@ void InitOpenGL(open_gl* OpenGL)
   OpenGL->DefaultTextureFormat = GL_BGRA_EXT;
   OpenGL->MaxTextureCount = NORMAL_TEXTURE_COUNT;
   OpenGL->MaxSpecialTextureCount = SPECIAL_TEXTURE_COUNT;
-  OpenGL->QuadOverlayProgram = OpenGLCreateUntexturedQuadOverlayQuadProgram();
-  OpenGL->TextOverlayProgram = OpenGLCreateTextProgram();
-  OpenGL->TexturedQuadProgram = OpenGLCreateTexturedQuadProgram();
-  
+
+  OpenGL->Quad2DProgram = OpenGLQuad2DProgram(true,true);
+  OpenGL->Colored2DQuadProgram = OpenGLQuad2DProgram(false,true);
+
   // 
-  OpenGL->BufferSize = Megabytes(512);
+  OpenGL->BufferSize = Megabytes(32);
   
   // Enable 2D Textures
   glEnable(GL_TEXTURE_2D);
   // Enable 3D Textures
   glEnable(GL_TEXTURE_3D);
-  
+
+  // Enable backface culling  
+  glEnable(GL_CULL_FACE);
+  glCullFace(GL_BACK);
+  glFrontFace(GL_CCW);
   ///
   
   OpenGL->SignleWhitePixelTexture = 0;
@@ -480,44 +479,20 @@ void InitOpenGL(open_gl* OpenGL)
   
   glBindVertexArray(0);
 
-  OpenGL->OverlayColorQuadBaseOffset = 0;
-  OpenGL->OverlayTextBaseOffset = Megabytes(1);
-  OpenGL->OverlayTexQuadBaseOffset = Megabytes(2);
-  OpenGL->TexQuadBaseOffset = Megabytes(3);
+  // One offset per VAO structure type
+  OpenGL->Quad2DOffset = OpenGL->BufferSize/2;
+  OpenGL->Quad2DColorOffset = 0;
 
-  
-  {
-    glGenVertexArrays(1, &OpenGL->OverlayQuadVAO);
-    glBindVertexArray(OpenGL->OverlayQuadVAO);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, OpenGL->ElementEBO);
-    
-    // The quadVAO now implicitly binds these parameters to whatever VBO is currently bound (ObjectKeeper->VBO)
-    glBindBuffer(GL_ARRAY_BUFFER, OpenGL->ElementVBO);
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(1);
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(opengl_vertex), (GLvoid*) OffsetOf(opengl_vertex, v));
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(opengl_vertex), (GLvoid*) OffsetOf(opengl_vertex, vn));
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(opengl_vertex), (GLvoid*) OffsetOf(opengl_vertex, vt));
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    
-    glBindBuffer(GL_ARRAY_BUFFER, OpenGL->InstanceVBO);
-    // The quadVAO now implicitly binds these parameters to whatever VBO is currently bound (quadInstanceVBO)
-    glEnableVertexAttribArray(3);
-    glEnableVertexAttribArray(4);
-    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(overlay_color_quad_data), (void *)(OpenGL->OverlayColorQuadBaseOffset + OffsetOf(overlay_color_quad_data,QuadRect)));
-    glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(overlay_color_quad_data), (void *)(OpenGL->OverlayColorQuadBaseOffset + OffsetOf(overlay_color_quad_data,Color)));
-    glVertexAttribDivisor(3, 1);
-    glVertexAttribDivisor(4, 1);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-  }
+  // Note: Even though the two data structures are the same, they are drawn with different shaders.
+  //       That means we need to specify a offset in the VBO to start drawing which means we need two
+  //       AttribArray specifying the offset. If we want to use the same AttribArray we have to 
+  //       use glDrawElementsInstancedBaseVertexBaseInstance to draw, but that requires us to bump to 
+  //       OpenGL 4.2. May do so in the future.
 
   ////
-    {
-    glGenVertexArrays(1, &OpenGL->OverlayTextVAO);
-    glBindVertexArray(OpenGL->OverlayTextVAO);
+  {
+    glGenVertexArrays(1, &OpenGL->Quad2DVAO);
+    glBindVertexArray(OpenGL->Quad2DVAO);
     
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, OpenGL->ElementEBO);
     
@@ -537,10 +512,10 @@ void InitOpenGL(open_gl* OpenGL)
     glEnableVertexAttribArray(4);
     glEnableVertexAttribArray(5);
     glEnableVertexAttribArray(6);
-    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(text_data), (void *)(OpenGL->OverlayTextBaseOffset + OffsetOf(text_data,TextureSlot)));
-    glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(text_data), (void *)(OpenGL->OverlayTextBaseOffset + OffsetOf(text_data,QuadRect)));
-    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(text_data), (void *)(OpenGL->OverlayTextBaseOffset + OffsetOf(text_data,UVRect)));
-    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(text_data), (void *)(OpenGL->OverlayTextBaseOffset + OffsetOf(text_data,Color)));
+    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DOffset + OffsetOf(quad_2d_data,TextureSlot)));
+    glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DOffset + OffsetOf(quad_2d_data,QuadRect)));
+    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DOffset + OffsetOf(quad_2d_data,UVRect)));
+    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DOffset + OffsetOf(quad_2d_data,Color)));
     glVertexAttribDivisor(3, 1);
     glVertexAttribDivisor(4, 1);
     glVertexAttribDivisor(5, 1);
@@ -550,14 +525,14 @@ void InitOpenGL(open_gl* OpenGL)
     glBindVertexArray(0);
   }
 
-  {
-    glGenVertexArrays(1, &OpenGL->TexQuadVAO);
-    glBindVertexArray(OpenGL->TexQuadVAO);
+ {
+    glGenVertexArrays(1, &OpenGL->Quad2DColoredVAO);
+    glBindVertexArray(OpenGL->Quad2DColoredVAO);
     
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, OpenGL->ElementEBO);
     
-    // The quadVAO now implicitly binds these parameters to whatever VBO is currently bound (ObjectKeeper->VBO)
     glBindBuffer(GL_ARRAY_BUFFER, OpenGL->ElementVBO);
+    // The textVAO now implicitly binds these parameters to whatever VBO is currently bound (ObjectKeeper->VBO)
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
     glEnableVertexAttribArray(2);
@@ -567,66 +542,24 @@ void InitOpenGL(open_gl* OpenGL)
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     
     glBindBuffer(GL_ARRAY_BUFFER, OpenGL->InstanceVBO);
-    // The quadVAO now implicitly binds these parameters to whatever VBO is currently bound (quadInstanceVBO)
+    // The textVAO now implicitly binds these parameters to whatever VBO is currently bound (quadInstanceVBO)
     glEnableVertexAttribArray(3);
     glEnableVertexAttribArray(4);
     glEnableVertexAttribArray(5);
-    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(textured_overlay_quad_data), (void *)(OpenGL->OverlayTexQuadBaseOffset + OffsetOf(textured_overlay_quad_data, TextureSlot)));
-    glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(textured_overlay_quad_data), (void *)(OpenGL->OverlayTexQuadBaseOffset + OffsetOf(textured_overlay_quad_data, QuadRect)));
-    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(textured_overlay_quad_data), (void *)(OpenGL->OverlayTexQuadBaseOffset + OffsetOf(textured_overlay_quad_data, UVRect)));
+    glEnableVertexAttribArray(6);
+    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DColorOffset + OffsetOf(quad_2d_data,TextureSlot)));
+    glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DColorOffset + OffsetOf(quad_2d_data,QuadRect)));
+    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DColorOffset + OffsetOf(quad_2d_data,UVRect)));
+    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DColorOffset + OffsetOf(quad_2d_data,Color)));
     glVertexAttribDivisor(3, 1);
     glVertexAttribDivisor(4, 1);
     glVertexAttribDivisor(5, 1);
+    glVertexAttribDivisor(6, 1);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+    
     glBindVertexArray(0);
   }
 
-  {
-    glGenVertexArrays(1, &OpenGL->TexQuadVAO);
-    glBindVertexArray(OpenGL->TexQuadVAO);
-    
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, OpenGL->ElementEBO);
-    
-    // The quadVAO now implicitly binds these parameters to whatever VBO is currently bound (ObjectKeeper->VBO)
-    glBindBuffer(GL_ARRAY_BUFFER, OpenGL->ElementVBO);
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(1);
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(opengl_vertex), (GLvoid*) OffsetOf(opengl_vertex, v));
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(opengl_vertex), (GLvoid*) OffsetOf(opengl_vertex, vn));
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(opengl_vertex), (GLvoid*) OffsetOf(opengl_vertex, vt));
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    
-    glBindBuffer(GL_ARRAY_BUFFER, OpenGL->InstanceVBO);
-    // The quadVAO now implicitly binds these parameters to whatever VBO is currently bound (quadInstanceVBO)
-    glEnableVertexAttribArray(3); // Texture Slot
-    glEnableVertexAttribArray(4); // ModelMatrix Row 0
-    glEnableVertexAttribArray(5); // ModelMatrix Row 1
-    glEnableVertexAttribArray(6); // ModelMatrix Row 2
-    glEnableVertexAttribArray(7); // ModelMatrix Row 3
-    glEnableVertexAttribArray(8); // TextureMatrix Row 0
-    glEnableVertexAttribArray(9); // TextureMatrix Row 1
-    glEnableVertexAttribArray(10); // TextureMatrix Row 2
-    glEnableVertexAttribArray(11); // TextureMatrix Row 3
-    glVertexAttribPointer(3,  1, GL_FLOAT, GL_FALSE, sizeof(textured_quad_data), (void *)(OpenGL->TexQuadBaseOffset + OffsetOf(textured_quad_data, TextureSlot)));
-    glVertexAttribPointer(4,  4, GL_FLOAT, GL_FALSE, sizeof(textured_quad_data), (void *)(OpenGL->TexQuadBaseOffset + OffsetOf(textured_quad_data, M_Row0)));
-    glVertexAttribPointer(5,  4, GL_FLOAT, GL_FALSE, sizeof(textured_quad_data), (void *)(OpenGL->TexQuadBaseOffset + OffsetOf(textured_quad_data, M_Row1)));
-    glVertexAttribPointer(6,  4, GL_FLOAT, GL_FALSE, sizeof(textured_quad_data), (void *)(OpenGL->TexQuadBaseOffset + OffsetOf(textured_quad_data, M_Row2)));
-    glVertexAttribPointer(7,  4, GL_FLOAT, GL_FALSE, sizeof(textured_quad_data), (void *)(OpenGL->TexQuadBaseOffset + OffsetOf(textured_quad_data, M_Row3)));
-    glVertexAttribPointer(8,  3, GL_FLOAT, GL_FALSE, sizeof(textured_quad_data), (void *)(OpenGL->TexQuadBaseOffset + OffsetOf(textured_quad_data, TM_Row0)));
-    glVertexAttribPointer(9,  3, GL_FLOAT, GL_FALSE, sizeof(textured_quad_data), (void *)(OpenGL->TexQuadBaseOffset + OffsetOf(textured_quad_data, TM_Row1)));
-    glVertexAttribPointer(10, 3, GL_FLOAT, GL_FALSE, sizeof(textured_quad_data), (void *)(OpenGL->TexQuadBaseOffset + OffsetOf(textured_quad_data, TM_Row2)));
-    glVertexAttribDivisor(3,  1); // Texture Slot
-    glVertexAttribDivisor(4,  1); // ModelMatrix Row 0
-    glVertexAttribDivisor(5,  1); // ModelMatrix Row 1
-    glVertexAttribDivisor(6,  1); // ModelMatrix Row 2
-    glVertexAttribDivisor(7,  1); // ModelMatrix Row 3
-    glVertexAttribDivisor(8,  1); // TextureMatrix Row 0
-    glVertexAttribDivisor(9,  1); // TextureMatrix Row 1
-    glVertexAttribDivisor(10, 1); // TextureMatrix Row 2
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-  }
 
 #if HANDMADE_INTERNAL
   glEnable(GL_DEBUG_OUTPUT);
@@ -634,7 +567,6 @@ void InitOpenGL(open_gl* OpenGL)
 #endif
   
 }
-
 
 void OpenGLSetViewport( r32 ViewPortAspectRatio, s32 WindowWidth, s32 WindowHeight )
 {
@@ -785,31 +717,6 @@ CreateGLVertexBuffer( memory_arena* TemporaryMemory,
   Result.VertexCount = VerticeArrayCount;
   Result.VertexData = VertexData;
   return Result;
-}
-
-internal void setOpenGLState(u32 State)
-{
-  if(State & RENDER_STATE_CULL_BACK)
-  {
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    glFrontFace(GL_CCW);
-  }else{
-    glDisable(GL_CULL_FACE);
-  }
-  
-  // TODO: We would like to be able to draw a filled mesh with wireframe ontop
-  //       At the moment its not supported
-  if(State & RENDER_STATE_POINTS)
-  {
-    glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
-  }else if(State & RENDER_STATE_WIREFRAME)
-  {
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-  }else if(State & RENDER_STATE_FILL)
-  {
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-  }
 }
 
 void PushObjectToGPU(open_gl* OpenGL, game_asset_manager* AssetManager, object_handle ObjectHandle)
@@ -989,7 +896,6 @@ void PushBitmapToGPU(open_gl* OpenGL, game_asset_manager* AssetManager, bitmap_h
   }
 }
 
-
 void DrawRenderGroup(open_gl* OpenGL, render_group* RenderGroup, game_asset_manager* AssetManager)
 {
   if( !RenderGroup->First) {return;}
@@ -999,122 +905,70 @@ void DrawRenderGroup(open_gl* OpenGL, render_group* RenderGroup, game_asset_mana
     push_buffer_header* BreakEntry = 0;
     while(StartEntry)
     {
-      u32 OverlayTextEntryCount = 0;
-      u32 OverlayColoredQuadCount = 0;
-      u32 OverlayTexturedQuadEntryCount = 0;
-      u32 TexturedQuadEntryCount = 0;
-      for( push_buffer_header* Entry = StartEntry;
+      u32 Quad2DCount = 0;
+      u32 Quad2DColorCount = 0;
+      for(push_buffer_header* Entry = StartEntry;
           Entry != 0;
           Entry = Entry->Next )
       {
-        OverlayTextEntryCount         += ((Entry->Type == render_buffer_entry_type::TEXT)                  ? 1 : 0);
-        OverlayColoredQuadCount       += ((Entry->Type == render_buffer_entry_type::OVERLAY_COLORED_QUAD)  ? 1 : 0);
-        OverlayTexturedQuadEntryCount += ((Entry->Type == render_buffer_entry_type::OVERLAY_TEXTURED_QUAD) ? 1 : 0);
-        TexturedQuadEntryCount        += ((Entry->Type == render_buffer_entry_type::TEXTURED_QUAD)         ? 1 : 0);
-        
+        Quad2DCount         += ((Entry->Type == render_buffer_entry_type::QUAD_2D)              ? 1 : 0);
+        Quad2DColorCount    += ((Entry->Type == render_buffer_entry_type::QUAD_2D_COLOR)        ? 1 : 0);
         if(Entry->Type == render_buffer_entry_type::NEW_LEVEL)
         {
           BreakEntry = Entry;
           break;
         }
       }
-      
-      { // Send data to VBO
-        text_data* OverlayTextBuffer = PushArray(&RenderGroup->Arena, OverlayTextEntryCount, text_data);
-        overlay_color_quad_data* OverlayColoredQuadBuffer = PushArray(&RenderGroup->Arena, OverlayColoredQuadCount, overlay_color_quad_data);
-        textured_overlay_quad_data* OverlayTexQuadBuffer = PushArray(&RenderGroup->Arena, OverlayTexturedQuadEntryCount, textured_overlay_quad_data);
-        textured_quad_data* TexQuadBuffer = PushArray(&RenderGroup->Arena, TexturedQuadEntryCount, textured_quad_data);
 
-        u32 OverlayColorQuadInstanceIndex = 0;
-        u32 OverlayTextInstanceIndex = 0;
-        u32 TexQuadInstanceIndex = 0;
-        u32 QuadInstanceIndex = 0;
+      u32 Quad2DBufferSize  = sizeof(quad_2d_data)*Quad2DCount;
+      u32 Quad2DColorBufferSize  = sizeof(quad_2d_data)*Quad2DColorCount;
+
+      { // Send data to VBO
+        quad_2d_data* Quad2DBuffer        = PushArray(&RenderGroup->Arena, Quad2DCount,      quad_2d_data);
+        quad_2d_data* Quad2DColoredBuffer = PushArray(&RenderGroup->Arena, Quad2DColorCount, quad_2d_data);
+
+        u32 Quad2DBufferInstanceIndex = 0;
+        u32 Quad2DBufferColorInstanceIndex = 0;
         for( push_buffer_header* Entry = StartEntry; Entry != BreakEntry; Entry = Entry->Next )
         {
           u8* Head = (u8*) Entry;
           u8* Body = Head + sizeof(push_buffer_header);
           switch(Entry->Type)
           {
-            case render_buffer_entry_type::OVERLAY_COLORED_QUAD:
-            {
-              entry_type_overlay_color_quad* Quad = (entry_type_overlay_color_quad*) Body;
-              
-              overlay_color_quad_data QuadData = {};
-              QuadData.QuadRect = Quad->QuadRect;
-              QuadData.Color = Quad->Colour;
-              OverlayColoredQuadBuffer[OverlayColorQuadInstanceIndex++] = QuadData;
-            }break;
             case render_buffer_entry_type::TEXT:
+            case render_buffer_entry_type::QUAD_2D:
             {
-              text_data TexData = {};
-              entry_type_text* Text = (entry_type_text*) Body;
-              
+              entry_type_2d_quad* EntryBody = (entry_type_2d_quad*) Body;
               bitmap_keeper* FontKeeper;
-              GetAsset(AssetManager, Text->BitmapHandle, &FontKeeper);
-              
-              TexData.TextureSlot = FontKeeper->TextureSlot;
-              TexData.QuadRect = Text->QuadRect;
-              TexData.UVRect = Text->UVRect;
-              TexData.Color = Text->Colour;
-              OverlayTextBuffer[OverlayTextInstanceIndex++] = TexData;
+              GetAsset(AssetManager, EntryBody->BitmapHandle, &FontKeeper);
+
+              quad_2d_data Quad2dData = {};              
+              Quad2dData.TextureSlot = FontKeeper->TextureSlot;
+              Quad2dData.QuadRect = EntryBody->QuadRect;
+              Quad2dData.UVRect = EntryBody->UVRect;
+              Quad2dData.Color = EntryBody->Colour;
+              Quad2DBuffer[Quad2DBufferInstanceIndex++] = Quad2dData;
             }break;
-            case render_buffer_entry_type::OVERLAY_TEXTURED_QUAD:
+            case render_buffer_entry_type::QUAD_2D_COLOR:
             {
-              textured_overlay_quad_data TexQuadData = {};
-              entry_type_overlay_textured_quad* TexQ = (entry_type_overlay_textured_quad*) Body;
-
-              bitmap_keeper* FontKeeper;
-              GetAsset(AssetManager, TexQ->Handle, &FontKeeper);
-
-              TexQuadData.QuadRect = TexQ->QuadRect;
-              TexQuadData.UVRect = TexQ->TextureRect;
-              TexQuadData.TextureSlot = FontKeeper->TextureSlot;
-              OverlayTexQuadBuffer[TexQuadInstanceIndex++] = TexQuadData;
-            }
-            case render_buffer_entry_type::TEXTURED_QUAD:
-            {
-              textured_quad_data TexQuadData = {};
-              entry_type_textured_quad* TexQ = (entry_type_textured_quad*) Body;
-
-              bitmap_keeper* FontKeeper;
-              GetAsset(AssetManager, TexQ->Bitmap, &FontKeeper);
-
-              TexQuadData.TextureSlot      = FontKeeper->TextureSlot;
-              TexQuadData.M_Row0           = TexQ->M.r0;
-              TexQuadData.M_Row1           = TexQ->M.r1;
-              TexQuadData.M_Row2           = TexQ->M.r2;
-              TexQuadData.M_Row3           = TexQ->M.r3;
-              TexQuadData.TM_Row0          = TexQ->TM.r0;
-              TexQuadData.TM_Row1          = TexQ->TM.r1;
-              TexQuadData.TM_Row2          = TexQ->TM.r2;
-              
-              TexQuadBuffer[QuadInstanceIndex++] = TexQuadData;
-            }
+              entry_type_2d_quad* Quad = (entry_type_2d_quad*) Body; 
+              quad_2d_data Quad2dData = {};
+              Quad2dData.QuadRect = Quad->QuadRect;
+              Quad2dData.Color = Quad->Colour;
+              Quad2DColoredBuffer[Quad2DBufferColorInstanceIndex++] = Quad2dData;
+            }break;
           }
         }
-        
-        u32 OverlayColorQuadBufferSize = sizeof(overlay_color_quad_data)*OverlayColoredQuadCount;
-        u32 OverlayTextBufferSize = sizeof(text_data)*OverlayTextEntryCount;
-        u32 OverlayTexQuadBufferSize = sizeof(textured_overlay_quad_data)*OverlayTexturedQuadEntryCount;
-        u32 TexQuadBufferSize = sizeof(textured_quad_data)*TexturedQuadEntryCount;
 
         glBindBuffer(GL_ARRAY_BUFFER, OpenGL->InstanceVBO);
-        glBufferSubData( GL_ARRAY_BUFFER,                   // Target
-                        OpenGL->OverlayColorQuadBaseOffset, // Offset
-                        OverlayColorQuadBufferSize,         // Size
-                        (GLvoid*) OverlayColoredQuadBuffer);       // Data
-        glBufferSubData( GL_ARRAY_BUFFER,                   // Target
-                        OpenGL->OverlayTextBaseOffset,      // Offset
-                        OverlayTextBufferSize,              // Size
-                        (GLvoid*) OverlayTextBuffer);       // Data
-        glBufferSubData( GL_ARRAY_BUFFER,                   // Target
-                        OpenGL->OverlayTexQuadBaseOffset,   // Offset
-                        OverlayTexQuadBufferSize,           // Size
-                        (GLvoid*) OverlayTexQuadBuffer);    // Data
-        glBufferSubData( GL_ARRAY_BUFFER,                   // Target
-                        OpenGL->TexQuadBaseOffset,          // Offset
-                        TexQuadBufferSize,                  // Size
-                        (GLvoid*) TexQuadBuffer);           // Data
+        glBufferSubData(GL_ARRAY_BUFFER,                    // Target
+                        OpenGL->Quad2DOffset,               // Offset into buffer to start writing data, starting at beginning
+                        Quad2DBufferSize,                   // Size
+                        (GLvoid*) Quad2DBuffer);            // Data
+        glBufferSubData(GL_ARRAY_BUFFER,                    // Target
+                        OpenGL->Quad2DColorOffset,          // Offset into buffer to start writing data, starting after previous write
+                        Quad2DColorBufferSize,              // Size
+                        (GLvoid*) Quad2DColoredBuffer);     // Data
         glBindBuffer(GL_ARRAY_BUFFER, 0);
       }
       
@@ -1124,48 +978,35 @@ void DrawRenderGroup(open_gl* OpenGL, render_group* RenderGroup, game_asset_mana
       GetAsset(AssetManager, ObjectHandle, &ElementObjectKeeper);
       
       {
-        opengl_program TexturedQuadProgram = OpenGL->TexturedQuadProgram;
-        glUseProgram(TexturedQuadProgram.Program);
-        glUniformMatrix4fv(TexturedQuadProgram.ProjectionMat, 1, GL_TRUE, RenderGroup->ProjectionMatrix.E);
-        glUniformMatrix4fv(TexturedQuadProgram.ViewMat,       1, GL_TRUE, RenderGroup->ViewMatrix.E);
-        glBindVertexArray(OpenGL->TexQuadVAO);
+        opengl_program Colored2DQuadProgram = OpenGL->Colored2DQuadProgram;
+        glUseProgram(Colored2DQuadProgram.Program);
+        glUniformMatrix4fv(Colored2DQuadProgram.ProjectionMat,  1, GL_TRUE, RenderGroup->ProjectionMatrix.E);
+        glUniformMatrix4fv(Colored2DQuadProgram.ViewMat,        1, GL_TRUE, RenderGroup->ViewMatrix.E);
+        glBindVertexArray(OpenGL->Quad2DColoredVAO);
         glDrawElementsInstancedBaseVertex(GL_TRIANGLES,                           // Mode,
                                           ElementObjectKeeper->Count,             // Nr of Elements (Triangles*3)
                                           GL_UNSIGNED_INT,                        // Index Data Type  
                                           (GLvoid*)(ElementObjectKeeper->Index),  // Pointer somewhere in the index buffer
-                                          TexturedQuadEntryCount,                 // How many Instances to draw
+                                          Quad2DColorCount,                       // How many Instances to draw
                                           ElementObjectKeeper->VertexOffset);     // Base Offset into the geometry vbo
         glBindVertexArray(0);
       }
 
       {
-        opengl_program QuadOverlayProgram = OpenGL->QuadOverlayProgram;
-        glUseProgram(QuadOverlayProgram.Program);
-        glUniformMatrix4fv(QuadOverlayProgram.ProjectionMat, 1, GL_TRUE, RenderGroup->ProjectionMatrix.E);
-        glBindVertexArray(OpenGL->OverlayQuadVAO);
+        opengl_program Quad2DProgram = OpenGL->Quad2DProgram;
+        glUseProgram(Quad2DProgram.Program);
+        glUniformMatrix4fv(Quad2DProgram.ProjectionMat, 1, GL_TRUE, RenderGroup->ProjectionMatrix.E);
+        glUniformMatrix4fv(Quad2DProgram.ViewMat,       1, GL_TRUE, RenderGroup->ViewMatrix.E);
+        glBindVertexArray(OpenGL->Quad2DVAO);
         glDrawElementsInstancedBaseVertex(GL_TRIANGLES,                           // Mode,
                                           ElementObjectKeeper->Count,             // Nr of Elements (Triangles*3)
                                           GL_UNSIGNED_INT,                        // Index Data Type  
                                           (GLvoid*)(ElementObjectKeeper->Index),  // Pointer somewhere in the index buffer
-                                          OverlayColoredQuadCount,                  // How many Instances to draw
+                                          Quad2DCount,                            // How many Instances to draw
                                           ElementObjectKeeper->VertexOffset);     // Base Offset into the geometry vbo
         glBindVertexArray(0);
       }
 
-      {
-        opengl_program TextRenderProgram = OpenGL->TextOverlayProgram;
-        glUseProgram(TextRenderProgram.Program);
-        glUniformMatrix4fv(TextRenderProgram.ProjectionMat, 1, GL_TRUE, RenderGroup->ProjectionMatrix.E);
-        glBindVertexArray(OpenGL->OverlayTextVAO);
-        glDrawElementsInstancedBaseVertex(GL_TRIANGLES,                           // Mode,
-                                          ElementObjectKeeper->Count,             // Nr of Elements (Triangles*3)
-                                          GL_UNSIGNED_INT,                        // Index Data Type  
-                                          (GLvoid*)(ElementObjectKeeper->Index),  // Pointer somewhere in the index buffer
-                                          OverlayTextEntryCount,                  // How many Instances to draw
-                                          ElementObjectKeeper->VertexOffset);     // Base Offset into the geometry vbo
-        glBindVertexArray(0);
-      }
-      
       StartEntry = 0;
       if(BreakEntry)
       {
@@ -1212,8 +1053,7 @@ void OpenGLRenderGroupToOutput(game_render_commands* Commands)
   // glEnable(GL_DEPTH_TEST);
   // glDepthFunc(GL_LESS);
 
-  // Enable Textures
-  glEnable(GL_TEXTURE_2D);
+  // Bind Textures (Enabled in init)
   glActiveTexture(GL_TEXTURE0);
   glBindTexture( GL_TEXTURE_2D_ARRAY, OpenGL->TextureArray);      
 
@@ -1221,5 +1061,6 @@ void OpenGLRenderGroupToOutput(game_render_commands* Commands)
   OpenGLSetViewport( DesiredAspectRatio, Commands->ScreenWidthPixels,  Commands->ScreenHeightPixels );
   
   DrawRenderGroup(OpenGL, Commands->WorldGroup, AssetManager);
+  //Commands->OverlayGroup->ViewMatrix = M4Identity();
   DrawRenderGroup(OpenGL, Commands->OverlayGroup, AssetManager);
 }

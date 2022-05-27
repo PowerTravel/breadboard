@@ -221,18 +221,13 @@ inline r32 GameGetAspectRatio()
 // Points in Canonical Space will be transformed to ScreenSpace
 inline m4 GetCanonicalSpaceProjectionMatrix()
 {
-  game_window_size WindowSize = GameGetWindowSize();
-  r32 AspectRatio = WindowSize.WidthPx/WindowSize.HeightPx;
-
-  m4 ScreenToCubeScale =  M4( 2/AspectRatio, 0, 0, 0,
-                                           0, 2, 0, 0,
-                                           0, 0, 0, 0,
-                                           0, 0, 0, 1);
-  m4 ScreenToCubeTrans =  M4( 1, 0, 0, -1,
-                              0, 1, 0, -1,
-                              0, 0, 1,  0,
-                              0, 0, 0,  1);
-  m4 ProjectionMatrix = ScreenToCubeTrans*ScreenToCubeScale;
+  r32 AspectRatio = GameGetAspectRatio();
+  // Transforms from canonical space to screenSpace
+  m4 ProjectionMatrix = 
+       M4( 2/AspectRatio, 0, 0, -1,
+                       0, 2, 0, -1,
+                       0, 0, 0,  0,
+                       0, 0, 0,  1);
   return ProjectionMatrix;
 }
 

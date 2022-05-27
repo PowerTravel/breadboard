@@ -4,6 +4,29 @@
 #include <cmath>
 #include "types.h"
 
+//TODO: Implement this yourself
+#include <stdarg.h>
+#include <stdio.h>
+u32 FormatString(c8* Buffer, midx SizeOfBuffer, const c8* FormatString, ... )
+{
+  va_list args;
+  va_start(args, FormatString);
+  u32 Result = vsnprintf(
+    Buffer,
+    SizeOfBuffer,
+    FormatString,
+    args);
+  va_end(args);
+  return Result;  
+}
+void Print(FILE* o, const c8* FormattedString, ... )
+{
+  va_list args;
+  va_start(args, FormattedString);
+  s32 Result = vfprintf(o, FormattedString, args);
+  va_end(args);
+}
+
 inline u32 GetThreadID()
 {
   // Read the pointer to thread local storage.
