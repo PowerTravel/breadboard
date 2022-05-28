@@ -105,8 +105,8 @@ GetTilePage(tile_map* TileMap, s32 TilePageX, s32 TilePageY, s32 TilePageZ,
 
   do{
     if( (TilePageX == Page->PageX) &&
-      (TilePageY == Page->PageY) &&
-      (TilePageZ == Page->PageZ))
+      (  TilePageY == Page->PageY) &&
+      (  TilePageZ == Page->PageZ))
     {
       break;
     }
@@ -240,6 +240,11 @@ SetTileContentsAbs(memory_arena* Arena, tile_map* TileMap, s32 AbsTileX, s32 Abs
   SetTileContentsUnchecked(TileMap, TilePage, TilePos.TileX, TilePos.TileY, TileContents );
 }
 
+inline void
+SetTileContents(memory_arena* Arena, tile_map* TileMap, tile_map_position* CanPos, tile_contents TileContents)
+{
+  SetTileContentsAbs(Arena, TileMap, CanPos->AbsTileX, CanPos->AbsTileY, CanPos->AbsTileZ, TileContents);
+}
 
 inline b32
 IsTileMapPointEmpty(tile_map* TileMap, tile_map_position CanPos)

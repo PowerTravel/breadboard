@@ -75,10 +75,22 @@ struct io_pin
 struct electrical_component
 {
   u32 Type;
+  r32 Rotation;
   u32 PinCount;
   io_pin Pins[6];
   electric_dynamic_state DynamicState;
   electric_static_state StaticState;
+};
+
+struct mouse_selector
+{
+  v2 CanPos;
+  v2 ScreenPos;
+  v2 WorldPos;
+  tile_map_position TilePos;
+  binary_signal_state LeftButton;
+  binary_signal_state RightButton;
+  tile_contents SelectedContent;
 };
 
 void ConnectPin(electrical_component* ComponentA, ElectricalPinType PinA, electrical_component* ComponentB, ElectricalPinType PinB)
@@ -123,6 +135,7 @@ struct world
   
   tile_map TileMap;
   electrical_component* Source;
+  mouse_selector MouseSelector;
 };
 
 typedef void(*func_ptr_void)(void);

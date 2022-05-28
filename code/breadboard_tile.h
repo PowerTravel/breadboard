@@ -77,6 +77,7 @@ inline tile_contents GetTileContents(tile_map* TileMap, tile_page* TilePage, s32
 inline tile_contents GetTileContents(tile_map* TileMap, s32 AbsTileX, s32 AbsTileY, s32 AbsTileZ);
 inline tile_contents GetTileContents(tile_map* TileMap, tile_map_position CanPos);
 inline void SetTileContentsAbs(memory_arena* Arena, tile_map* TileMap, s32 AbsTileX, s32 AbsTileY, s32 AbsTileZ, tile_contents TileContents);
+inline void SetTileContents(memory_arena* Arena, tile_map* TileMap, tile_map_position* CanPos, tile_contents TileContents);
 aabb3f GetTileAABB(tile_map* TileMap, tile_map_position CanPos );
 b32 IsTileMapPointEmpty(tile_map* TileMap, tile_map_position CanPos);
 inline tile_map_position CanonicalizePosition( tile_map* TileMap, v3 Pos );

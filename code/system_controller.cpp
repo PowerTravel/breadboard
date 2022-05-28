@@ -1,6 +1,7 @@
 #include "component_camera.h"
 #include "entity_components.h"
 #include "breadboard_tile.h"
+#include "breadboard_tile.h"
 
 // Input in Screen Space
 void HandleZoom(component_camera* Camera, r32 MouseX, r32 MouseY, r32 ScrollWheel)
@@ -62,10 +63,13 @@ void ControllerSystemUpdate( world* World )
         component_camera* Camera = GetCameraComponent(Components);
         keyboard_input* Keyboard = Controller->Keyboard;
         mouse_input* Mouse = Controller->Mouse;
+        mouse_selector* MouseSelector = &GlobalGameState->World->MouseSelector;
 
         v2 MouseScreenSpaceStart = CanonicalToScreenSpace(V2(Mouse->X - Mouse->dX,Mouse->Y - Mouse->dY));
         v2 MouseScreenSpace   = CanonicalToScreenSpace(V2(Mouse->X, Mouse->Y));
         v2 MouseDeltaScreenSpace = MouseScreenSpace - MouseScreenSpaceStart;
+
+        
 
         HandleZoom(Camera, MouseScreenSpace.X, MouseScreenSpace.Y, Mouse->dZ);
         HandleTranslate(Camera, Mouse->Button[PlatformMouseButton_Left].Active, MouseDeltaScreenSpace.X, MouseDeltaScreenSpace.Y);
@@ -77,67 +81,113 @@ void ControllerSystemUpdate( world* World )
         v2 MousePosWorldSpace = GetMousePosInWorld(CamPos, OrthoZoom, MouseScreenSpace);
         
         TileMap->MousePosition = CanonicalizePosition( TileMap, V3(MousePosWorldSpace.X, MousePosWorldSpace.Y,0));
-        
-        tile_contents ContentAtMouse = GetTileContents(TileMap, TileMap->MousePosition);
 
-        if(!ContentAtMouse.Component)
+        MouseSelector->LeftButton = Mouse->Button[PlatformMouseButton_Left];
+        MouseSelector->RightButton = Mouse->Button[PlatformMouseButton_Right];
+        MouseSelector->CanPos = V2(Mouse->X, Mouse->Y);
+        MouseSelector->ScreenPos = MouseScreenSpace;
+        MouseSelector->WorldPos = MousePosWorldSpace;
+        MouseSelector->TilePos = TileMap->MousePosition;
+
+        tile_contents HotSelection = GetTileContents(TileMap, TileMap->MousePosition);
+
+        if(MouseSelector->SelectedContent.Component)
         {
-          electrical_component* Component = 0;
+          HotSelection = MouseSelector->SelectedContent;
+        }
+
+        if(Released(MouseSelector->LeftButton))
+        {
+          tile_contents PreviousContent = MouseSelector->SelectedContent;
+          MouseSelector->SelectedContent = GetTileContents(TileMap, TileMap->MousePosition);
+          SetTileContents(World->Arena, TileMap, &MouseSelector->TilePos, PreviousContent);
+        }
+        if(Pushed(MouseSelector->RightButton))
+        {
+          // TODO: At the moment this leaks memory. Fix this with some smart memory system.
+          //       Or something dumb, like have a separate arena for tile-map stuff and after
+          //       a set amount of fragmentation from "leaked" memory just reallocate everything
+          //       in that map or chunk or whaterver.
+          //       Anyway, do something. This is just for demoing atm.
+          MouseSelector->SelectedContent = {};
+        }
+
+        if(Pushed(Keyboard->Key_Q))
+        {
+          // Rotate Left
+          if(HotSelection.Component)
+          {
+            HotSelection.Component->Rotation += Tau32/4.f;
+            if(HotSelection.Component->Rotation > Pi32)
+            {
+              HotSelection.Component->Rotation -= Tau32;
+            }else if(HotSelection.Component->Rotation < -Pi32)
+            {
+              HotSelection.Component->Rotation += Tau32;
+            }
+          }
+        }
+        if(Pushed(Keyboard->Key_W))
+        {
+          // Rotate Right
+          if(HotSelection.Component)
+          {
+            HotSelection.Component->Rotation -= Tau32/4.f;
+            if(HotSelection.Component->Rotation > Pi32)
+            {
+              HotSelection.Component->Rotation -= Tau32;
+            }else if(HotSelection.Component->Rotation < -Pi32)
+            {
+              HotSelection.Component->Rotation += Tau32;
+            }
+          }
+        }
+
+
+        electrical_component** Component = &MouseSelector->SelectedContent.Component;
+        if(!*Component)
+        {
+
           if(Pushed(Keyboard->Key_S))
           {
-            Component = PushStruct(World->Arena, electrical_component);
-            Component->Type = ElectricalComponentType_Source;
+            *Component = PushStruct(World->Arena, electrical_component);
+            (*Component)->Type = ElectricalComponentType_Source;
           }
           if(Pushed(Keyboard->Key_R))
           {
-            Component    = PushStruct(World->Arena, electrical_component);
-            Component->Type = ElectricalComponentType_Resistor;
+            *Component    = PushStruct(World->Arena, electrical_component);
+            (*Component)->Type = ElectricalComponentType_Resistor;
           }
           if(Pushed(Keyboard->Key_L))
           {
-            Component      = PushStruct(World->Arena, electrical_component);
-            Component->Type = ElectricalComponentType_Led_Red;
+            *Component      = PushStruct(World->Arena, electrical_component);
+            (*Component)->Type = ElectricalComponentType_Led_Red;
           }
           if(Pushed(Keyboard->Key_G))
           {
-            Component     = PushStruct(World->Arena, electrical_component);
-            Component->Type = ElectricalComponentType_Ground;
-          }
-          if(Component)
-          {
-            ContentAtMouse.Component = Component;
-            SetTileContentsAbs(World->Arena, TileMap, TileMap->MousePosition.AbsTileX, TileMap->MousePosition.AbsTileY, 0, ContentAtMouse);
+            *Component     = PushStruct(World->Arena, electrical_component);
+            (*Component)->Type = ElectricalComponentType_Ground;
           }
         }else
         {
           if(Pushed(Keyboard->Key_S))
           {
-            ContentAtMouse.Component->Type = ElectricalComponentType_Source;
+            (*Component)->Type = ElectricalComponentType_Source;
           }
           if(Pushed(Keyboard->Key_R))
           {
-            ContentAtMouse.Component->Type = ElectricalComponentType_Resistor;
+            (*Component)->Type = ElectricalComponentType_Resistor;
           }
           if(Pushed(Keyboard->Key_L))
           {
-            ContentAtMouse.Component->Type = ElectricalComponentType_Led_Red;
+            (*Component)->Type = ElectricalComponentType_Led_Red;
           }
           if(Pushed(Keyboard->Key_G))
           {
-            ContentAtMouse.Component->Type = ElectricalComponentType_Ground;
+            (*Component)->Type = ElectricalComponentType_Ground;
           }
         }
-          
-
-        c8 StringBuffer[1024] = {};
-        #if 0
-        Platform.DEBUGFormatString(StringBuffer, 1024, 1024-1, "%d.%.0f %d.%.0f (%s)", TileMap->MousePosition.AbsTileX, 100.f*TileMap->MousePosition.RelTileX, TileMap->MousePosition.AbsTileY, 100.f*TileMap->MousePosition.RelTileY,
-          ContentAtMouse.Component ? ComponentTypeToString(ContentAtMouse.Component->Type) : "empty");
-        #else
-        //Platform.DEBUGFormatString(StringBuffer, 1024, 1024-1, "%f %f", MousePosWorldSpace.X, MousePosWorldSpace.Y);
-        Platform.DEBUGFormatString(StringBuffer, 1024, 1024-1, "%s", Pushed(Keyboard->Key_S) ? "Down" : "Up");
-        #endif
-        //PushTextAt(Mouse->X, Mouse->Y, StringBuffer, 8, V4(0,0,0,1));
+        
       }break;
       case ControllerType_Hero:
       {

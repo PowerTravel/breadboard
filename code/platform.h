@@ -366,6 +366,10 @@ inline bool Pushed(binary_signal_state DigitalState)
 {
   return DigitalState.Edge && DigitalState.Active; 
 }
+inline bool Released(binary_signal_state DigitalState)
+{
+  return DigitalState.Edge && !DigitalState.Active; 
+}
 struct keyboard_input
 {
   union

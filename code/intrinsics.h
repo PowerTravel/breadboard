@@ -146,6 +146,13 @@ Pow( r32 Base, r32 Exponent )
   return Result;
 }
 
+inline r32
+Log( r32 value )
+{
+  r32 Result = (r32) logf( value );
+  return Result;
+}
+
 struct bit_scan_result
 {
   b32 Found;
