@@ -91,63 +91,9 @@ void ControllerSystemUpdate( world* World )
 
         tile_contents HotSelection = GetTileContents(TileMap, TileMap->MousePosition);
 
-        if(MouseSelector->SelectedContent.Component)
-        {
-          HotSelection = MouseSelector->SelectedContent;
-        }
-
-        if(Released(MouseSelector->LeftButton))
-        {
-          tile_contents PreviousContent = MouseSelector->SelectedContent;
-          MouseSelector->SelectedContent = GetTileContents(TileMap, TileMap->MousePosition);
-          SetTileContents(World->Arena, TileMap, &MouseSelector->TilePos, PreviousContent);
-        }
-        if(Pushed(MouseSelector->RightButton))
-        {
-          // TODO: At the moment this leaks memory. Fix this with some smart memory system.
-          //       Or something dumb, like have a separate arena for tile-map stuff and after
-          //       a set amount of fragmentation from "leaked" memory just reallocate everything
-          //       in that map or chunk or whaterver.
-          //       Anyway, do something. This is just for demoing atm.
-          MouseSelector->SelectedContent = {};
-        }
-
-        if(Pushed(Keyboard->Key_Q))
-        {
-          // Rotate Left
-          if(HotSelection.Component)
-          {
-            HotSelection.Component->Rotation += Tau32/4.f;
-            if(HotSelection.Component->Rotation > Pi32)
-            {
-              HotSelection.Component->Rotation -= Tau32;
-            }else if(HotSelection.Component->Rotation < -Pi32)
-            {
-              HotSelection.Component->Rotation += Tau32;
-            }
-          }
-        }
-        if(Pushed(Keyboard->Key_W))
-        {
-          // Rotate Right
-          if(HotSelection.Component)
-          {
-            HotSelection.Component->Rotation -= Tau32/4.f;
-            if(HotSelection.Component->Rotation > Pi32)
-            {
-              HotSelection.Component->Rotation -= Tau32;
-            }else if(HotSelection.Component->Rotation < -Pi32)
-            {
-              HotSelection.Component->Rotation += Tau32;
-            }
-          }
-        }
-
-
         electrical_component** Component = &MouseSelector->SelectedContent.Component;
         if(!*Component)
         {
-
           if(Pushed(Keyboard->Key_S))
           {
             *Component = PushStruct(World->Arena, electrical_component);
@@ -187,7 +133,48 @@ void ControllerSystemUpdate( world* World )
             (*Component)->Type = ElectricalComponentType_Ground;
           }
         }
-        
+
+        if(MouseSelector->SelectedContent.Component)
+        {
+          HotSelection = MouseSelector->SelectedContent;
+        }
+
+        if(Released(MouseSelector->LeftButton))
+        {
+          tile_contents PreviousContent = MouseSelector->SelectedContent;
+          MouseSelector->SelectedContent = GetTileContents(TileMap, TileMap->MousePosition);
+          SetTileContents(World->Arena, TileMap, &MouseSelector->TilePos, PreviousContent);
+        }
+        if(Pushed(MouseSelector->RightButton))
+        {
+          // TODO: At the moment this leaks memory. Fix this with some smart memory system.
+          //       Or something dumb, like have a separate arena for tile-map stuff and after
+          //       a set amount of fragmentation from "leaked" memory just reallocate everything
+          //       in that map or chunk or whaterver.
+          //       Anyway, do something. This is just for demoing atm.
+          MouseSelector->SelectedContent = {};
+        }
+
+        if(Pushed(Keyboard->Key_Q))
+        {
+          MouseSelector->Rotation -= Tau32/4.f;
+        }
+        if(Pushed(Keyboard->Key_E))
+        {
+          MouseSelector->Rotation += Tau32/4.f;
+        }
+        if(MouseSelector->Rotation > Pi32)
+        {
+          MouseSelector->Rotation -= Tau32;
+        }else if(MouseSelector->Rotation < -Pi32)
+        {
+          MouseSelector->Rotation += Tau32;
+        }
+        if(HotSelection.Component)
+        {
+          HotSelection.Component->Rotation = MouseSelector->Rotation;
+        }
+
       }break;
       case ControllerType_Hero:
       {

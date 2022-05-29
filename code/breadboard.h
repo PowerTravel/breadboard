@@ -87,6 +87,7 @@ struct mouse_selector
   v2 CanPos;
   v2 ScreenPos;
   v2 WorldPos;
+  r32 Rotation;
   tile_map_position TilePos;
   binary_signal_state LeftButton;
   binary_signal_state RightButton;
