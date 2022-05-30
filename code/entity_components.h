@@ -7,6 +7,7 @@
 #include "bitmap.h"
 #include "data_containers.h"
 #include "Assets.h"
+#include "breadboard_tile.h"
 
 struct component_head;
 
@@ -50,6 +51,7 @@ enum ControllerType
   ControllerType_Hero,
   ControllerType_FlyingCamera,
 };
+
 struct component_controller
 {
   keyboard_input* Keyboard;
@@ -58,9 +60,10 @@ struct component_controller
   u32 Type;
 };
 
-struct component_light
+struct component_position
 {
-  v4 Color;
+  v3 Position;
+  r32 Rotation;
 };
 
 struct component_spatial
@@ -74,7 +77,6 @@ struct component_spatial
   v4 Rotation;
   m4 ModelMatrix;
 };
-
 
 inline v3 DirectionToLocal(component_spatial* Spatial, v3 GlobalDirection)
 {
@@ -138,8 +140,9 @@ enum component_type
   COMPONENT_FLAG_CONTROLLER         = 1<<1,
   COMPONENT_FLAG_RENDER             = 1<<2,
   COMPONENT_FLAG_SPRITE_ANIMATION   = 1<<3,
-  COMPONENT_SPATIAL                 = 1<<4,
-  COMPONENT_FLAG_FINAL              = 1<<5,
+  COMPONENT_FLAG_POSITION           = 1<<4,
+  COMPONENT_FLAG_ELECTRICAL         = 1<<5,
+  COMPONENT_FLAG_FINAL              = 1<<6,
 };
 
 struct em_chunk
@@ -184,7 +187,7 @@ struct entity_manager
 };
 
 entity_manager* CreateEntityManager( );
-void NewComponents( entity_manager* EM, entity* Entity, u32 EntityFlags );
+void NewComponents(entity_manager* EM, u32 EntityID, u32 ComponentFlags);
 u32 NewEntity( entity_manager* EM );
 
 void BeginTransactions(entity_manager* EM)
@@ -235,8 +238,9 @@ u8* GetComponent(entity_manager* EM, component_result* ComponentList, u32 Compon
 u8* GetComponent(entity_manager* EM, u32 EntityID, u32 ComponentFlag);
 
 
-#define GetCameraComponent(Input) ((component_camera*) GetComponent(GlobalGameState->EntityManager, Input, COMPONENT_FLAG_CAMERA))
-#define GetControllerComponent(Input) ((component_controller*) GetComponent(GlobalGameState->EntityManager, Input, COMPONENT_FLAG_CONTROLLER))
-#define GetRenderComponent(Input) ((component_render*) GetComponent(GlobalGameState->EntityManager, Input, COMPONENT_FLAG_RENDER))
-#define GetSpriteAnimationComponent(Input) ((component_sprite_animation*) GetComponent(GlobalGameState->EntityManager, Input, COMPONENT_FLAG_SPRITE_ANIMATION))
-#define GetSpatialComponent(Input) ((component_spatial*) GetComponent(GlobalGameState->EntityManager, Input, COMPONENT_SPATIAL))
+#define GetCameraComponent(EntityID) ((component_camera*) GetComponent(GlobalGameState->EntityManager, EntityID, COMPONENT_FLAG_CAMERA))
+#define GetControllerComponent(EntityID) ((component_controller*) GetComponent(GlobalGameState->EntityManager, EntityID, COMPONENT_FLAG_CONTROLLER))
+#define GetRenderComponent(EntityID) ((component_render*) GetComponent(GlobalGameState->EntityManager, EntityID, COMPONENT_FLAG_RENDER))
+#define GetSpriteAnimationComponent(EntityID) ((component_sprite_animation*) GetComponent(GlobalGameState->EntityManager, EntityID, COMPONENT_FLAG_SPRITE_ANIMATION))
+#define GetPositionComponent(EntityID) ((component_position*) GetComponent(GlobalGameState->EntityManager, EntityID, COMPONENT_FLAG_POSITION))
+#define GetElectricalComponent(EntityID) ((electrical_component*) GetComponent(GlobalGameState->EntityManager, EntityID, COMPONENT_FLAG_ELECTRICAL))

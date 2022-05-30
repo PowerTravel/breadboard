@@ -13,13 +13,15 @@
 
 enum ElectricalComponentType
 {
+  ElectricalComponentType_None,
   ElectricalComponentType_Source,
   ElectricalComponentType_Ground,
   ElectricalComponentType_Led_Red,
   ElectricalComponentType_Led_Green,
   ElectricalComponentType_Led_Blue,
   ElectricalComponentType_Resistor,
-  ElectricalComponentType_Wire
+  ElectricalComponentType_Wire,
+  ElectricalComponentType_COUNT
 };
 
 const char* ComponentTypeToString(u32 Type)
@@ -86,7 +88,7 @@ struct mouse_selector
 {
   v2 CanPos;
   v2 ScreenPos;
-  v2 WorldPos;
+  v3 WorldPos;
   r32 Rotation;
   tile_map_position TilePos;
   binary_signal_state LeftButton;

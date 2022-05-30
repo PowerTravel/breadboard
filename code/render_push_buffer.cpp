@@ -289,44 +289,65 @@ u32 ElectricalComponentToSpriteType(electrical_component* Component)
 }
 
 
-void DrawGrid( rect2f ScreenRect, v3 CameraPosition, r32 TileStep, r32 Alpha )
+void DrawGrid( rect2f ScreenRect, tile_map* TileMap, u32 TileStride, v3 CameraPosition, r32 Alpha )
 {
   if(Alpha<=0)
   {
     return;
   }
-  render_group* RenderGroup = GlobalGameState->RenderCommands->WorldGroup;
-  r32 MinY = ScreenRect.Y + CameraPosition.Y;
-  r32 MaxY = MinY + ScreenRect.H;
-  r32 MinY_Tiles = (r32) (Floor(MinY) - ((u32)Floor(MinY)) % ((u32)TileStep));
-  r32 MaxY_Tiles = (r32) (Ciel(MaxY)  + ((u32) Ciel(MaxY)) % ((u32)TileStep));
 
+
+  render_group* RenderGroup = GlobalGameState->RenderCommands->WorldGroup;
+
+
+  r32 TileStepX = TileMap->TileWidth;
   r32 MinX = ScreenRect.X + CameraPosition.X;
   r32 MaxX = MinX + ScreenRect.W;
-  r32 MinX_Tiles = (r32) (Floor(MinX) - ((u32)Floor(MinX)) % ((u32)TileStep));
-  r32 MaxX_Tiles = (r32) (Ciel(MaxX)  + ((u32) Ciel(MaxX)) % ((u32)TileStep));
+  
+  r32 StrideXLength = TileStride * TileStepX;
+  r32 StrideXCount = Ciel(ScreenRect.W / StrideXLength) + 1;
+  r32 Width = StrideXCount * StrideXLength;
 
-  r32 Width_Tiles = MaxX_Tiles - MinX_Tiles;
-  r32 Height_Tiles = MaxY_Tiles - MinY_Tiles;
+  r32 MinStridesCountX = MinX / StrideXLength;
+  r32 StridesToMinX = Floor(MinStridesCountX);
+  r32 StartX = StridesToMinX * StrideXLength;
+  r32 EndX = StartX + Width;
+
+
+  r32 TileStepY = TileMap->TileHeight;
+  r32 MinY = ScreenRect.Y + CameraPosition.Y;
+  r32 MaxY = MinY + ScreenRect.H;
+
+  r32 StrideYLength = TileStride * TileStepY;
+  r32 StrideYCount = Ciel(ScreenRect.H / StrideYLength) + 1;
+  r32 Height = StrideYCount * StrideYLength;
+
+  r32 MinStridesCountY = MinY / StrideYLength;
+  r32 StridesToMinY = Floor(MinStridesCountY);
+  r32 StartY = StridesToMinY * StrideYLength;
+  r32 EndY = StartY + Height;
+
+
+  
+  
 
   game_window_size WindowSize = GameGetWindowSize();
   r32 AspectRatio = GameGetAspectRatio();
   r32 PixelWidthInWorld  = ScreenRect.W / (r32) WindowSize.WidthPx;
   r32 PixelHeightInWorld = ScreenRect.H / WindowSize.HeightPx;
 
-  for(r32 TileY  = MinY_Tiles;
-          TileY <= MaxY_Tiles;
-          TileY += TileStep)
+  for(r32 TileY  = StartY;
+          TileY <= EndY;
+          TileY += StrideYLength)
   {
-    rect2f Rect = Rect2f(MinX_Tiles, TileY - PixelHeightInWorld*0.5f + 0.5f, Width_Tiles, PixelHeightInWorld );  
+    rect2f Rect = Rect2f(StartX, TileY - PixelHeightInWorld*0.5f + 0.5f*TileStepY, Width, PixelHeightInWorld );  
     Push2DColoredQuad(RenderGroup, Rect, V4(1,1,1,Alpha)); 
   }  
-  for(r32 TileX  = MinX_Tiles;
-          TileX <= MaxX_Tiles;
-          TileX += TileStep)
+  for(r32 TileX  = StartX;
+          TileX <= EndX;
+          TileX += StrideXLength)
   {
-
-    rect2f Rect = Rect2f(TileX + 0.5f - PixelWidthInWorld*0.5f, MinY_Tiles, PixelWidthInWorld, Height_Tiles );
+    rect2f Rect = Rect2f(TileX - PixelWidthInWorld*0.5f + 0.5f*TileStepX, StartY, PixelWidthInWorld, Height );
     Push2DColoredQuad(RenderGroup, Rect, V4(1,1,1,Alpha));
   }
 }
@@ -361,9 +382,7 @@ void FillRenderPushBuffer(world* World)
   r32 SpriteSheetHeight = (r32) ElectricalComponentSpriteSheet->Height;
   
   rect2f ScreenRect = ScreenRect = GetCameraScreenRect(OrthoZoom);
-  //PushElectricalComponent(RenderGroup->CameraPosition.X, RenderGroup->CameraPosition.Y, ScreenRect.W, ScreenRect.H, 0,
-  //ElectricalComponentSprite_Empty, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
-  
+
   electrical_component* Component = World->Source;
   #if 0
   r32 xPos = 0;
@@ -421,30 +440,13 @@ void FillRenderPushBuffer(world* World)
   r32 MaxX = MinX + ScreenRect.W;
   r32 MinX_Tiles = Floor(MinX);
   r32 MaxX_Tiles = Ciel(MaxX);
-  
 
-#if 0
-  y0 = k x0 + b
-  y1 = k x1 + b
-
-  k = (y0 - b)/x0;
-  k = (y1 - b)/x1
-
-  (y0 - b)/x0 = (y1 - b)/x1
-
-  y0/x0 - b/x0 = y1/x1 - b/x1
-  y0/x0 - y1/x1 = b/x0 - b /x1
-  (y0x1 - y1x0)/x1x0 = (x1 b - x0 b) / x1x0
-
-  b = (y0x1 - y1x0)/(x1-x0)
-  k = (y1-y0) / (x1-x0)
-#endif
   r32 x = Log(OrthoZoom);
 
   r32 Alpha = 1;
   r32 x0 = Log(1);
   r32 y0 = 1;
-  r32 x1 = Log(100);
+  r32 x1 = Log(14);
   r32 y1 = 0;
   
   Alpha = Linearize(x, x0, y0, x1, y1);
@@ -454,7 +456,7 @@ void FillRenderPushBuffer(world* World)
   r32 y0_2 = 0;
   r32 x1_2 = Log(10);
   r32 y1_2 = 1;
-  r32 x2_2 = Log(1000);
+  r32 x2_2 = Log(2000);
   r32 y2_2 = 0;
   if(x > x0_2 && x < x1_2 )
     Alpha2 = Linearize(x, x0_2, y0_2, x1_2, y1_2);
@@ -467,71 +469,44 @@ void FillRenderPushBuffer(world* World)
   r32 y0_3 = 0;
   r32 x1_3 = Log(1000);
   r32 y1_3 = 1;
-  r32 x2_3 = Log(10000);
+  r32 x2_3 = Log(200000);
   r32 y2_3 = 0;
   if(x > x0_2 && x < x1_2 )
     Alpha3 = Linearize(x, x0_3, y0_3, x1_3, y1_3);
   else
     Alpha3 = Linearize(x, x1_3, y1_3, x2_3, y2_3);
 
-
-  //r32 Alpha3 = 0;
-  //r32 x0_3 = Log(20);
-  //r32 y0_3 = 0;
-  //r32 x1_3 = Log(50);
-  //r32 y1_3 = 1;
-  //Alpha3 = Linearize(x, x0_3, y0_3, x1_3, y1_3);
-
-  DrawGrid(ScreenRect, RenderGroup->CameraPosition, 1, Alpha);
-  DrawGrid(ScreenRect, RenderGroup->CameraPosition, 10, Alpha2);
-  DrawGrid(ScreenRect, RenderGroup->CameraPosition, 100, Alpha3);
-  //DrawGrid(ScreenRect, RenderGroup->CameraPosition, 100, Alpha2);
-  //DrawGrid(ScreenRect, RenderGroup->CameraPosition, 1000, Alpha2);
-
-  u32 Grid2 = 10;
-//  rect2f R = Rect2f(MinX_Tiles, MinY_Tiles, Width, Height);
-//  Push2DColoredQuad(RenderGroup, R, V4(1,1,1,1));
-
-
-  
-
-
-#if 1
   tile_map* TileMap = &GlobalGameState->World->TileMap;
-
-  for(r32 TileX  = MinX_Tiles;
-          TileX <= MaxX_Tiles;
-          TileX++)
+  DrawGrid(ScreenRect, TileMap, 1, RenderGroup->CameraPosition, Alpha);
+  DrawGrid(ScreenRect, TileMap, 100, RenderGroup->CameraPosition, Alpha2);
+  DrawGrid(ScreenRect, TileMap, 10000, RenderGroup->CameraPosition, Alpha3);
+  
+  component_position* Pos = 0;
   {
-    for(r32 TileY  = MinY_Tiles;
-      TileY <= MaxY_Tiles;
-      TileY++)
+    BeginScopedEntityManagerMemory();
+    component_result* Components = GetComponentsOfType(EM, COMPONENT_FLAG_ELECTRICAL | COMPONENT_FLAG_POSITION);
+    while(Next(EM, Components))
     {
-      tile_map_position TilePos = CanonicalizePosition(TileMap, V3( TileX, TileY, 0 ) );
-      tile_contents Content = GetTileContents(TileMap, TilePos);
-      if(Content.Component)
-      {
-        r32 XPos = TileX;
-        r32 YPos = TileY;
-        u32 TileSpriteSheet = ElectricalComponentToSpriteType(Content.Component);
-        PushElectricalComponent(XPos, YPos, 1, 1, Content.Component->Rotation, TileSpriteSheet, SpriteSheetWidth, SpriteSheetHeight, TileHandle);  
-      }   
+      electrical_component* ElectricalComponent = GetElectricalComponent(Components);
+      Pos = GetPositionComponent(Components);
+      u32 TileSpriteSheet = ElectricalComponentToSpriteType(ElectricalComponent);
+      r32 TileSpriteSheetWidth = 1.f;
+      r32 X = Pos->Position.X - 0.5f * TileSpriteSheetWidth;
+      r32 Y = Pos->Position.Y - 0.5f * TileSpriteSheetWidth;
+      PushElectricalComponent(X, Y, TileSpriteSheetWidth, TileSpriteSheetWidth, Pos->Rotation, TileSpriteSheet, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
     }
   }
 
-  mouse_selector* MouseSelector = &World->MouseSelector;
-  if(MouseSelector->SelectedContent.Component)
-  {
-    u32 TileSpriteSheet = ElectricalComponentToSpriteType(MouseSelector->SelectedContent.Component);
-    PushElectricalComponent(MouseSelector->WorldPos.X-0.5f, MouseSelector->WorldPos.Y-0.5f, 1, 1, MouseSelector->SelectedContent.Component->Rotation, TileSpriteSheet, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
-  }
-  
-#endif
 #if 1
-  char StringBuffer[1024] = {};
-  mouse_input* Mouse = &GlobalGameState->Input->Mouse;
-  rect2f ScreenRect2 = GetCameraScreenRect(OrthoZoom);
-  Platform.DEBUGFormatString(StringBuffer, 1024, 1024-1, "%2.2f %2.2f", x, Alpha2);
-  PushTextAt(Mouse->X, Mouse->Y, StringBuffer, 8, V4(1,1,1,1));
+  if(Pos)
+  {
+    char StringBuffer[1024] = {};
+    mouse_input* Mouse = &GlobalGameState->Input->Mouse;
+    mouse_selector* ms = &GlobalGameState->World->MouseSelector; 
+    rect2f ScreenRect2 = GetCameraScreenRect(OrthoZoom);
+    Platform.DEBUGFormatString(StringBuffer, 1024, 1024-1, "%f %f, %2.2f %2.2f",Pos->Position.X,Pos->Position.Y,
+      ms->WorldPos.X, ms->WorldPos.Y);
+    PushTextAt(Mouse->X, Mouse->Y, StringBuffer, 8, V4(1,1,1,1));
+  }
 #endif
 }

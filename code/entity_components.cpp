@@ -102,6 +102,20 @@ void PopulateChunkWithComponents(entity_manager* EM, entity* Entity, entity_comp
   Entity->Components = Chunk;
 }
 
+u32 GetTotalRequirements(entity_manager* EM, u32 ComponentFlags)
+{
+  u32 SummedFlags = ComponentFlags;
+  u32 ComponentIndex = 0;
+  while(IndexOfLeastSignificantSetBit(ComponentFlags, &ComponentIndex))
+  {
+    component_list* ComponentList = EM->Components + ComponentIndex;
+    // Sum all required components
+    SummedFlags = SummedFlags | ComponentList->Requirement;
+    ComponentFlags -= ComponentList->Type;
+  }
+  return SummedFlags;
+}
+  
 void NewComponents(entity_manager* EM, u32 EntityID, u32 ComponentFlags)
 {
   CheckArena(&EM->Arena);
@@ -110,12 +124,13 @@ void NewComponents(entity_manager* EM, u32 EntityID, u32 ComponentFlags)
   Assert( ! ( ComponentFlags & ( ~(COMPONENT_FLAG_FINAL - 1) ) ) );
 
   entity* Entity = GetEntityFromID(EM, EntityID);
-  Assert(( ComponentFlags & Entity->ComponentFlags) == COMPONENT_FLAG_NONE);
-  Entity->ComponentFlags = Entity->ComponentFlags | ComponentFlags;
 
-  entity_component_chunk* Chunk = GetNewComponentChunk(&EM->Arena, ComponentFlags);
-  PopulateChunkWithComponents(EM, Entity, Chunk);
+  u32 TotalRequirements = GetTotalRequirements(EM, ComponentFlags);
+  u32 NewComponents = (~Entity->ComponentFlags) & TotalRequirements;
 
+  Entity->ComponentFlags = Entity->ComponentFlags | NewComponents;
+  entity_component_chunk* Chunks = GetNewComponentChunk(&EM->Arena, NewComponents);
+  PopulateChunkWithComponents(EM, Entity, Chunks);
 }
 
 u32 NewEntity( entity_manager* EM )
@@ -397,7 +412,8 @@ entity_manager* CreateEntityManager( )
   Result->Components[IndexOfLeastSignificantSetBit(COMPONENT_FLAG_CONTROLLER)] = CreateComponentList(COMPONENT_FLAG_CONTROLLER, sizeof(component_controller), ControllerChunkCount, COMPONENT_FLAG_NONE);
   Result->Components[IndexOfLeastSignificantSetBit(COMPONENT_FLAG_RENDER)] = CreateComponentList(COMPONENT_FLAG_RENDER, sizeof(component_render), EntityChunkCount, COMPONENT_FLAG_NONE);
   Result->Components[IndexOfLeastSignificantSetBit(COMPONENT_FLAG_SPRITE_ANIMATION)] = CreateComponentList(COMPONENT_FLAG_SPRITE_ANIMATION, sizeof(component_sprite_animation), EntityChunkCount, COMPONENT_FLAG_NONE);
-  Result->Components[IndexOfLeastSignificantSetBit(COMPONENT_SPATIAL)] = CreateComponentList(COMPONENT_SPATIAL, sizeof(component_spatial), EntityChunkCount, COMPONENT_FLAG_NONE);
+  Result->Components[IndexOfLeastSignificantSetBit(COMPONENT_FLAG_POSITION)] = CreateComponentList(COMPONENT_FLAG_POSITION, sizeof(component_position), EntityChunkCount, COMPONENT_FLAG_NONE);
+  Result->Components[IndexOfLeastSignificantSetBit(COMPONENT_FLAG_ELECTRICAL)] = CreateComponentList(COMPONENT_FLAG_ELECTRICAL, sizeof(electrical_component), EntityChunkCount, COMPONENT_FLAG_POSITION);
 
   for(s32 i = 0; i<IndexOfLeastSignificantSetBit(COMPONENT_FLAG_FINAL); i++)
   {

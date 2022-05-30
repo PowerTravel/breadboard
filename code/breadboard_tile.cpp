@@ -263,8 +263,8 @@ IsTileMapPointEmpty(tile_map* TileMap, tile_map_position CanPos)
 
 void InitializeTileMap( tile_map* TileMap )
 {
-  TileMap->TileWidth = 1.f;
-  TileMap->TileHeight = 1.f;
+  TileMap->TileWidth = 0.25f;
+  TileMap->TileHeight = 0.25f;
   TileMap->TileDepth = 1.f;
   TileMap->PageShift = 4;
   TileMap->PageMask = (1<<TileMap->PageShift)-1;

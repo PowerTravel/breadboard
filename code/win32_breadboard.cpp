@@ -867,6 +867,8 @@ void Win32HandleInternalCommands(win32_state* WinState, game_input* GameInput)
 {
   if(Pushed(GameInput->Keyboard.Key_L) && GameInput->Keyboard.Key_ALT.Active)
   {
+    // Broken,  alt also sometime is active for an unknown reason
+    #if 0
     if(GameInput->Keyboard.Key_ALT.Active){
       Win32BeginInputPlayBack(WinState,1);
     }else{
@@ -884,6 +886,7 @@ void Win32HandleInternalCommands(win32_state* WinState, game_input* GameInput)
         GameInput->Keyboard = {};
       }
     }
+    #endif
   }
 
   if(Pushed(GameInput->Keyboard.Key_P) && GameInput->Keyboard.Key_ALT.Active)

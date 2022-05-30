@@ -42,7 +42,7 @@ enum tile_type
 struct tile_contents
 {
   tile_type Type;
-  electrical_component* Component;
+  u32 ElectricalComponentEntity;
 };
 
 struct tile_page{
@@ -66,8 +66,6 @@ struct tile_map{
 
   // NOTE(Jakob): At the moment this needs to be a power of 2
   tile_page MapHash[4096];
-
-  tile_map_position MousePosition;
 };
 
 
