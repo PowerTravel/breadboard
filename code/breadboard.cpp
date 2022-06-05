@@ -1,4 +1,9 @@
 
+// TODO:
+//   Come up with a more flexible rendering system.
+//   If one fills out the render buffer before each draw call we don't need a attrib array per program for example.
+//   Then we can have an attrib array per data type for example.
+
 #if 0
 
   Example of how to build a temporrary bitmap, upload to card and render

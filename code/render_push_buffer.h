@@ -10,7 +10,8 @@ enum class render_buffer_entry_type
   TEXT,
   NEW_LEVEL,
   QUAD_2D,
-  QUAD_2D_COLOR,
+  QUAD_2D_COLOR,    // Uses texture array which is a stack of 512x512
+  QUAD_2D_SPECIAL,  // Uses special texture is a single texture per draw call which is variable size
   COUNT
 };
 

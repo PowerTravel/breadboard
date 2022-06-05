@@ -117,15 +117,16 @@ static GLuint OpenGLCreateProgram(char* Defines, char* VertexShaderBody, char* F
 //   |--------------------------|
 // -1,-1                       1,1
 
-opengl_program OpenGLQuad2DProgram(u32 UseTexture, u32 UseColor)
+opengl_program OpenGLQuad2DProgram(u32 UseTexture, u32 UseColor, u32 SpecialTexture)
 {
   c8 Headers[4096] = {};
 
   // We havent initialized Platform.DEBUGFormatString yet, so this  is a quick workaround for now
   u32 Size = FormatString(Headers, sizeof(Headers),
-  "#version 330 core\n#define TEXTURE %d\n#define COLORIZE %d\n",
+  "#version 330 core\n#define TEXTURE %d\n#define COLORIZE %d\n #define SPECIAL_TEXTURE %d\n",
     UseTexture,
-    UseColor);
+    UseColor,
+    SpecialTexture);
 
   char VertexShaderCode[] = R"FOO(
 uniform mat4 ProjectionMat;  // Projection Matrix - Transforms points from ScreenSpace to UnitQube.
@@ -177,7 +178,11 @@ void main()
   fragColor = vec4(1,1,1,1);
 
 #if TEXTURE
-  fragColor = fragColor * texture(TextureSampler, ArrayUV);
+  #if SPECIAL_TEXTURE
+    fragColor = fragColor * texture(SpecialTexture, ArrayUV.xy);
+  #else
+    fragColor = fragColor * texture(TextureSampler, ArrayUV);
+  #endif
 #endif
 
 #if COLORIZE
@@ -369,8 +374,9 @@ void InitOpenGL(open_gl* OpenGL)
   OpenGL->MaxTextureCount = NORMAL_TEXTURE_COUNT;
   OpenGL->MaxSpecialTextureCount = SPECIAL_TEXTURE_COUNT;
 
-  OpenGL->Quad2DProgram = OpenGLQuad2DProgram(true,true);
-  OpenGL->Colored2DQuadProgram = OpenGLQuad2DProgram(false,true);
+  OpenGL->Quad2DProgram = OpenGLQuad2DProgram(true,true,false);
+  OpenGL->Quad2DProgramSpecial = OpenGLQuad2DProgram(true,true,true);
+  OpenGL->Colored2DQuadProgram = OpenGLQuad2DProgram(false,true,false);
 
   // 
   OpenGL->BufferSize = Megabytes(32);
@@ -487,8 +493,10 @@ void InitOpenGL(open_gl* OpenGL)
   glBindVertexArray(0);
 
   // One offset per VAO structure type
-  OpenGL->Quad2DOffset = OpenGL->BufferSize/2;
   OpenGL->Quad2DColorOffset = 0;
+  OpenGL->Quad2DOffsetSpecial = 1*OpenGL->BufferSize/3;
+  OpenGL->Quad2DOffset = 2*OpenGL->BufferSize/3;
+  
 
   // Note: Even though the two data structures are the same, they are drawn with different shaders.
   //       That means we need to specify a offset in the VBO to start drawing which means we need two
@@ -563,6 +571,44 @@ void InitOpenGL(open_gl* OpenGL)
     glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DColorOffset + OffsetOf(quad_2d_data,Rotation)));
     glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DColorOffset + OffsetOf(quad_2d_data,UVRect)));
     glVertexAttribPointer(7, 4, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DColorOffset + OffsetOf(quad_2d_data,Color)));
+    glVertexAttribDivisor(3, 1);
+    glVertexAttribDivisor(4, 1);
+    glVertexAttribDivisor(5, 1);
+    glVertexAttribDivisor(6, 1);
+    glVertexAttribDivisor(7, 1);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    
+    glBindVertexArray(0);
+  }
+
+  {
+    glGenVertexArrays(1, &OpenGL->Quad2DSpecialVAO);
+    glBindVertexArray(OpenGL->Quad2DSpecialVAO);
+    
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, OpenGL->ElementEBO);
+    
+    glBindBuffer(GL_ARRAY_BUFFER, OpenGL->ElementVBO);
+    // The textVAO now implicitly binds these parameters to whatever VBO is currently bound (ObjectKeeper->VBO)
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(opengl_vertex), (GLvoid*) OffsetOf(opengl_vertex, v));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(opengl_vertex), (GLvoid*) OffsetOf(opengl_vertex, vn));
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(opengl_vertex), (GLvoid*) OffsetOf(opengl_vertex, vt));
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    
+    glBindBuffer(GL_ARRAY_BUFFER, OpenGL->InstanceVBO);
+    // The textVAO now implicitly binds these parameters to whatever VBO is currently bound (quadInstanceVBO)
+    glEnableVertexAttribArray(3);
+    glEnableVertexAttribArray(4);
+    glEnableVertexAttribArray(5);
+    glEnableVertexAttribArray(6);
+    glEnableVertexAttribArray(7);
+    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DOffsetSpecial + OffsetOf(quad_2d_data,TextureSlot)));
+    glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DOffsetSpecial + OffsetOf(quad_2d_data,QuadRect)));
+    glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DOffsetSpecial + OffsetOf(quad_2d_data,Rotation)));
+    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DOffsetSpecial + OffsetOf(quad_2d_data,UVRect)));
+    glVertexAttribPointer(7, 4, GL_FLOAT, GL_FALSE, sizeof(quad_2d_data), (void *)(OpenGL->Quad2DOffsetSpecial + OffsetOf(quad_2d_data,Color)));
     glVertexAttribDivisor(3, 1);
     glVertexAttribDivisor(4, 1);
     glVertexAttribDivisor(5, 1);
@@ -920,12 +966,14 @@ void DrawRenderGroup(open_gl* OpenGL, render_group* RenderGroup, game_asset_mana
     {
       u32 Quad2DCount = 0;
       u32 Quad2DColorCount = 0;
+      u32 Quad2DCountSpecial = 0;
       for(push_buffer_header* Entry = StartEntry;
           Entry != 0;
           Entry = Entry->Next )
       {
-        Quad2DCount         += ((Entry->Type == render_buffer_entry_type::QUAD_2D)              ? 1 : 0);
-        Quad2DColorCount    += ((Entry->Type == render_buffer_entry_type::QUAD_2D_COLOR)        ? 1 : 0);
+        Quad2DCount           += ((Entry->Type == render_buffer_entry_type::QUAD_2D)              ? 1 : 0);
+        Quad2DColorCount      += ((Entry->Type == render_buffer_entry_type::QUAD_2D_COLOR)        ? 1 : 0);
+        Quad2DCountSpecial    += ((Entry->Type == render_buffer_entry_type::QUAD_2D_SPECIAL)        ? 1 : 0);
         if(Entry->Type == render_buffer_entry_type::NEW_LEVEL)
         {
           BreakEntry = Entry;
@@ -935,13 +983,16 @@ void DrawRenderGroup(open_gl* OpenGL, render_group* RenderGroup, game_asset_mana
 
       u32 Quad2DBufferSize  = sizeof(quad_2d_data)*Quad2DCount;
       u32 Quad2DColorBufferSize  = sizeof(quad_2d_data)*Quad2DColorCount;
-
+      u32 Quad2DBufferSizeSpecial  = sizeof(quad_2d_data)*Quad2DCountSpecial;
+      u32 SpecialTextureSlot = 0;
       { // Send data to VBO
         quad_2d_data* Quad2DBuffer        = PushArray(&RenderGroup->Arena, Quad2DCount,      quad_2d_data);
         quad_2d_data* Quad2DColoredBuffer = PushArray(&RenderGroup->Arena, Quad2DColorCount, quad_2d_data);
+        quad_2d_data* Quad2DSpecialBuffer = PushArray(&RenderGroup->Arena, Quad2DCountSpecial, quad_2d_data);
 
         u32 Quad2DBufferInstanceIndex = 0;
         u32 Quad2DBufferColorInstanceIndex = 0;
+        u32 Quad2DBufferSpecialInstanceIndex = 0;
         for( push_buffer_header* Entry = StartEntry; Entry != BreakEntry; Entry = Entry->Next )
         {
           u8* Head = (u8*) Entry;
@@ -957,6 +1008,19 @@ void DrawRenderGroup(open_gl* OpenGL, render_group* RenderGroup, game_asset_mana
 
               quad_2d_data* Quad2dData = &Quad2DBuffer[Quad2DBufferInstanceIndex++]; 
               Quad2dData->TextureSlot  = BitmapKeeper->TextureSlot;
+              Quad2dData->QuadRect     = Quad->QuadRect;
+              Quad2dData->UVRect       = Quad->UVRect;
+              Quad2dData->Color        = Quad->Colour;
+              Quad2dData->Rotation     = Quad->Rotation;
+            }break;
+            case render_buffer_entry_type::QUAD_2D_SPECIAL:
+            {
+              entry_type_2d_quad* Quad = (entry_type_2d_quad*) Body;
+              bitmap_keeper* BitmapKeeper;
+              GetAsset(AssetManager, Quad->BitmapHandle, &BitmapKeeper);
+
+              quad_2d_data* Quad2dData = &Quad2DSpecialBuffer[Quad2DBufferSpecialInstanceIndex++]; 
+              SpecialTextureSlot       = BitmapKeeper->TextureSlot;
               Quad2dData->QuadRect     = Quad->QuadRect;
               Quad2dData->UVRect       = Quad->UVRect;
               Quad2dData->Color        = Quad->Colour;
@@ -982,6 +1046,10 @@ void DrawRenderGroup(open_gl* OpenGL, render_group* RenderGroup, game_asset_mana
                         OpenGL->Quad2DColorOffset,          // Offset into buffer to start writing data, starting after previous write
                         Quad2DColorBufferSize,              // Size
                         (GLvoid*) Quad2DColoredBuffer);     // Data
+        glBufferSubData(GL_ARRAY_BUFFER,                    // Target
+                        OpenGL->Quad2DOffsetSpecial,        // Offset into buffer to start writing data, starting after previous write
+                        Quad2DBufferSizeSpecial,              // Size
+                        (GLvoid*) Quad2DSpecialBuffer);     // Data
         glBindBuffer(GL_ARRAY_BUFFER, 0);
       }
       
@@ -1016,6 +1084,22 @@ void DrawRenderGroup(open_gl* OpenGL, render_group* RenderGroup, game_asset_mana
                                           GL_UNSIGNED_INT,                        // Index Data Type  
                                           (GLvoid*)(ElementObjectKeeper->Index),  // Pointer somewhere in the index buffer
                                           Quad2DCount,                            // How many Instances to draw
+                                          ElementObjectKeeper->VertexOffset);     // Base Offset into the geometry vbo
+        glBindVertexArray(0);
+      }
+
+      {
+        opengl_program Quad2DProgram = OpenGL->Quad2DProgramSpecial;
+        glUseProgram(Quad2DProgram.Program);
+        glUniformMatrix4fv(Quad2DProgram.ProjectionMat, 1, GL_TRUE, RenderGroup->ProjectionMatrix.E);
+        glUniformMatrix4fv(Quad2DProgram.ViewMat,       1, GL_TRUE, RenderGroup->ViewMatrix.E);
+        glBindVertexArray(OpenGL->Quad2DSpecialVAO);        
+        glBindTexture(GL_TEXTURE_2D, OpenGL->SpecialTextures[SpecialTextureSlot]);
+        glDrawElementsInstancedBaseVertex(GL_TRIANGLES,                           // Mode,
+                                          ElementObjectKeeper->Count,             // Nr of Elements (Triangles*3)
+                                          GL_UNSIGNED_INT,                        // Index Data Type  
+                                          (GLvoid*)(ElementObjectKeeper->Index),  // Pointer somewhere in the index buffer
+                                          Quad2DCountSpecial,                     // How many Instances to draw
                                           ElementObjectKeeper->VertexOffset);     // Base Offset into the geometry vbo
         glBindVertexArray(0);
       }

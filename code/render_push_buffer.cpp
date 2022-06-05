@@ -23,6 +23,7 @@ u32 RenderTypeToBodySize(render_buffer_entry_type Type)
   {
     case render_buffer_entry_type::NEW_LEVEL: return 0;
     case render_buffer_entry_type::QUAD_2D: return sizeof(entry_type_2d_quad); 
+    case render_buffer_entry_type::QUAD_2D_SPECIAL: return sizeof(entry_type_2d_quad); 
     case render_buffer_entry_type::QUAD_2D_COLOR: return sizeof(entry_type_2d_quad);
   }
   Assert(0);
@@ -67,6 +68,19 @@ void Push2DColoredQuad(render_group* RenderGroup, rect2f QuadRect, v4 Color)
   Body->QuadRect = QuadRect;
   Recenter(&Body->QuadRect);
 }
+
+void Push2DQuadSpecial(render_group* RenderGroup, rect2f QuadRect, float Rotation, rect2f UVRect, v4 Color, bitmap_handle BitmapHandle)
+{
+  push_buffer_header* Header = PushNewEntry(RenderGroup, render_buffer_entry_type::QUAD_2D_SPECIAL);
+  entry_type_2d_quad* Body = GetBody(Header, entry_type_2d_quad);
+  Body->UVRect = UVRect;
+  Body->QuadRect = QuadRect;
+  Body->BitmapHandle = BitmapHandle;
+  Body->Colour = Color;
+  Body->Rotation = Rotation;
+  Recenter(&Body->QuadRect);
+}
+
 
 void Push2DQuad(render_group* RenderGroup, rect2f QuadRect, float Rotation, rect2f UVRect, v4 Color, bitmap_handle BitmapHandle)
 {
