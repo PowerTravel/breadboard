@@ -1,4 +1,4 @@
-
+#pragma once
 #include "math/vector_math.h"
 #include "utility_macros.h"
 
