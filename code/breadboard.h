@@ -8,81 +8,9 @@
 #include "assets.h"
 #include "entity_components.h"
 #include "menu_interface.h"
+#include "breadboard_components.h"
 
 #define MAX_ELECTRICAL_IO 32
-
-enum ElectricalComponentType
-{
-  ElectricalComponentType_None,
-  ElectricalComponentType_Source,
-  ElectricalComponentType_Ground,
-  ElectricalComponentType_Led_Red,
-  ElectricalComponentType_Led_Green,
-  ElectricalComponentType_Led_Blue,
-  ElectricalComponentType_Resistor,
-  ElectricalComponentType_Wire,
-  ElectricalComponentType_COUNT
-};
-
-const char* ComponentTypeToString(u32 Type)
-{
-  switch(Type)
-  { 
-    case ElectricalComponentType_Source: return "Source";
-    case ElectricalComponentType_Ground: return "Ground";
-    case ElectricalComponentType_Led_Red: return "Led_Red";
-    case ElectricalComponentType_Led_Green: return "Led_Green";
-    case ElectricalComponentType_Led_Blue: return "Led_Blue";
-    case ElectricalComponentType_Resistor: return "Resistor";
-    case ElectricalComponentType_Wire: return "Wire";
-  }
-  return "";
-};
-
-enum ElectricalPinType
-{
-  ElectricalPinType_Positive,
-  ElectricalPinType_Negative,
-  ElectricalPinType_Output,
-  ElectricalPinType_Input,
-  ElectricalPinType_A,
-  ElectricalPinType_B,
-  ElectricalPinType_Count
-};
-
-enum LEDColor
-{
-  LED_COLOR_RED,
-  LED_COLOR_GREEN,
-  LED_COLOR_BLUE
-};
-
-struct electric_dynamic_state
-{
-  u32 Volt;
-  u32 Current;
-  u32 Temperature;
-};
-
-struct electric_static_state
-{
-  u32 Resistance;
-};
-
-struct io_pin
-{
-  struct electrical_component* Component;
-};
-
-struct electrical_component
-{
-  u32 Type;
-  r32 Rotation;
-  u32 PinCount;
-  io_pin Pins[6];
-  electric_dynamic_state DynamicState;
-  electric_static_state StaticState;
-};
 
 struct mouse_selector
 {
@@ -96,38 +24,6 @@ struct mouse_selector
   tile_contents SelectedContent;
 };
 
-void ConnectPin(electrical_component* ComponentA, ElectricalPinType PinA, electrical_component* ComponentB, ElectricalPinType PinB)
-{
-  Assert(ArrayCount(ComponentA->Pins) == ElectricalPinType_Count);
-  Assert(ArrayCount(ComponentB->Pins) == ElectricalPinType_Count);
-  Assert(PinA <= ElectricalPinType_Count);
-  Assert(PinB <= ElectricalPinType_Count);
-  Assert(!ComponentA->Pins[PinA].Component);
-  Assert(!ComponentB->Pins[PinB].Component);
-  ComponentA->Pins[PinA].Component = ComponentB;
-  ComponentB->Pins[PinB].Component = ComponentA;
-}
-
-void DisconnectPin(electrical_component* ComponentA, ElectricalPinType PinA, electrical_component* ComponentB, ElectricalPinType PinB)
-{
-  Assert(ArrayCount(ComponentA->Pins) == ElectricalPinType_Count);
-  Assert(ArrayCount(ComponentB->Pins) == ElectricalPinType_Count);
-  Assert(PinA <= ElectricalPinType_Count);
-  Assert(PinB <= ElectricalPinType_Count);
-  Assert(ComponentA->Pins[PinA].Component == ComponentB);
-  Assert(ComponentB->Pins[PinB].Component == ComponentA);
-  ComponentA->Pins[PinA].Component = 0;
-  ComponentB->Pins[PinB].Component = 0;
-}
-
-electrical_component* GetComponentConnectedAtPin(electrical_component* Component, ElectricalPinType PinType)
-{
-  Assert(ArrayCount(Component->Pins) == ElectricalPinType_Count);
-  Assert(PinType <= ElectricalPinType_Count);
-  electrical_component* Result = Component->Pins[PinType].Component;
-  Assert(Result);
-  return Result;
-}
 
 struct world
 {

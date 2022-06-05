@@ -41,6 +41,15 @@ struct bitmap_coordinate
   r32 h;
 };
 
+struct bitmap_points
+{
+  v2 TopLeft;     // Top Left Point
+  v2 BotRight;    // Botom Right Point
+  v2 Center;       // Rotates around this point
+  v2 Points[4];   // Up to 4 points for various uses
+  b32 YDirectionUp; // Does Y increase in the up direction or in the down direction?
+};
+
 struct sprite_sheet
 {
   bitmap* bitmap;

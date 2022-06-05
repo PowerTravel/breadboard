@@ -272,9 +272,9 @@ internal void LoadCubeAsset(game_asset_manager* AssetManager)
 
 internal void LoadBitmaps(game_asset_manager* AssetManager)
 {
-  bitmap* CheckerBitmap = LoadTGA(&AssetManager->AssetArena,
+  bitmap* ElectricalComponents = LoadTGA(&AssetManager->AssetArena,
         "..\\assets\\TileSheet.tga" );
-  bitmap_handle CheckerBitmapHandle = PushBitmapData(AssetManager, "TileSheet", CheckerBitmap->Width, CheckerBitmap->Height, CheckerBitmap->BPP, CheckerBitmap->Pixels, false);
+  bitmap_handle ElectricalComponentsHandle = PushBitmapData(AssetManager, "TileSheet", ElectricalComponents->Width, ElectricalComponents->Height, ElectricalComponents->BPP, ElectricalComponents->Pixels, true);
   PushMaterialData(AssetManager, "TileSheet", CreateMaterial(V4(1,1,1,1),V4(1,1,1,1),V4(1,1,1,1),1, false));
 }
 

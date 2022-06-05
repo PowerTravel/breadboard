@@ -4,24 +4,25 @@
 #include "data_containers.h"
 #include "math/affine_transformations.h"
 
-enum ElectricalComponentSprite
-{
-  ElectricalComponentSprite_Empty,
-  ElectricalComponentSprite_Ground,
-  ElectricalComponentSprite_Source,
-  ElectricalComponentSprite_Resistor,
-  ElectricalComponentSprite_LedRedOff,
-  ElectricalComponentSprite_LedBlueOff,
-  ElectricalComponentSprite_LedGreenOff,
-  ElectricalComponentSprite_WireBlack,
-  ElectricalComponentSprite_WireYellow,
-  ElectricalComponentSprite_LedRedOn,
-  ElectricalComponentSprite_LedBlueOn,
-  ElectricalComponentSprite_LedGreenOn,
-  ElectricalComponentSprite_MaxSize,
-};
 
-inline bitmap_coordinate GetElectricalComponentSpriteBitmapCoordinate(u32 Index)
+m4 GetSpriteSheetTranslationMatrix(bitmap* SpriteSheet, bitmap_coordinate* Coordinate)
+{
+  r32 XMin = (r32) Coordinate->x;
+  r32 Xoffset = XMin / (r32) SpriteSheet->Width;
+  r32 ScaleX  =  (r32) Coordinate->w / (r32) SpriteSheet->Width;
+
+  // Note: Picture is stored and read from bottom left to up and right but
+  //     The coordinates given were top left to bottom right so we need to
+  //     Invert the Y-Axis;
+  r32 YMin = (r32) SpriteSheet->Height - (Coordinate->y + Coordinate->h);
+  r32 Yoffset = YMin / (r32) SpriteSheet->Height;
+  r32 ScaleY  =  (r32) Coordinate->h / (r32) SpriteSheet->Height;
+  m4 Result = GetTranslationMatrix(V4(Xoffset,Yoffset,0,1)) * GetScaleMatrix(V4(ScaleX,ScaleY,0,1));
+  return Result;
+}
+
+#if 0
+inline bitmap_coordinate GetElectricalComponentSpriteBitmapCoordinate_old(u32 Index)
 {
   Index = Index % ElectricalComponentSprite_MaxSize;
   bitmap_coordinate Coordinate = {};
@@ -43,6 +44,7 @@ inline bitmap_coordinate GetElectricalComponentSpriteBitmapCoordinate(u32 Index)
   }
   return Coordinate;
 }
+#endif
 
 hash_map<bitmap_coordinate> LoadTileSpriteSheetCoordinates(memory_arena* Arena)
 {
@@ -254,22 +256,6 @@ hash_map<bitmap_coordinate> LoadAdventurerSpriteSheetCoordinates(memory_arena* A
   return Result;
 };
 
-
-m4 GetSpriteSheetTranslationMatrix(bitmap* SpriteSheet, bitmap_coordinate* Coordinate)
-{
-  r32 XMin = (r32) Coordinate->x;
-  r32 Xoffset = XMin / (r32) SpriteSheet->Width;
-  r32 ScaleX  =  (r32) Coordinate->w / (r32) SpriteSheet->Width;
-
-  // Note: Picture is stored and read from bottom left to up and right but
-  //     The coordinates given were top left to bottom right so we need to
-  //     Invert the Y-Axis;
-  r32 YMin = (r32) SpriteSheet->Height - (Coordinate->y + Coordinate->h);
-  r32 Yoffset = YMin / (r32) SpriteSheet->Height;
-  r32 ScaleY  =  (r32) Coordinate->h / (r32) SpriteSheet->Height;
-  m4 Result = GetTranslationMatrix(V4(Xoffset,Yoffset,0,1)) * GetScaleMatrix(V4(ScaleX,ScaleY,0,1));
-  return Result;
-}
 
 
 rect2f GetTextureRect(bitmap_coordinate* Coordinate, r32 SpriteSheetWidth_Pixels, r32 SpriteSheetHeight_Pixels, bool invertY = true)

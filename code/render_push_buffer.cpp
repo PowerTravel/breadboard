@@ -2,6 +2,7 @@
 #include "entity_components.h"
 #include "component_camera.h"
 #include "breadboard_tile.h"
+#include "breadboard_components.h"
 #include "random.h"
 
 
@@ -237,35 +238,29 @@ render_group* InitiateRenderGroup()
   return Result;
 }
 
-// Our Bitmap Origin is [0,0]->Left,Bottom, [TextureWidth_pixel,TextureHeight_pixel] -> TopRight
-// Input origin is [0,0]->Left,Top,  [TextureWidth_pixel,TextureHeight_pixel] -> BotRight
-m3 GetTextureTranslationMatrix_OriginTopLeft(s32 X0_pixel, s32 Y0_pixel, s32 Width_pixel, s32 Height_pixel, s32 TextureWidth_pixel, s32 TextureHeight_pixel)
-{
-  r32 XMin = (r32) X0_pixel;
-  r32 Xoffset = XMin / (r32) TextureWidth_pixel;
-  r32 ScaleX  =  (r32) (Width_pixel-1) / (r32) TextureWidth_pixel;
-
-  // Note: Picture is stored and read from bottom left to up and right but
-  //     The coordinates given were top left to bottom right so we need to
-  //     Invert the Y-Axis;
-  r32 YMin = (r32) TextureHeight_pixel - (Y0_pixel + Height_pixel-1);
-  r32 Yoffset = YMin / (r32) TextureHeight_pixel;
-  r32 ScaleY  =  (r32) (Height_pixel) / (r32) TextureHeight_pixel;
-  m3 Result = GetTranslationMatrix(V3(Xoffset,Yoffset,1)) * GetScaleMatrix(V3(ScaleX,ScaleY,1));
-
-  return Result;
-}
-
-void PushElectricalComponent(r32 xPos, r32 yPos, r32 SizeX, r32 SizeY, r32 Rotation,
+void PushElectricalComponent(r32 xPos, r32 yPos, r32 PixelsPerUnitLength, r32 Rotation,
   u32 TileType, r32 BitmapWidth, r32 BitmapHeight, bitmap_handle TileHandle)
 {
   render_group* RenderGroup = GlobalGameState->RenderCommands->WorldGroup;
-  bitmap_coordinate TileCoordinate = GetElectricalComponentSpriteBitmapCoordinate(TileType);
-  rect2f UVRect = GetTextureRect(&TileCoordinate, BitmapWidth, BitmapHeight);
-  v4 Color = V4(1,1,1,1);
-  Push2DQuad(RenderGroup, Rect2f(xPos, yPos, SizeX, SizeY), Rotation, UVRect, Color, TileHandle);
+  bitmap_points TilePoint = GetElectricalComponentSpriteBitmapPoints(TileType);
+  
+  rect2f RectInPixels = GetTextureRect(TilePoint.TopLeft, TilePoint.BotRight, BitmapWidth, BitmapHeight, TilePoint.YDirectionUp);
 
+  rect2f UVRect = GetUVRect(RectInPixels, BitmapWidth, BitmapHeight);
+  
+  r32 OneOverPixelsPerUnitLength = 1.f/PixelsPerUnitLength;
+  r32 ScaleW = RectInPixels.W * OneOverPixelsPerUnitLength;
+  r32 ScaleH = RectInPixels.H * OneOverPixelsPerUnitLength;
+
+  v2 Center = TilePoint.Center * OneOverPixelsPerUnitLength;
+
+  xPos -= Center.X;
+  yPos -= Center.Y;
+
+  v4 Color = V4(1,1,1,1);
+  Push2DQuadSpecial(RenderGroup, Rect2f(xPos, yPos, ScaleW, ScaleH), Rotation, UVRect, Color, TileHandle);
 }
+
 //  a0 < t < a1;
 //  t == a0 = 1;
 //  t == a1 = 0;
@@ -285,23 +280,6 @@ r32 Linearize(r32 x, r32 x0, r32 y0, r32 x1, r32 y1)
   r32 b = (y0*x1 - y1*x0)/(x1-x0);
   return k * x + b;
 }
-
-u32 ElectricalComponentToSpriteType(electrical_component* Component)
-{
-  u32 TileSpriteSheetIndex = 0;
-  switch(Component->Type)
-  {
-    case ElectricalComponentType_Source:    TileSpriteSheetIndex = ElectricalComponentSprite_Source; break;
-    case ElectricalComponentType_Ground:    TileSpriteSheetIndex = ElectricalComponentSprite_Ground; break;
-    case ElectricalComponentType_Led_Red:   TileSpriteSheetIndex = ElectricalComponentSprite_LedRedOff; break;
-    case ElectricalComponentType_Led_Green: TileSpriteSheetIndex = ElectricalComponentSprite_LedGreenOff; break;
-    case ElectricalComponentType_Led_Blue:  TileSpriteSheetIndex = ElectricalComponentSprite_LedBlueOff; break;
-    case ElectricalComponentType_Resistor:  TileSpriteSheetIndex = ElectricalComponentSprite_Resistor; break;
-    case ElectricalComponentType_Wire:      TileSpriteSheetIndex = ElectricalComponentSprite_WireBlack; break;
-  }
-  return TileSpriteSheetIndex;
-}
-
 
 void DrawGrid( rect2f ScreenRect, tile_map* TileMap, u32 TileStride, v3 CameraPosition, r32 Alpha )
 {
@@ -504,10 +482,10 @@ void FillRenderPushBuffer(world* World)
       electrical_component* ElectricalComponent = GetElectricalComponent(Components);
       Pos = GetPositionComponent(Components);
       u32 TileSpriteSheet = ElectricalComponentToSpriteType(ElectricalComponent);
-      r32 TileSpriteSheetWidth = 1.f;
-      r32 X = Pos->Position.X - 0.5f * TileSpriteSheetWidth;
-      r32 Y = Pos->Position.Y - 0.5f * TileSpriteSheetWidth;
-      PushElectricalComponent(X, Y, TileSpriteSheetWidth, TileSpriteSheetWidth, Pos->Rotation, TileSpriteSheet, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
+      r32 PixelsPerUnitLegth = 128;
+      r32 X = Pos->Position.X;
+      r32 Y = Pos->Position.Y;
+      PushElectricalComponent(X, Y, PixelsPerUnitLegth, Pos->Rotation, TileSpriteSheet, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
     }
   }
 
