@@ -186,9 +186,6 @@ struct open_gl
   u32 DefaultTextureFormat;
 
   // Programs using quad_2d_data instance struct
-  u32 Quad2DOffset;
-  u32 Quad2DColorOffset;
-  u32 Quad2DOffsetSpecial;
   opengl_program Quad2DProgram;
   opengl_program Colored2DQuadProgram;
   opengl_program Quad2DProgramSpecial;
@@ -229,8 +226,6 @@ struct open_gl
   
   // A 2D object rendered in x-y-Plane. Specifies how to interpret data in the VBO
   glHandle Quad2DVAO;
-  glHandle Quad2DColoredVAO;
-  glHandle Quad2DSpecialVAO;
 };
 
 void InitOpenGL(open_gl* OpenGL);
