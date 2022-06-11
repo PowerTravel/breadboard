@@ -103,11 +103,11 @@ void ControllerSystemUpdate( world* World )
 
     if(Pushed(Keyboard->Key_Q))
     {
-      MouseSelector->Rotation -= Tau32/4.f;
+      MouseSelector->Rotation += Tau32/4.f;
     }
     if(Pushed(Keyboard->Key_E))
     {
-      MouseSelector->Rotation += Tau32/4.f;
+      MouseSelector->Rotation -= Tau32/4.f;
     }
     if(MouseSelector->Rotation > Pi32)
     {
