@@ -45,6 +45,9 @@ typedef size_t midx;
 typedef uintptr_t umm;
 typedef intptr_t smm;
 
+typedef uint32_t bitmask32;
+typedef uint64_t bitmask64;
+
 typedef float  r32;
 typedef double r64;
 

@@ -116,7 +116,6 @@ game_memory* DebugGlobalMemory = 0;
 #include "math/aabb.cpp"
 #include "obj_loader.cpp"
 #include "render_push_buffer.cpp"
-
 #include "entity_components.cpp"
 #include "system_controller.cpp"
 #include "system_camera.cpp"
@@ -125,8 +124,12 @@ game_memory* DebugGlobalMemory = 0;
 #include "asset_loading.cpp"
 #include "menu_interface.cpp"
 #include "breadboard_tile.cpp"
+#include "containers/chunk_list.cpp"
+#include "containers/chunk_list_unit_tests.h"
 
 #include "debug.h"
+
+
 
 internal void
 GameOutputSound(game_sound_output_buffer* SoundBuffer, int ToneHz)
@@ -267,6 +270,8 @@ void InitiateGame(game_memory* Memory, game_render_commands* RenderCommands, gam
   RenderCommands->WorldGroup = InitiateRenderGroup();
   RenderCommands->OverlayGroup = InitiateRenderGroup();
 
+
+  chunk_list_tests::RunUnitTests(GlobalGameState->TransientArena);
 }
 
 #include "function_pointer_pool.h"
