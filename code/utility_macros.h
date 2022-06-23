@@ -83,6 +83,8 @@ FormatStringsList( u32 DestSize, char* Dest, char* Format, arg_list )
 #define ToBptr( Pointer ) ( (bptr) Pointer )
 #define AdvanceBytePointer(Pointer, ByteCount) ToBptr(Pointer)+ (ByteCount);
 #define RetreatBytePointer(Pointer, ByteCount) ToBptr(Pointer) - (ByteCount);
+#define AdvanceByType(Pointer, Type) AdvanceBytePointer(Pointer, sizeof(Type));
+#define RetreatByType(Pointer, Type) RetreatBytePointer(Pointer, sizeof(Type));
 
 #define CopyArray( Count, Source, Dest ) utils::Copy( (Count)*sizeof( *(Source) ), ( Source ), ( Dest ) )
 

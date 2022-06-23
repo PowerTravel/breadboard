@@ -116,7 +116,8 @@ game_memory* DebugGlobalMemory = 0;
 #include "math/aabb.cpp"
 #include "obj_loader.cpp"
 #include "render_push_buffer.cpp"
-#include "entity_components.cpp"
+#include "entity_components_backend.cpp"
+#include "breadboard_entity_components.cpp"
 #include "system_controller.cpp"
 #include "system_camera.cpp"
 #include "system_sprite_animation.cpp"
@@ -126,6 +127,7 @@ game_memory* DebugGlobalMemory = 0;
 #include "breadboard_tile.cpp"
 #include "containers/chunk_list.cpp"
 #include "containers/chunk_list_unit_tests.h"
+#include "entity_components_backend_unit_tests.h"
 
 #include "debug.h"
 
@@ -272,6 +274,7 @@ void InitiateGame(game_memory* Memory, game_render_commands* RenderCommands, gam
 
 
   chunk_list_tests::RunUnitTests(GlobalGameState->TransientArena);
+  entity_components_backend_tests::RunUnitTests(GlobalGameState->TransientArena);
 }
 
 #include "function_pointer_pool.h"

@@ -1,5 +1,4 @@
-#include "entity_components.h"
-//#include "handmade.h"
+#include "breadboard_entity_components.h"
 #include "random.h"
 
 void SpriteAnimationSystemUpdate(world* World)
@@ -7,11 +6,10 @@ void SpriteAnimationSystemUpdate(world* World)
   TIMED_FUNCTION();
   entity_manager* EM = GlobalGameState->EntityManager;
 
-  BeginScopedEntityManagerMemory();
-  component_result* ComponentList = GetComponentsOfType(EM, COMPONENT_FLAG_SPRITE_ANIMATION);
-  while(Next(EM, ComponentList))
+  filtered_entity_iterator EntityIterator = GetComponentsOfType(EM, COMPONENT_FLAG_SPRITE_ANIMATION);
+  while(Next(&EntityIterator))
   {
-    component_sprite_animation* SpriteAnimation = (component_sprite_animation*) GetComponent(EM, ComponentList, COMPONENT_FLAG_SPRITE_ANIMATION);
+    component_sprite_animation* SpriteAnimation = (component_sprite_animation*) GetComponent(EM, &EntityIterator, COMPONENT_FLAG_SPRITE_ANIMATION);
 
     Assert(  SpriteAnimation->ActiveSeries );
 

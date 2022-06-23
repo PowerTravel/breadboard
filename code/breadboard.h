@@ -6,7 +6,7 @@
 #include "bitmap.h"
 #include "breadboard_tile.h"
 #include "assets.h"
-#include "entity_components.h"
+#include "breadboard_entity_components.h"
 #include "menu_interface.h"
 #include "breadboard_components.h"
 

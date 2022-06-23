@@ -1,5 +1,5 @@
 #include "component_camera.h"
-#include "entity_components.h"
+#include "breadboard_entity_components.h"
 #include "math/affine_transformations.h"
 
 // This is a broken function
@@ -22,11 +22,10 @@ void UpdateViewMatrixAngularMovement(  component_camera* Camera )
 void CameraSystemUpdate( world* World )
 {
   TIMED_FUNCTION();
-  BeginScopedEntityManagerMemory();
-  component_result* ComponentList = GetComponentsOfType(GlobalGameState->EntityManager, COMPONENT_FLAG_CAMERA);
-  while( Next(GlobalGameState->EntityManager, ComponentList) )
+  filtered_entity_iterator EntityIterator = GetComponentsOfType(GlobalGameState->EntityManager, COMPONENT_FLAG_CAMERA);
+  while( Next(&EntityIterator) )
   {
-    component_camera* Camera = GetCameraComponent(ComponentList);
+    component_camera* Camera = GetCameraComponent(&EntityIterator);
     UpdateViewMatrix(Camera);
   }
 }

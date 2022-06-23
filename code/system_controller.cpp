@@ -1,5 +1,5 @@
 #include "component_camera.h"
-#include "entity_components.h"
+#include "breadboard_entity_components.h"
 #include "breadboard_tile.h"
 
 // Input in Screen Space
@@ -54,12 +54,11 @@ void ControllerSystemUpdate( world* World )
   component_camera* Camera = 0;
 
   {
-    BeginScopedEntityManagerMemory();
-    component_result* Components = GetComponentsOfType(EM, COMPONENT_FLAG_CAMERA | COMPONENT_FLAG_CONTROLLER);
-    while(Next(EM, Components))
+    filtered_entity_iterator EntityIterator = GetComponentsOfType(EM, COMPONENT_FLAG_CAMERA | COMPONENT_FLAG_CONTROLLER);
+    while(Next(&EntityIterator))
     {
-      Controller = GetControllerComponent(Components);
-      Camera = GetCameraComponent(Components);
+      Controller = GetControllerComponent(&EntityIterator);
+      Camera = GetCameraComponent(&EntityIterator);
     }
   }
   Assert(Controller);

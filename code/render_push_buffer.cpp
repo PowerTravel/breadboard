@@ -1,5 +1,4 @@
 #include "render_push_buffer.h"
-#include "entity_components.h"
 #include "component_camera.h"
 #include "breadboard_tile.h"
 #include "breadboard_components.h"
@@ -354,11 +353,10 @@ void FillRenderPushBuffer(world* World)
 
   r32 OrthoZoom = 0;
   {
-    BeginScopedEntityManagerMemory();
-    component_result* ComponentList = GetComponentsOfType(EM, COMPONENT_FLAG_CAMERA);
-    while(Next(EM, ComponentList))
+    filtered_entity_iterator EntityIterator = GetComponentsOfType(EM, COMPONENT_FLAG_CAMERA);
+    while(Next(&EntityIterator))
     {
-      component_camera* Camera = (component_camera*) GetComponent(EM, ComponentList, COMPONENT_FLAG_CAMERA);
+      component_camera* Camera = (component_camera*) GetComponent(EM, &EntityIterator, COMPONENT_FLAG_CAMERA);
       RenderGroup->ProjectionMatrix = Camera->P;
       RenderGroup->ViewMatrix       = Camera->V;
       RenderGroup->CameraPosition = GetPositionFromMatrix( &Camera->V);
@@ -475,12 +473,11 @@ void FillRenderPushBuffer(world* World)
   
   component_position* Pos = 0;
   {
-    BeginScopedEntityManagerMemory();
-    component_result* Components = GetComponentsOfType(EM, COMPONENT_FLAG_ELECTRICAL | COMPONENT_FLAG_POSITION);
-    while(Next(EM, Components))
+    filtered_entity_iterator EntityIterator = GetComponentsOfType(EM, COMPONENT_FLAG_ELECTRICAL | COMPONENT_FLAG_POSITION);
+    while(Next(&EntityIterator))
     {
-      electrical_component* ElectricalComponent = GetElectricalComponent(Components);
-      Pos = GetPositionComponent(Components);
+      electrical_component* ElectricalComponent = GetElectricalComponent(&EntityIterator);
+      Pos = GetPositionComponent(&EntityIterator);
       u32 TileSpriteSheet = ElectricalComponentToSpriteType(ElectricalComponent);
       r32 PixelsPerUnitLegth = 128;
       r32 X = Pos->Position.X;

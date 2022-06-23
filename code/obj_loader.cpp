@@ -4,7 +4,7 @@
 #include "string.h"
 #include "utility_macros.h"
 #include "data_containers.h"
-#include "entity_components.h"
+#include "breadboard_entity_components.h"
 #include "assets.h"
 
 v4 ParseNumbers(char* String)

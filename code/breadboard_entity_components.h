@@ -1,36 +1,13 @@
 #pragma once
-
-#include "types.h"
+#include "entity_components_backend.h"
 
 #include "math/affine_transformations.h"
-
 #include "bitmap.h"
-#include "data_containers.h"
+
 #include "Assets.h"
 #include "breadboard_tile.h"
-
-struct component_head;
-
-struct entity_component_chunk
-{
-  u32 Types;
-  component_head** Components;
-
-  entity_component_chunk* Next;
-};
-
-struct entity
-{
-  u32 ID; // ID starts at 1. Index is ID-1
-  u32 ComponentFlags;
-  entity_component_chunk* Components;
-};
-
-struct component_head
-{
-  entity* Entity;
-  u32 Type;
-};
+#include "data_containers.h"
+#include "breadboard_components.h"
 
 
 // Todo, Can we use a location component instead of DeltaRot, DeltaPos etc?
@@ -145,98 +122,8 @@ enum component_type
   COMPONENT_FLAG_FINAL              = 1<<6,
 };
 
-struct em_chunk
-{
-  midx Used;
-  u8* Memory;
-  em_chunk* Next;
-};
-
-struct component_list
-{
-  u32 Type;
-  u32 Requirement;
-  u32 Count;
-  midx ComponentSize;
-  midx ChunkSize;
-  em_chunk* First;
-};
-
-component_list CreateComponentList(u32 Flag, midx ComponentSize, midx ChunkComponentCount, u32 Requires)
-{
-  component_list Result = {};
-  Result.Type = Flag;
-  Result.Requirement = Requires;
-  Result.ComponentSize = sizeof(component_head) + ComponentSize;
-  Result.ChunkSize = ChunkComponentCount * Result.ComponentSize;
-  return Result;
-}
-
-struct entity_manager
-{
-  memory_arena Arena;
-  temporary_memory TemporaryMemory;
-
-  u32 EntityCount;
-  u32 EntitiesPerChunk;
-  u32 EntityChunkCount;
-  em_chunk* EntityList;
-
-  u32 ComponentCount;
-  component_list* Components;
-};
-
-entity_manager* CreateEntityManager( );
-void NewComponents(entity_manager* EM, u32 EntityID, u32 ComponentFlags);
-u32 NewEntity( entity_manager* EM );
-
-void BeginTransactions(entity_manager* EM)
-{
-  CheckArena(&EM->Arena);
-  EM->TemporaryMemory = BeginTemporaryMemory(&EM->Arena);
-}
-
-void EndTransactions(entity_manager* EM)
-{
-  EndTemporaryMemory(EM->TemporaryMemory);
-  CheckArena(&EM->Arena);
-}
-
-#define BeginScopedEntityManagerMemory() scoped_temporary_memory ScopedMemory_ = scoped_temporary_memory(&(GlobalGameState->EntityManager)->Arena)
-
-struct filtered_components
-{
-  u32 Count;
-  component_head* Heads;
-};
-
-struct component_result
-{
-  entity_manager* EM;
-  u32 MainType;
-  midx MainTypeSize;
-  u32 Types;
-  b32 Begun;
-
-  u32 EntityCount;
-  u32 ArrayCount;
-  u32 ArrayIndex;
-  u32 ComponentIndex;
-  filtered_components* FilteredArray;
-};
-
-component_result* GetComponentsOfType(entity_manager* EM, u32 ComponentFlags);
-b32 Next(entity_manager* EM, component_result* ComponentList);
-
-u32 GetEntity( u8* Component )
-{
-  component_head* Base = (component_head*) (Component - sizeof(component_head));
-  return Base->Entity->ID;
-}
-
-u8* GetComponent(entity_manager* EM, component_result* ComponentList, u32 ComponentFlag);
-u8* GetComponent(entity_manager* EM, u32 EntityID, u32 ComponentFlag);
-
+// Initiates the backend entity manager with breadboard specific components
+entity_manager* CreateEntityManager();
 
 #define GetCameraComponent(EntityID) ((component_camera*) GetComponent(GlobalGameState->EntityManager, EntityID, COMPONENT_FLAG_CAMERA))
 #define GetControllerComponent(EntityID) ((component_controller*) GetComponent(GlobalGameState->EntityManager, EntityID, COMPONENT_FLAG_CONTROLLER))
