@@ -2,7 +2,6 @@
 #include "utility_macros.h"
 
 
-
 internal inline entity* GetEntityFromID(entity_manager* EM, u32 EntityID) 
 { 
   u32 EntityIndex = EntityID-1;
@@ -10,42 +9,113 @@ internal inline entity* GetEntityFromID(entity_manager* EM, u32 EntityID)
   return Entity;
 }
 
-entity_component_mapping* AllocateNewComponentMap(memory_arena* Arena, bitmask32 ComponentFlags)
+internal entity_component_link*
+AllocateNewComponents(entity_manager* EM, entity* Entity, bitmask32 NewComponentFlags)
 {
-  entity_component_mapping* NewChunk = PushStruct(Arena, entity_component_mapping);
-  u32 ComponentCount = GetSetBitCount(ComponentFlags);
-  NewChunk->Types = ComponentFlags;
-  NewChunk->Components = PushArray(Arena, ComponentCount, component_head*);
-  return NewChunk;
-}
-
-void CreateEntityComponentMapping(entity_manager* EM, entity* Entity, bitmask32 NewComponentFlags)
-{
-  entity_component_mapping* EntityComponentMap = AllocateNewComponentMap(&EM->Arena, NewComponentFlags);
-  // Only "new" Entities allowed in here with Components not yet initialized
-  Assert(Entity->Components == 0);
-  u32 Index = 0;
-  bitmask32 FlagsToAdd = EntityComponentMap->Types;
+  u32 SetBitCount = GetSetBitCount(NewComponentFlags);
+  Assert(SetBitCount > 0); // Don't try and allocate 0 links
+  entity_component_link* LinkHead = 0;
+  entity_component_link* Tail = 0;
   u32 ComponentIndex = 0;
-  while(IndexOfLeastSignificantSetBit(FlagsToAdd, &ComponentIndex))
+  while(IndexOfLeastSignificantSetBit(NewComponentFlags, &ComponentIndex))
   {
-    Assert(ComponentIndex < EM->ComponentTypeCount);
+    Assert(ComponentIndex < EM->ComponentTypeCount); // Make sure the component bit exist
+    // Allocate new components
     component_list* ComponentList = EM->ComponentTypeVector + ComponentIndex;
-    // Assert we have the right list
-    Assert(ComponentList->Type & (1<<ComponentIndex));
-    
+    Assert(ComponentList->Type & (1<<ComponentIndex)); // Make sure we have the right component list
+
     component_head* ComponentHead = (component_head*) GetNewBlock(&EM->Arena, &ComponentList->Components);
     ComponentHead->Entity = Entity;
     ComponentHead->Type = ComponentList->Type;
-    EntityComponentMap->Components[Index++] = ComponentHead;
-    FlagsToAdd -= ComponentList->Type;
-  }
 
-  EntityComponentMap->Next = Entity->Components;
-  Entity->Components = EntityComponentMap;
+    // Link the component to the entity.
+    if(!Tail)
+    {
+      LinkHead = (entity_component_link*) GetNewBlock(&EM->Arena, &(EM->EntityComponentLinks));
+      Tail = LinkHead;
+    }else{
+      Tail->Next = (entity_component_link*) GetNewBlock(&EM->Arena, &EM->EntityComponentLinks);
+      Tail = Tail->Next;
+    }
+
+    Tail->Component = ComponentHead;
+
+    NewComponentFlags -= ComponentList->Type;
+  }
+  return LinkHead;
 }
 
-u32 GetTotalRequirements(entity_manager* EM, bitmask32 ComponentFlags)
+internal entity_component_link*
+MergeMaps(entity_component_link* OldComponentMapBase, entity_component_link* NewComponentMapBase)
+{
+  Assert(NewComponentMapBase);
+  entity_component_link* ResultMapBase = NewComponentMapBase;
+  if(OldComponentMapBase)
+  {
+    entity_component_link* OldComponentMap = OldComponentMapBase;
+    entity_component_link* NewComponentMap = NewComponentMapBase;
+
+    u32 OldComponentIndex = 0;
+    u32 NewComponentIndex = 0;
+    b32 FoundOld = IndexOfLeastSignificantSetBit(OldComponentMap->Component->Type, &OldComponentIndex);
+    Assert(FoundOld);
+    b32 FoundNew = IndexOfLeastSignificantSetBit(NewComponentMap->Component->Type, &NewComponentIndex);
+    
+    if(OldComponentIndex < NewComponentIndex)
+    {
+      ResultMapBase = OldComponentMap;
+      OldComponentMap = OldComponentMap->Next;
+    }else{
+      Assert(OldComponentIndex != NewComponentIndex);
+      ResultMapBase = NewComponentMap;
+      NewComponentMap = NewComponentMap->Next;
+    }
+
+    entity_component_link* ResultMap = ResultMapBase;
+    // Insert it into the Existing entity.
+    while(NewComponentMap && OldComponentMap)
+    {
+      IndexOfLeastSignificantSetBit(OldComponentMap->Component->Type, &OldComponentIndex);
+      IndexOfLeastSignificantSetBit(NewComponentMap->Component->Type, &NewComponentIndex);
+      if(OldComponentIndex < NewComponentIndex)
+      {
+        ResultMap->Next = OldComponentMap;
+        ResultMap = ResultMap->Next;
+        OldComponentMap = OldComponentMap->Next;
+      }else{
+        Assert(OldComponentIndex != NewComponentIndex);
+        ResultMap->Next = NewComponentMap;
+        ResultMap = ResultMap->Next;
+        NewComponentMap = NewComponentMap->Next;
+      }
+    }
+
+    if(NewComponentMap)
+    {
+      Assert(!OldComponentMap);
+      ResultMap->Next = NewComponentMap;
+    }else if(OldComponentMap)
+    {
+      ResultMap->Next = OldComponentMap;
+    }
+  }
+  
+  return ResultMapBase;
+}
+
+internal void CreateAndInsertNewComponents(entity_manager* EM, entity* Entity, bitmask32 NewComponentFlags)
+{
+  // Make sure NewComponentFlags is _not_ in the entity already
+  Assert((Entity->ComponentFlags & NewComponentFlags) == 0 );
+  // Create new list of entity_component_mapping_entry;
+  entity_component_link* NewComponentMapBase = AllocateNewComponents(EM, Entity, NewComponentFlags);
+  entity_component_link* OldComponentMapBase = Entity->FirstComponentLink;
+  entity_component_link* MergedMap = MergeMaps(OldComponentMapBase, NewComponentMapBase);
+  Entity->FirstComponentLink = MergedMap;
+  Entity->ComponentFlags = Entity->ComponentFlags | NewComponentFlags;
+}
+
+internal u32 GetTotalRequirements(entity_manager* EM, bitmask32 ComponentFlags)
 {
   bitmask32 SummedFlags = ComponentFlags;
   u32 ComponentIndex = 0;
@@ -54,36 +124,26 @@ u32 GetTotalRequirements(entity_manager* EM, bitmask32 ComponentFlags)
     Assert(ComponentIndex < EM->ComponentTypeCount );
     component_list* ComponentList = EM->ComponentTypeVector + ComponentIndex;
     // Sum all required components
-    SummedFlags = SummedFlags | ComponentList->Requirements;
+    u32 Requirements = ComponentList->Requirements;
+    Requirements = Requirements | GetTotalRequirements(EM, Requirements);
+    SummedFlags = SummedFlags | Requirements;
     ComponentFlags -= ComponentList->Type;
   }
   return SummedFlags;
-}
-
-internal inline entity_component_mapping*
-GetEntityComponentMap( entity* Entity, bitmask32 ComponentFlag )
-{
-  entity_component_mapping* EntityComponentMap = Entity->Components;
-  while(!(EntityComponentMap->Types & ComponentFlag))
-  {
-    Assert(EntityComponentMap->Next);
-    EntityComponentMap = EntityComponentMap->Next;
-  }
-  return EntityComponentMap;
 }
 
 // Enumerates each set bit in Bit and finds what index BitSet holds
 // Example:
 // BitMaskOfMap:   | 0 1 1 0 1 1 0 |
 // BitToEnumerate: | 0 0 0 0 1 0 0 |
-// Enumeration:    |   0 1   2 3   | < Order of components in entity_component_mapping->Components
+// Enumeration:    |   0 1   2 3   | < Order of components in entity_component_link::Components
 // Result: (2)               ^     
 u32 GetIndexOfBitInComponentMap(bitmask32 BitToEnumerate, bitmask32 BitMaskOfMap)
 {
   Assert(BitMaskOfMap & BitToEnumerate);
   u32 Index=0;
   u32 IndexOfBitToEnumerate = 0;
-  IndexOfLeastSignificantSetBit(BitToEnumerate,&IndexOfBitToEnumerate);
+  IndexOfLeastSignificantSetBit(BitToEnumerate, &IndexOfBitToEnumerate);
 
   u32 IndexOfBitInMap = 0;
   while(IndexOfLeastSignificantSetBit(BitMaskOfMap, &IndexOfBitInMap))
@@ -99,6 +159,21 @@ u32 GetIndexOfBitInComponentMap(bitmask32 BitToEnumerate, bitmask32 BitMaskOfMap
   return 0;
 }
 
+internal inline entity_component_link*
+GetEntityComponentLink( entity* Entity, bitmask32 ComponentFlag )
+{
+  u32 ComponentIndex = GetIndexOfBitInComponentMap(ComponentFlag, Entity->ComponentFlags);
+  Assert(GetSetBitCount(ComponentFlag) == 1);
+  entity_component_link* EntityComponentMap = Entity->FirstComponentLink;
+  while(ComponentIndex > 0)
+  {
+    Assert(EntityComponentMap->Next);
+    EntityComponentMap = EntityComponentMap->Next;
+    ComponentIndex--;
+  }
+  return EntityComponentMap;
+}
+
 internal bptr GetComponent(entity_manager* EM, entity* Entity, u32 ComponentFlag)
 {
   if( !(Entity->ComponentFlags & ComponentFlag) )
@@ -106,13 +181,11 @@ internal bptr GetComponent(entity_manager* EM, entity* Entity, u32 ComponentFlag
     return 0;
   }
 
-  u8* Result = 0;
-  entity_component_mapping* ComponentMap = GetEntityComponentMap( Entity, ComponentFlag);
-  u32 Index = GetIndexOfBitInComponentMap(ComponentFlag, ComponentMap->Types);
-  component_head* Head = ComponentMap->Components[Index];
+  entity_component_link* ComponentMap = GetEntityComponentLink(Entity, ComponentFlag);
+  component_head* Head = ComponentMap->Component;
   Assert(Head->Type == ComponentFlag);
 
-  Result = AdvanceByType(Head, component_head);
+  bptr Result = AdvanceByType(Head, component_head);
   return Result;
 }
 
@@ -158,19 +231,14 @@ component_list CreateComponentList(memory_arena* Arena, bitmask32 TypeFlag, bitm
 
 u32 NewEntity( entity_manager* EM )
 {
-  // Not allowed to allocate new entity if we are looping through entities
-  CheckArena(&EM->Arena);
-
   entity* NewEntity = (entity*) GetNewBlock(&EM->Arena, &EM->EntityList);
   NewEntity->ID = EM->EntityIdCounter++;
-  NewEntity->Components = 0;
 
   return NewEntity->ID;
 }
 
 void NewComponents(entity_manager* EM, u32 EntityID, u32 ComponentFlags)
 {
-  CheckArena(&EM->Arena);
   Assert(EntityID != 0);
 
   entity* Entity = GetEntityFromID(EM, EntityID);
@@ -179,11 +247,11 @@ void NewComponents(entity_manager* EM, u32 EntityID, u32 ComponentFlags)
   u32 TotalRequirements = GetTotalRequirements(EM, ComponentFlags);
   u32 NewComponentFlags = (~Entity->ComponentFlags) & TotalRequirements;
 
-  Entity->ComponentFlags = Entity->ComponentFlags | NewComponentFlags;
-  CreateEntityComponentMapping(EM, Entity, NewComponentFlags);
+  CreateAndInsertNewComponents(EM, Entity, NewComponentFlags);
 }
 
 // Get a single component from an entity
+// Returns 0 if no component exists
 bptr GetComponent(entity_manager* EM, u32 EntityID, u32 ComponentFlag)
 {
   Assert( GetSetBitCount(ComponentFlag) == 1);
@@ -191,7 +259,6 @@ bptr GetComponent(entity_manager* EM, u32 EntityID, u32 ComponentFlag)
   entity* Entity = GetEntityFromID(EM, EntityID);
   Assert(Entity); // If this is 0 it probably means that the Entity has been removed from the entity_manager at some point
   bptr Result = GetComponent(EM, Entity, ComponentFlag);
-  Assert(Result); // If this is 0 it probably means that the Component has been removed from the entity_manager at some point
   return Result;
 }
 
@@ -234,4 +301,31 @@ b32 Next(filtered_entity_iterator* EntityIterator)
   EntityIterator->CurrentEntity = Entity;
 
   return EntityIterator->CurrentEntity != 0;
+}
+
+entity_manager* CreateEntityManager(u32 EntityChunkCount, u32 EntityMapChunkCount, u32 ComponentCount, entity_manager_definition* DefinitionVector)
+{
+  entity_manager* Result = BootstrapPushStruct(entity_manager, Arena);
+
+  Result->ComponentTypeCount = ComponentCount;
+  Result->ComponentTypeVector = PushArray(&Result->Arena, ComponentCount, component_list);
+  for(u32 idx = 0; idx < ComponentCount; idx++)
+  {
+    entity_manager_definition* Definition = DefinitionVector + idx;
+    Result->ComponentTypeVector[IndexOfLeastSignificantSetBit(Definition->ComponentFlag)] =
+    CreateComponentList(&Result->Arena, Definition->ComponentFlag, Definition->RequirementsFlag, Definition->ComponentByteSize, Definition->ComponentChunkCount);  
+  }
+
+  Result->EntityIdCounter = 1;
+  Result->EntityList = NewChunkList(&Result->Arena, sizeof(entity), EntityChunkCount);
+  Result->EntityComponentLinks = NewChunkList(&Result->Arena, sizeof(entity_component_link), EntityMapChunkCount);
+
+#if HANDMADE_SLOW
+  for(s32 i = 0; i<ComponentCount; i++)
+  {
+    Assert(Result->ComponentTypeVector[i].Type);
+  }
+#endif
+
+  return Result;
 }
