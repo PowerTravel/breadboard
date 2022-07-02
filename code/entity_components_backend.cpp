@@ -1,11 +1,44 @@
 #include "entity_components_backend.h"
 #include "utility_macros.h"
 
+// entity_component_link: A struct holding references between entities and components
+// Types is a bitmask where each set references a specific component
+// NOTE: Extract the variable sized bitfield in chunk_list to its own type and use here
+//       because at the moment we can only support 32 different types of components.
+// TODO: Remember when implementing removing entities or chunks within entitis that we
+//       have to clear this struct
+struct entity_component_link
+{
+  component_head* Component;
+  entity_component_link* Next;
+};
 
-internal inline entity* GetEntityFromID(entity_manager* EM, u32 EntityID) 
+struct entity
+{
+  entity_id ID; // ID starts at 1. Index is ID-1
+  u32 ChunkListIndex;
+  bitmask32 ComponentFlags;
+  entity_component_link* FirstComponentLink; // Points us to the associated components in the component list.
+};
+
+struct component_head
+{
+  entity* Entity;
+  bitmask32 Type;
+};
+
+struct component_list
+{
+  bitmask32 Type;
+  u32 Requirements;
+  chunk_list Components;
+};
+
+
+internal inline entity* GetEntityFromID(entity_manager* EM, entity_id* EntityID) 
 { 
-  u32 EntityIndex = EntityID-1;
-  entity* Entity = (entity*)  GetBlockIfItExists(&EM->EntityList, EntityIndex);
+  entity* Entity = (entity*)  GetBlockIfItExists(&EM->EntityList, EntityID->ChunkListIndex);
+  Assert(Entity->ID.EntityID == EntityID->EntityID);
   return Entity;
 }
 
@@ -229,18 +262,18 @@ component_list CreateComponentList(memory_arena* Arena, bitmask32 TypeFlag, bitm
   return Result;
 }
 
-u32 NewEntity( entity_manager* EM )
+entity_id NewEntity( entity_manager* EM )
 {
-  entity* NewEntity = (entity*) GetNewBlock(&EM->Arena, &EM->EntityList);
-  NewEntity->ID = EM->EntityIdCounter++;
+  u32 ListIndex = 0;
+  entity* NewEntity = (entity*) GetNewBlock(&EM->Arena, &EM->EntityList, &ListIndex);
+  NewEntity->ID.EntityID = EM->EntityIdCounter++;
+  NewEntity->ID.ChunkListIndex = ListIndex;
 
   return NewEntity->ID;
 }
 
-void NewComponents(entity_manager* EM, u32 EntityID, u32 ComponentFlags)
+void NewComponents(entity_manager* EM, entity_id* EntityID, u32 ComponentFlags)
 {
-  Assert(EntityID != 0);
-
   entity* Entity = GetEntityFromID(EM, EntityID);
 
   // Always allocate memory for requirements not yet fullfilled
@@ -252,7 +285,7 @@ void NewComponents(entity_manager* EM, u32 EntityID, u32 ComponentFlags)
 
 // Get a single component from an entity
 // Returns 0 if no component exists
-bptr GetComponent(entity_manager* EM, u32 EntityID, u32 ComponentFlag)
+bptr GetComponent(entity_manager* EM, entity_id* EntityID, u32 ComponentFlag)
 {
   Assert( GetSetBitCount(ComponentFlag) == 1);
   Assert( ComponentFlag != 0 );
@@ -283,7 +316,7 @@ bptr GetComponent(entity_manager* EM, filtered_entity_iterator* EntityIterator, 
   {
     return 0;
   }
-  bptr Result = GetComponent(EM, EntityIterator->CurrentEntity->ID, ComponentFlag);
+  bptr Result = GetComponent(EM, &EntityIterator->CurrentEntity->ID, ComponentFlag);
   return Result;
 }
 
@@ -328,4 +361,40 @@ entity_manager* CreateEntityManager(u32 EntityChunkCount, u32 EntityMapChunkCoun
 #endif
 
   return Result;
+}
+
+entity_id* GetEntity( bptr Component )
+{
+  component_head* Base = (component_head*) RetreatByType(Component, component_head);
+  return &Base->Entity->ID;
+}
+
+void DeleteComponent(entity_manager* EM, entity_id* EntityID, bitmask32 ComponentFlag)
+{
+  // Implement Function
+  Assert(0);
+}
+
+void DeleteEntity(entity_manager* EM, entity_id* EntityID)
+{
+  entity* Entity = GetEntityFromID(EM, EntityID);
+  bitmask32 ComponentFlags = Entity->ComponentFlags;
+  entity_component_link* ComponentLink = Entity->FirstComponentLink;
+  
+  while(ComponentLink)
+  {
+    entity_component_link* ComponentLinkToRemove = ComponentLink;
+    ComponentLink = ComponentLink->Next;
+
+    bitmask32 ComponentType = ComponentLinkToRemove->Component->Type;
+    component_head* ComponentToRemove = ComponentLinkToRemove->Component;
+
+    u32 ComponentListIndex = IndexOfLeastSignificantSetBit(ComponentType);
+    component_list* ComponentList = EM->ComponentTypeVector + ComponentListIndex;
+
+    FreeBlock(&EM->EntityComponentLinks, (bptr) ComponentLinkToRemove);
+    FreeBlock(&ComponentList->Components, (bptr) ComponentToRemove);
+  }
+
+  FreeBlock(&EM->EntityList, (bptr) Entity);
 }

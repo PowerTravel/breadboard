@@ -4,6 +4,7 @@
 #include "math/vector_math.h"
 #include "data_containers.h"
 #include "math/aabb.h"
+#include "entity_components_backend.h"
 
 struct electrical_component;
 struct tile_map_position{
@@ -42,7 +43,7 @@ enum tile_type
 struct tile_contents
 {
   tile_type Type;
-  u32 ElectricalComponentEntity;
+  entity_id ElectricalComponentEntity;
 };
 
 struct tile_page{

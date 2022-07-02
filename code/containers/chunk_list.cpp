@@ -304,8 +304,9 @@ inline chunk_list NewChunkList(memory_arena* Arena, u32 BlockSize, u32 BlockCoun
  * GetNewBlock
  * Gets the first free block from the list.
  * If the list is full, a new chunk is pushed to the end.
+ * If ResultIndex is not null we return the listIndex
  */
-bptr GetNewBlock(memory_arena* Arena, chunk_list* List)
+bptr GetNewBlock(memory_arena* Arena, chunk_list* List, u32* ResultIndex)
 {
   // List->FirstFree = 0 means we have to allocate a new chunk
   if(!List->FirstFree)
@@ -327,6 +328,10 @@ bptr GetNewBlock(memory_arena* Arena, chunk_list* List)
   Assert(BitScan.Index < List->BlockCountPerChunk);
 
   bptr Result = GetBlockAndFlagAsOccupied(List, FreeChunk, BitScan.Index);
+  if(ResultIndex)
+  {
+    *ResultIndex = GetChunkListIndexFromBlockPtr(List, Result);
+  }
   return Result;
 }
 

@@ -216,13 +216,13 @@ void InitiateGame(game_memory* Memory, game_render_commands* RenderCommands, gam
 
   GlobalGameState->Input = Input;
 
-  u32 ControllableCamera = NewEntity( GlobalGameState->EntityManager );
-  NewComponents( GlobalGameState->EntityManager, ControllableCamera, COMPONENT_FLAG_CONTROLLER | COMPONENT_FLAG_CAMERA);
+  entity_id ControllableCamera = NewEntity( GlobalGameState->EntityManager );
+  NewComponents( GlobalGameState->EntityManager, &ControllableCamera, COMPONENT_FLAG_CONTROLLER | COMPONENT_FLAG_CAMERA);
 
   game_window_size WindowSize = GameGetWindowSize();
   r32 AspectRatio = WindowSize.WidthPx/WindowSize.HeightPx;
 
-  component_camera* Camera = GetCameraComponent(ControllableCamera);
+  component_camera* Camera = GetCameraComponent(&ControllableCamera);
   v3 From = V3(0,0,1);
   v3 To = V3(0,0,0);
   v3 Up = V3(0,1,0);
@@ -248,7 +248,7 @@ void InitiateGame(game_memory* Memory, game_render_commands* RenderCommands, gam
   //SetOrthoProj(Camera, -1, 1 );
   //LookAt(Camera, V3(0,1,0), V3(0,30,0), V3(1,0,0));
 
-  component_controller* Controller = GetControllerComponent(ControllableCamera);
+  component_controller* Controller = GetControllerComponent(&ControllableCamera);
   Controller->Controller = GetController(Input, 0);
   Controller->Keyboard = &Input->Keyboard;
   Controller->Mouse = &Input->Mouse;

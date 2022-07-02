@@ -3,6 +3,8 @@
 #include "containers/chunk_list.h"
 
 struct component_head;
+struct component_list;
+struct entity;
 
 //
 //  Each entity_component_mapping only point to one component_head* stored in a chunk_list of entity_component_mapping_entry in entity manager
@@ -15,39 +17,6 @@ struct component_head;
 //                   Easy to implement
 //                   Have to extract management strategy to its seaparate file which can be use elsewhere
 //              Con: Have to extract management strategy to its seaparate file which can be alot of work
-
-
-// entity_component_link: A struct holding references between entities and components
-// Types is a bitmask where each set references a specific component
-// NOTE: Extract the variable sized bitfield in chunk_list to its own type and use here
-//       because at the moment we can only support 32 different types of components.
-// TODO: Remember when implementing removing entities or chunks within entitis that we
-//       have to clear this struct
-struct entity_component_link
-{
-  component_head* Component;
-  entity_component_link* Next;
-};
-
-struct entity
-{
-  u32 ID; // ID starts at 1. Index is ID-1
-  bitmask32 ComponentFlags;
-  entity_component_link* FirstComponentLink; // Points us to the associated components in the component list.
-};
-
-struct component_head
-{
-  entity* Entity;
-  bitmask32 Type;
-};
-
-struct component_list
-{
-  bitmask32 Type;
-  u32 Requirements;
-  chunk_list Components;
-};
 
 struct entity_manager
 {
@@ -64,8 +33,14 @@ struct entity_manager
   component_list* ComponentTypeVector;
 };
 
-u32 NewEntity( entity_manager* EM );
-void NewComponents(entity_manager* EM, u32 EntityID, bitmask32 ComponentFlags);
+struct entity_id
+{
+  u32 EntityID;
+  u32 ChunkListIndex;
+};
+
+entity_id NewEntity( entity_manager* EM );
+void NewComponents(entity_manager* EM, entity_id* EntityID, bitmask32 ComponentFlags);
 
 
 struct filtered_entity_iterator
@@ -88,16 +63,13 @@ entity_manager* CreateEntityManager(u32 EntityChunkCount, u32 EntityMapChunkCoun
 
 b32 Next(filtered_entity_iterator* EntityIterator);
 filtered_entity_iterator GetComponentsOfType(entity_manager* EM, bitmask32 ComponentFlagsToFilterOn);
-u32 GetEntity( bptr Component )
-{
-  component_head* Base = (component_head*) RetreatByType(Component, component_head);
-  return Base->Entity->ID;
-}
+entity_id* GetEntity( bptr Component );
 
-bptr GetComponent(entity_manager* EM, u32 EntityID, bitmask32 ComponentFlag);
-
+bptr GetComponent(entity_manager* EM, entity_id* EntityID, bitmask32 ComponentFlag);
 bptr GetComponent(entity_manager* EM, filtered_entity_iterator* ComponentList, bitmask32 ComponentFlag);
 
+void DeleteComponent(entity_manager* EM, entity_id* EntityID, bitmask32 ComponentFlag);
+void DeleteEntity(entity_manager* EM, entity_id* EntityID);
 
 internal inline b32
 IndexOfLeastSignificantSetBit( bitmask32 EntityFlags, u32* Index )

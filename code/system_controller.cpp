@@ -90,14 +90,14 @@ void ControllerSystemUpdate( world* World )
   
   tile_contents HotSelection = GetTileContents(TileMap, MouseSelector->TilePos);
   
-  if(MouseSelector->SelectedContent.ElectricalComponentEntity)
+  if(MouseSelector->SelectedContent.ElectricalComponentEntity.EntityID)
   {
     HotSelection = MouseSelector->SelectedContent;
   }
 
-  if(HotSelection.ElectricalComponentEntity)
+  if(HotSelection.ElectricalComponentEntity.EntityID)
   {
-    component_position* Pos = GetPositionComponent(HotSelection.ElectricalComponentEntity);
+    component_position* Pos = GetPositionComponent(&HotSelection.ElectricalComponentEntity);
     MouseSelector->Rotation = Pos->Rotation;
 
     if(Pushed(Keyboard->Key_Q))
@@ -119,7 +119,7 @@ void ControllerSystemUpdate( world* World )
     Pos->Rotation = MouseSelector->Rotation;
   }
 
-  if(!MouseSelector->SelectedContent.ElectricalComponentEntity)
+  if(!MouseSelector->SelectedContent.ElectricalComponentEntity.EntityID)
   {
     u32 Type = ElectricalComponentType_None;
     if(Pushed(Keyboard->Key_S))
@@ -141,12 +141,12 @@ void ControllerSystemUpdate( world* World )
     
     if(Type)
     {
-      u32 ElectricalEntity = NewEntity(EM);
-      NewComponents(EM, ElectricalEntity, COMPONENT_FLAG_ELECTRICAL);
-      electrical_component* Component = GetElectricalComponent(ElectricalEntity);
+      entity_id ElectricalEntity = NewEntity(EM);
+      NewComponents(EM, &ElectricalEntity, COMPONENT_FLAG_ELECTRICAL);
+      electrical_component* Component = GetElectricalComponent(&ElectricalEntity);
       Component->Type = Type;
 
-      component_position* TilePosComp = GetPositionComponent(ElectricalEntity);
+      component_position* TilePosComp = GetPositionComponent(&ElectricalEntity);
       TilePosComp->Position = MouseSelector->WorldPos;
       TilePosComp->Rotation = MouseSelector->Rotation;
 
@@ -154,7 +154,7 @@ void ControllerSystemUpdate( world* World )
     }
   }else
   {
-    u32 ElectricalEntity = MouseSelector->SelectedContent.ElectricalComponentEntity;
+    entity_id* ElectricalEntity = &MouseSelector->SelectedContent.ElectricalComponentEntity;
     if(Pushed(Keyboard->Key_S))
     {
       GetElectricalComponent(ElectricalEntity)->Type = ElectricalComponentType_Source;
@@ -181,9 +181,9 @@ void ControllerSystemUpdate( world* World )
   {
     tile_contents PreviousContent = MouseSelector->SelectedContent;
     MouseSelector->SelectedContent = GetTileContents(TileMap, MouseSelector->TilePos);
-    if(PreviousContent.ElectricalComponentEntity)
+    if(PreviousContent.ElectricalComponentEntity.EntityID)
     {
-      component_position* Pos = GetPositionComponent(PreviousContent.ElectricalComponentEntity);
+      component_position* Pos = GetPositionComponent(&PreviousContent.ElectricalComponentEntity);
       tile_map_position TilePos = CanonicalizePosition(TileMap, Pos->Position);
       // TODO: We are casting a negative uint (which is a huge number) into a signed and relying on it being cast down to 
       //       the small negative number again. This is compiler dependant behaviour, Maybe fix this?
@@ -199,13 +199,7 @@ void ControllerSystemUpdate( world* World )
 
   if(Pushed(MouseSelector->RightButton))
   {
-    // TODO: At the moment this leaks memory. Fix this with some smart memory system.
-    //       Or something dumb, like have a separate arena for tile-map stuff and after
-    //       a set amount of fragmentation from "leaked" memory just reallocate everything
-    //       in that map or chunk or whaterver. Note, reallocation requires all pointers to be 
-    //       re-initiated. That means the tile-map needs to be re-initiated as well and whatever
-    //       graph you will use for physics traversal.
-    //       Anyway, do something. This is just for demoing atm.
+    DeleteEntity(EM, &MouseSelector->SelectedContent.ElectricalComponentEntity);
     MouseSelector->SelectedContent = {};
   }
 

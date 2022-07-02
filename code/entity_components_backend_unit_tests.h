@@ -92,18 +92,18 @@ void RunUnitTestsA(memory_arena* Arena)
   entity_manager* EntityManager = CreateEntityManager(EntityChunkCount, ChunkSizeA, ChunkSizeB, ChunkSizeC, ChunkSizeD, ChunkSizeE);
 
   u32 ComponentCountA = ChunkSizeA * 5-1; // 9
-  u32* EntityIDs = PushArray(Arena, ComponentCountA, u32);
+  entity_id* EntityIDs = PushArray(Arena, ComponentCountA, entity_id);
   {
     // Test creating alot of TEST_COMPONENT_FLAG_A and loop
     // Entity      1 2 3 4 5 6 7 8 9
     // Components  a a a a a a a a a
     for(u32 i = 0; i<ComponentCountA; i++)
     {
-      u32 EntityID = NewEntity( EntityManager );
-      NewComponents(EntityManager, EntityID, TEST_COMPONENT_FLAG_A);
-      test_component_a* A = (test_component_a*) GetComponent(EntityManager, EntityID, TEST_COMPONENT_FLAG_A);
+      entity_id EntityID = NewEntity( EntityManager );
+      NewComponents(EntityManager, &EntityID, TEST_COMPONENT_FLAG_A);
+      test_component_a* A = (test_component_a*) GetComponent(EntityManager, &EntityID, TEST_COMPONENT_FLAG_A);
       EntityIDs[i] = EntityID;
-      A->a = EntityID;
+      A->a = EntityID.EntityID;
     }
     
     // Capacity is the number of chunks needed to hold all allocated components. In our case ChunkSizeA x 5 = 10;
@@ -117,14 +117,14 @@ void RunUnitTestsA(memory_arena* Arena)
     // Components  a a a a a a a a a
     for(u32 i = 0; i<ComponentCountA; i++)
     {
-      u32 EntityID = EntityIDs[i];
+      entity_id* EntityID = EntityIDs + i;
       test_component_a* A =  (test_component_a*) GetComponent(EntityManager, EntityID, TEST_COMPONENT_FLAG_A);
       test_component_b* B =  (test_component_b*) GetComponent(EntityManager, EntityID, TEST_COMPONENT_FLAG_B);
       test_component_c* C =  (test_component_c*) GetComponent(EntityManager, EntityID, TEST_COMPONENT_FLAG_C);
       test_component_d* D =  (test_component_d*) GetComponent(EntityManager, EntityID, TEST_COMPONENT_FLAG_D);
       test_component_e* E =  (test_component_e*) GetComponent(EntityManager, EntityID, TEST_COMPONENT_FLAG_E);
       Assert(A);
-      Assert(A->a == EntityID);
+      Assert(A->a == EntityID->EntityID);
       Assert(!B);
       Assert(!C);
       Assert(!D);
@@ -152,8 +152,8 @@ void RunUnitTestsA(memory_arena* Arena)
       Assert(!D);
       Assert(!E);
 
-      u32 EntityID = EntityIDs[index++];
-      Assert(A->a == EntityID);
+      entity_id* EntityID = EntityIDs + index++;
+      Assert(A->a == EntityID->EntityID);
     }
     Assert(index == ComponentCountA);
   }
@@ -171,6 +171,7 @@ void RunUnitTestsA(memory_arena* Arena)
     Assert(index == 0);
   }
 
+  entity_id Entity10 = {};
   {
     // Testing creating several components using recursive requirements gathering E requires C which requires A
     // Entity      1 2 3 4 5 6 7 8 9 10
@@ -179,14 +180,14 @@ void RunUnitTestsA(memory_arena* Arena)
     //                               c
     //                               
     //                               e
-    u32 EntityID = NewEntity( EntityManager );
-    NewComponents(EntityManager, EntityID, TEST_COMPONENT_FLAG_E);
+    Entity10 = NewEntity( EntityManager );
+    NewComponents(EntityManager, &Entity10, TEST_COMPONENT_FLAG_E);
 
-    test_component_a* A =  (test_component_a*) GetComponent(EntityManager, EntityID, TEST_COMPONENT_FLAG_A);
-    test_component_b* B =  (test_component_b*) GetComponent(EntityManager, EntityID, TEST_COMPONENT_FLAG_B);
-    test_component_c* C =  (test_component_c*) GetComponent(EntityManager, EntityID, TEST_COMPONENT_FLAG_C);
-    test_component_d* D =  (test_component_d*) GetComponent(EntityManager, EntityID, TEST_COMPONENT_FLAG_D);
-    test_component_e* E =  (test_component_e*) GetComponent(EntityManager, EntityID, TEST_COMPONENT_FLAG_E);
+    test_component_a* A =  (test_component_a*) GetComponent(EntityManager, &Entity10, TEST_COMPONENT_FLAG_A);
+    test_component_b* B =  (test_component_b*) GetComponent(EntityManager, &Entity10, TEST_COMPONENT_FLAG_B);
+    test_component_c* C =  (test_component_c*) GetComponent(EntityManager, &Entity10, TEST_COMPONENT_FLAG_C);
+    test_component_d* D =  (test_component_d*) GetComponent(EntityManager, &Entity10, TEST_COMPONENT_FLAG_D);
+    test_component_e* E =  (test_component_e*) GetComponent(EntityManager, &Entity10, TEST_COMPONENT_FLAG_E);
     Assert(A);
     Assert(!B);
     Assert(C);
@@ -213,14 +214,13 @@ void RunUnitTestsA(memory_arena* Arena)
     //                               c
     //                               d
     //                               e
-    u32 Entity10 = 10;
-    NewComponents(EntityManager, Entity10, TEST_COMPONENT_FLAG_B | TEST_COMPONENT_FLAG_D);
+    NewComponents(EntityManager, &Entity10, TEST_COMPONENT_FLAG_B | TEST_COMPONENT_FLAG_D);
 
-    test_component_a* A =  (test_component_a*) GetComponent(EntityManager, Entity10, TEST_COMPONENT_FLAG_A);
-    test_component_b* B =  (test_component_b*) GetComponent(EntityManager, Entity10, TEST_COMPONENT_FLAG_B);
-    test_component_c* C =  (test_component_c*) GetComponent(EntityManager, Entity10, TEST_COMPONENT_FLAG_C);
-    test_component_d* D =  (test_component_d*) GetComponent(EntityManager, Entity10, TEST_COMPONENT_FLAG_D);
-    test_component_e* E =  (test_component_e*) GetComponent(EntityManager, Entity10, TEST_COMPONENT_FLAG_E);
+    test_component_a* A =  (test_component_a*) GetComponent(EntityManager, &Entity10, TEST_COMPONENT_FLAG_A);
+    test_component_b* B =  (test_component_b*) GetComponent(EntityManager, &Entity10, TEST_COMPONENT_FLAG_B);
+    test_component_c* C =  (test_component_c*) GetComponent(EntityManager, &Entity10, TEST_COMPONENT_FLAG_C);
+    test_component_d* D =  (test_component_d*) GetComponent(EntityManager, &Entity10, TEST_COMPONENT_FLAG_D);
+    test_component_e* E =  (test_component_e*) GetComponent(EntityManager, &Entity10, TEST_COMPONENT_FLAG_E);
 
     Assert(A);
     Assert(B);
@@ -256,14 +256,14 @@ void RunUnitTestsA(memory_arena* Arena)
 
     {
       // Adding new entity with component b
-      u32 EntityID = NewEntity( EntityManager );
-      Assert(EntityID == 11);
-      NewComponents(EntityManager, EntityID, TEST_COMPONENT_FLAG_B);
-      test_component_a* A =  (test_component_a*) GetComponent(EntityManager, EntityID, TEST_COMPONENT_FLAG_A);
-      test_component_b* B =  (test_component_b*) GetComponent(EntityManager, EntityID, TEST_COMPONENT_FLAG_B);
-      test_component_c* C =  (test_component_c*) GetComponent(EntityManager, EntityID, TEST_COMPONENT_FLAG_C);
-      test_component_d* D =  (test_component_d*) GetComponent(EntityManager, EntityID, TEST_COMPONENT_FLAG_D);
-      test_component_e* E =  (test_component_e*) GetComponent(EntityManager, EntityID, TEST_COMPONENT_FLAG_E);
+      entity_id Entity11 = NewEntity( EntityManager );
+      Assert(Entity11.EntityID == 11);
+      NewComponents(EntityManager, &Entity11, TEST_COMPONENT_FLAG_B);
+      test_component_a* A =  (test_component_a*) GetComponent(EntityManager, &Entity11, TEST_COMPONENT_FLAG_A);
+      test_component_b* B =  (test_component_b*) GetComponent(EntityManager, &Entity11, TEST_COMPONENT_FLAG_B);
+      test_component_c* C =  (test_component_c*) GetComponent(EntityManager, &Entity11, TEST_COMPONENT_FLAG_C);
+      test_component_d* D =  (test_component_d*) GetComponent(EntityManager, &Entity11, TEST_COMPONENT_FLAG_D);
+      test_component_e* E =  (test_component_e*) GetComponent(EntityManager, &Entity11, TEST_COMPONENT_FLAG_E);
 
       Assert(!A);
       Assert(B);
@@ -277,7 +277,8 @@ void RunUnitTestsA(memory_arena* Arena)
 
     {
       // Adding component b to entity 2
-      u32 Entity2 = 2;
+      entity_id* Entity2 = EntityIDs + 1;
+      Assert(Entity2->EntityID == 2);
       NewComponents(EntityManager, Entity2, TEST_COMPONENT_FLAG_B);
       test_component_a* A =  (test_component_a*) GetComponent(EntityManager, Entity2, TEST_COMPONENT_FLAG_A);
       test_component_b* B =  (test_component_b*) GetComponent(EntityManager, Entity2, TEST_COMPONENT_FLAG_B);
@@ -357,11 +358,19 @@ void RunUnitTestsA(memory_arena* Arena)
     }
   }
 
-
+  // Testing adding new entity without a and adding additional B to entity 2 and iterate through all entities with a and b
+  // Entity      1 2 3 4 5 6 7 8 9 10 11
+  // Components  a a a a a a a a a a  
+  //               b               b  b
+  //                               c
+  //                               d
+  //                               e
   {
     // Test removing components
-
+ 
     // Test removing entities
+
+    //DeleteEntity(EntityManager, );
   }
 }
 

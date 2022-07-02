@@ -84,7 +84,7 @@ struct chunk_list
 chunk_list NewChunkList(memory_arena* Arena, u32 BlockSize, u32 BlocksPerChunk);
 
 // Returns first free block, allocates more chunks if necessary.
-bptr GetNewBlock(memory_arena* Arena, chunk_list* List);
+bptr GetNewBlock(memory_arena* Arena, chunk_list* List, u32* ResultIndex = 0);
 
 // Returns the block at Index, flags the block as "Not free". Does not allocate but marks as "set"
 bptr GetBlock(chunk_list* List, u32 Index);
