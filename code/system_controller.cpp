@@ -197,7 +197,7 @@ void ControllerSystemUpdate( world* World )
   }
   
 
-  if(Pushed(MouseSelector->RightButton))
+  if(Pushed(MouseSelector->RightButton) && MouseSelector->SelectedContent.ElectricalComponentEntity.EntityID > 0)
   {
     DeleteEntity(EM, &MouseSelector->SelectedContent.ElectricalComponentEntity);
     MouseSelector->SelectedContent = {};
