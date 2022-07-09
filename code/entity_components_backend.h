@@ -6,7 +6,9 @@ struct component_head;
 struct component_list;
 struct entity;
 
-//
+
+// TODO: Assemble entities into a balanced binary search tree for "easy" search and access
+
 //  Each entity_component_mapping only point to one component_head* stored in a chunk_list of entity_component_mapping_entry in entity manager
 //    Pro: Components allocated togeather would be next to each other.
 //         Easy to implement
@@ -17,6 +19,12 @@ struct entity;
 //                   Easy to implement
 //                   Have to extract management strategy to its seaparate file which can be use elsewhere
 //              Con: Have to extract management strategy to its seaparate file which can be alot of work
+
+struct entity_id
+{
+  u32 EntityID;
+  u32 ChunkListIndex;
+};
 
 struct entity_manager
 {
@@ -33,14 +41,28 @@ struct entity_manager
   component_list* ComponentTypeVector;
 };
 
-struct entity_id
+struct entity_manager_definition
 {
-  u32 EntityID;
-  u32 ChunkListIndex;
+  bitmask32 ComponentFlag;
+  bitmask32 RequirementsFlag;
+  u32 ComponentChunkCount;
+  u32 ComponentByteSize;
 };
+entity_manager* CreateEntityManager(u32 EntityChunkCount, u32 EntityMapChunkCount, u32 ComponentCount, entity_manager_definition* DefinitionVector);
 
+
+// Create Entities and Components
 entity_id NewEntity( entity_manager* EM );
+entity_id NewEntity( entity_manager* EM, bitmask32 ComponentFlags);
 void NewComponents(entity_manager* EM, entity_id* EntityID, bitmask32 ComponentFlags);
+
+// Access Entities and components
+entity_id* GetEntityIDFromComponent( bptr Component );
+
+u32 GetEntityCountHoldingTypes(entity_manager* EM, bitmask32 ComponentFlags);
+void GetEntitiesHoldingTypes(entity_manager* EM, bitmask32 ComponentFlags, entity_id* ResultVector);
+
+bptr GetComponent(entity_manager* EM, entity_id* EntityID, bitmask32 ComponentFlag);
 
 
 struct filtered_entity_iterator
@@ -50,43 +72,14 @@ struct filtered_entity_iterator
   entity* CurrentEntity;
   chunk_list_iterator ComponentIterator;
 };
-
-struct entity_manager_definition
-{
-  bitmask32 ComponentFlag;
-  bitmask32 RequirementsFlag;
-  u32 ComponentChunkCount;
-  u32 ComponentByteSize;
-};
-
-entity_manager* CreateEntityManager(u32 EntityChunkCount, u32 EntityMapChunkCount, u32 ComponentCount, entity_manager_definition* DefinitionVector);
-
+entity_id* GetEntityID( filtered_entity_iterator* Iterator );
 b32 Next(filtered_entity_iterator* EntityIterator);
 filtered_entity_iterator GetComponentsOfType(entity_manager* EM, bitmask32 ComponentFlagsToFilterOn);
-entity_id* GetEntity( bptr Component );
-
-bptr GetComponent(entity_manager* EM, entity_id* EntityID, bitmask32 ComponentFlag);
 bptr GetComponent(entity_manager* EM, filtered_entity_iterator* ComponentList, bitmask32 ComponentFlag);
+
+
+// Delete entities and components
 
 void DeleteComponent(entity_manager* EM, entity_id* EntityID, bitmask32 ComponentFlag);
 void DeleteEntity(entity_manager* EM, entity_id* EntityID);
-
-internal inline b32
-IndexOfLeastSignificantSetBit( bitmask32 EntityFlags, u32* Index )
-{
-  bit_scan_result BitScan = FindLeastSignificantSetBit( EntityFlags );
-  *Index = BitScan.Index;
-  return BitScan.Found;
-}
-
-inline u32 IndexOfLeastSignificantSetBit( bitmask32 EntityFlags )
-{
-  bit_scan_result BitScan = FindLeastSignificantSetBit( EntityFlags );
-  Assert(BitScan.Found);
-  return BitScan.Index;
-}
-
-
-
-// Used to initiate a entity_manager
-component_list CreateComponentList(memory_arena* Arena, bitmask32 TypeFlag, bitmask32 RequirmetFlags, u32 ComponentSize, u32 ComponentCountPerChunk);
+void DeleteEntities(entity_manager* EM, u32 Count, entity_id* EntityID);

@@ -1,6 +1,7 @@
 #include "entity_components_backend.h"
 #include "utility_macros.h"
 
+
 // entity_component_link: A struct holding references between entities and components
 // Types is a bitmask where each set references a specific component
 // NOTE: Extract the variable sized bitfield in chunk_list to its own type and use here
@@ -34,6 +35,21 @@ struct component_list
   chunk_list Components;
 };
 
+
+internal inline b32
+IndexOfLeastSignificantSetBit( bitmask32 EntityFlags, u32* Index )
+{
+  bit_scan_result BitScan = FindLeastSignificantSetBit( EntityFlags );
+  *Index = BitScan.Index;
+  return BitScan.Found;
+}
+
+internal inline u32 IndexOfLeastSignificantSetBit( bitmask32 EntityFlags )
+{
+  bit_scan_result BitScan = FindLeastSignificantSetBit( EntityFlags );
+  Assert(BitScan.Found);
+  return BitScan.Index;
+}
 
 internal inline entity* GetEntityFromID(entity_manager* EM, entity_id* EntityID) 
 { 
@@ -148,7 +164,7 @@ internal void CreateAndInsertNewComponents(entity_manager* EM, entity* Entity, b
   Entity->ComponentFlags = Entity->ComponentFlags | NewComponentFlags;
 }
 
-internal u32 GetTotalRequirements(entity_manager* EM, bitmask32 ComponentFlags)
+internal bitmask32 GetTotalRequirements(entity_manager* EM, bitmask32 ComponentFlags)
 {
   bitmask32 SummedFlags = ComponentFlags;
   u32 ComponentIndex = 0;
@@ -250,7 +266,6 @@ DoesEntityHoldAllComponents(entity* Entity, bitmask32 Flags)
   return Result;
 }
 
-// Functions in header
 
 component_list CreateComponentList(memory_arena* Arena, bitmask32 TypeFlag, bitmask32 RequirmetFlags, u32 ComponentSize, u32 ComponentCountPerChunk)
 {
@@ -262,6 +277,9 @@ component_list CreateComponentList(memory_arena* Arena, bitmask32 TypeFlag, bitm
   return Result;
 }
 
+
+// Functions in header
+
 entity_id NewEntity( entity_manager* EM )
 {
   u32 ListIndex = 0;
@@ -272,13 +290,20 @@ entity_id NewEntity( entity_manager* EM )
   return NewEntity->ID;
 }
 
+entity_id NewEntity( entity_manager* EM, bitmask32 ComponentFlags)
+{
+  entity_id Result = NewEntity(EM);
+  NewComponents(EM, &Result, ComponentFlags);
+  return Result;
+}
+
 void NewComponents(entity_manager* EM, entity_id* EntityID, u32 ComponentFlags)
 {
   entity* Entity = GetEntityFromID(EM, EntityID);
 
   // Always allocate memory for requirements not yet fullfilled
-  u32 TotalRequirements = GetTotalRequirements(EM, ComponentFlags);
-  u32 NewComponentFlags = (~Entity->ComponentFlags) & TotalRequirements;
+  bitmask32 TotalRequirements = GetTotalRequirements(EM, ComponentFlags);
+  bitmask32 NewComponentFlags = (~Entity->ComponentFlags) & TotalRequirements;
 
   CreateAndInsertNewComponents(EM, Entity, NewComponentFlags);
 }
@@ -363,16 +388,165 @@ entity_manager* CreateEntityManager(u32 EntityChunkCount, u32 EntityMapChunkCoun
   return Result;
 }
 
-entity_id* GetEntity( bptr Component )
+u32 GetEntityCountHoldingTypes(entity_manager* EM, bitmask32 ComponentFlags)
+{
+  u32 Result = 0;
+  component_list* SmallestList = GetListWithLowestCount(EM, ComponentFlags);
+  Assert(GetSetBitCount(ComponentFlags) > 0);
+  b32 AllComponentsAreRequired = (ComponentFlags & SmallestList->Requirements & SmallestList->Type) == ComponentFlags;
+  b32 OnlyLookingForASingleComponentType = GetSetBitCount(ComponentFlags) == 1;
+  if(OnlyLookingForASingleComponentType || AllComponentsAreRequired)
+  {
+    Result = GetBlockCount(&SmallestList->Components);
+  }else{
+    chunk_list_iterator Iterator = BeginIterator(&SmallestList->Components);
+    while(component_head* ComponentHead = (component_head*) Next(&Iterator))
+    {
+      if(DoesEntityHoldAllComponents(ComponentHead->Entity, ComponentFlags))
+      {
+        Result++;
+      }
+    }
+  }
+  
+  return Result;
+}
+
+entity_id* GetEntityIDFromComponent( bptr Component )
 {
   component_head* Base = (component_head*) RetreatByType(Component, component_head);
   return &Base->Entity->ID;
 }
 
-void DeleteComponent(entity_manager* EM, entity_id* EntityID, bitmask32 ComponentFlag)
+entity_id* GetEntityID( filtered_entity_iterator* Iterator )
 {
-  // Implement Function
-  Assert(0);
+  Assert(Iterator->CurrentEntity);
+  entity_id* Result = &Iterator->CurrentEntity->ID;
+  return Result;
+}
+
+// Result must point to an array of pointers to entity_id long enough to hold pointers to all entities contianing type
+void GetEntitiesHoldingTypes(entity_manager* EM, bitmask32 ComponentFlags, entity_id* ResultVector)
+{
+  Assert(GetSetBitCount(ComponentFlags) > 0);
+  component_list* SmallestList = GetListWithLowestCount(EM, ComponentFlags);
+  chunk_list_iterator Iterator = BeginIterator(&SmallestList->Components);
+  while(component_head* ComponentHead = (component_head*) Next(&Iterator))
+  {
+    if(DoesEntityHoldAllComponents(ComponentHead->Entity, ComponentFlags))
+    {
+      *ResultVector++ = ComponentHead->Entity->ID;
+    }
+  }
+}
+
+internal inline component_list* GetComponentList(entity_manager* EM, bitmask32 ComponentFlag)
+{
+  u32 ComponentListIndex = IndexOfLeastSignificantSetBit(ComponentFlag);
+  component_list* ComponentList = EM->ComponentTypeVector + ComponentListIndex;
+  return ComponentList;
+}
+
+internal inline component_list* GetComponentList(entity_manager* EM, entity_component_link* ComponentLink)
+{
+  component_list* ComponentList = GetComponentList(EM, ComponentLink->Component->Type);
+  return ComponentList;
+}
+
+bitmask32 GetCascadedRequirements(entity_manager* EM, entity* Entity, bitmask32 ComponentFlag)
+{
+  entity_component_link* ComponentLink = Entity->FirstComponentLink;
+  u32 ComponentsToRemainCount = 0;
+  bitmask32 TotalRequirements = ComponentFlag;
+  while(ComponentLink)
+  {
+    component_list* ComponentList = GetComponentList(EM, ComponentLink);
+    b32 ComponentToRemoveIsRequiredByAnother = TotalRequirements & ComponentList->Requirements;
+    if(ComponentToRemoveIsRequiredByAnother)
+    {
+      bitmask32 NewTotalRequirements = ComponentList->Type | TotalRequirements;
+      if(NewTotalRequirements > TotalRequirements)
+      {
+        TotalRequirements = NewTotalRequirements;
+        // If we added a new flag to the summed flags, the newly added flag may itself have 
+        // requirements earlier in the component list, therefore we have to look through all the 
+        // links again. 
+        // NOTE: Since all component types are known at start up, the reverse-requirement chain
+        //       Can be calculated and chached at entity_manager initialization.
+        ComponentLink = Entity->FirstComponentLink;
+      }
+    }
+    ComponentLink = ComponentLink->Next;
+  }
+  Assert((TotalRequirements & Entity->ComponentFlags) == TotalRequirements);
+  return TotalRequirements;
+}
+
+void DeleteComponents(entity_manager* EM, entity_id* EntityID, bitmask32 ComponentFlag)
+{
+  entity* Entity = GetEntityFromID(EM, EntityID);
+  
+  bitmask32 TotalRequirements = GetCascadedRequirements(EM, Entity, ComponentFlag);
+
+  temporary_memory TempMem = BeginTemporaryMemory(&EM->Arena);
+
+  u32 ComponentCount = GetSetBitCount(Entity->ComponentFlags);
+
+  Assert(ComponentCount); // For now we cannot delete components in entities with no components. Can be handled if needed.
+
+  // We add +1 for saftey to have some 0-space after the last link. Is necessary if we remove 0 links (should not happend I don't think)
+  entity_component_link** ComponentsToRemain = PushArray(&EM->Arena, ComponentCount+1, entity_component_link*);
+  entity_component_link* ComponentLink = Entity->FirstComponentLink;
+  u32 ComponentsToRemainCount = 0;
+  while(ComponentLink)
+  {
+    b32 ComponentShouldBeRemoved = (ComponentLink->Component->Type & TotalRequirements) == ComponentLink->Component->Type;
+    if(ComponentShouldBeRemoved)
+    {
+      entity_component_link* LinkToRemove = ComponentLink;
+      ComponentLink = ComponentLink->Next;
+
+      component_list* ComponentList = GetComponentList(EM, LinkToRemove);
+
+      FreeBlock(&ComponentList->Components, (bptr) LinkToRemove->Component);
+      FreeBlock(&EM->EntityComponentLinks, (bptr) LinkToRemove);
+    }else{
+      ComponentsToRemain[ComponentsToRemainCount++] = ComponentLink;
+      ComponentLink = ComponentLink->Next;
+    }
+  }
+  
+  // Asserting we actually removed some components.
+  Assert(ComponentsToRemainCount < ComponentCount);
+ 
+  // Reattach the remaining components to the entity
+  Entity->FirstComponentLink = ComponentsToRemain[0];
+  u32 LinkIndex = 1;
+  ComponentLink = Entity->FirstComponentLink;
+  while(ComponentLink)
+  {
+    // This is why it's safe to have an extra 0-space at the end of ComponentsToRemain.
+    // The final "ComponentLink->Next" has to be a 0. We don't want to stick garbage memory there.
+    ComponentLink->Next = ComponentsToRemain[LinkIndex++];
+    ComponentLink = ComponentLink->Next;
+  }
+  
+  Entity->ComponentFlags -= TotalRequirements;
+
+  // Makes sure that if we have 0 components left, the FirstComponentLink is also 0
+  // Or if we have components left we also have a link left
+  Assert((Entity->ComponentFlags == 0 && Entity->FirstComponentLink == 0) || 
+         (Entity->ComponentFlags != 0 && Entity->FirstComponentLink != 0))
+
+  EndTemporaryMemory(TempMem);
+}
+
+void DeleteEntities(entity_manager* EM, u32 Count, entity_id* EntityID)
+{
+  for(u32 Index = 0; Index < Count; ++Index)
+  {
+    DeleteEntity(EM, EntityID+Index);
+  }
 }
 
 void DeleteEntity(entity_manager* EM, entity_id* EntityID)
@@ -386,14 +560,12 @@ void DeleteEntity(entity_manager* EM, entity_id* EntityID)
     entity_component_link* ComponentLinkToRemove = ComponentLink;
     ComponentLink = ComponentLink->Next;
 
-    bitmask32 ComponentType = ComponentLinkToRemove->Component->Type;
-    component_head* ComponentToRemove = ComponentLinkToRemove->Component;
-
-    u32 ComponentListIndex = IndexOfLeastSignificantSetBit(ComponentType);
+    u32 ComponentListIndex = IndexOfLeastSignificantSetBit(ComponentLinkToRemove->Component->Type);
     component_list* ComponentList = EM->ComponentTypeVector + ComponentListIndex;
 
+    FreeBlock(&ComponentList->Components, (bptr) ComponentLinkToRemove->Component);
     FreeBlock(&EM->EntityComponentLinks, (bptr) ComponentLinkToRemove);
-    FreeBlock(&ComponentList->Components, (bptr) ComponentToRemove);
+    
   }
 
   FreeBlock(&EM->EntityList, (bptr) Entity);
