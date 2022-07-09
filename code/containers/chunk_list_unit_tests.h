@@ -128,6 +128,20 @@ void TestListGrowAndShrink(memory_arena* Arena)
   Assert(List.FirstFree == List.Last);
   Assert(GetCapacity(&List) == 8);
 
+  // Fill the List and then remove a early block
+  // | 0 2 | 3 0 | 0 0 | 0 0 |
+  Data = (u32*) GetNewBlock(Arena, &List);
+  Assert(*Data == 0);
+  Assert(GetBlockCount(&List) == 8);
+  Assert(!List.FirstFree);
+  Assert(GetCapacity(&List) == 8);
+  //->  | 0 2 | - 0 | 0 0 | 0 0 |
+  FreeBlock(&List, 2);
+  Assert(GetBlockCount(&List) == 7);
+  Assert(List.FirstFree == List.First->Next);
+  Assert(GetCapacity(&List) == 8);
+
+
   // Clear the list
   // | - - | - - | - - | - - |
   Clear(&List);

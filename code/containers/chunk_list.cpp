@@ -221,13 +221,18 @@ FlagBlockAsUnocupied(chunk_list* List, memory_block_chunk* Chunk,  chunk_index* 
     //       We zero out memory when pushing a new block.
   }
 
-  // Update first free since we removed a slot
-  if(Chunk->IndexInList < List->FirstFree->IndexInList)
-  {
+  // Update the lists "FirstFree" Chunk
+  if(!List->FirstFree){
+    // The list was full, but there is now a free slot in chunk
+    List->FirstFree = Chunk;
+  }else if(Chunk->IndexInList < List->FirstFree->IndexInList){
+    // This chunk is earlier in the list than the previous first free chunk
     List->FirstFree = Chunk;
   }else if(Chunk->IndexInList == List->FirstFree->IndexInList){
+    // We deleted an entry somewhere in the first free chunk
     UpdateFirstFreeChunkRelativeToChunk(List, List->FirstFree);  
-  }  
+  }
+  // The remaining case is that the first free is in a block ahead of Chunk, in which case we do nothing
 }
 
 
