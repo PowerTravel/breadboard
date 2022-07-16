@@ -60,12 +60,13 @@ void PushNewRenderLevel(render_group* RenderGroup)
   push_buffer_header* Header = PushNewEntry(RenderGroup, render_buffer_entry_type::NEW_LEVEL);
 }
 
-void Push2DColoredQuad(render_group* RenderGroup, rect2f QuadRect, v4 Color)
+void Push2DColoredQuad(render_group* RenderGroup, rect2f QuadRect, v4 Color, r32 Rotation)
 {
   push_buffer_header* Header = PushNewEntry(RenderGroup, render_buffer_entry_type::QUAD_2D_COLOR);
   entry_type_2d_quad* Body = GetBody(Header, entry_type_2d_quad);
   Body->Colour = Color;
   Body->QuadRect = QuadRect;
+  Body->Rotation = Rotation;
   Recenter(&Body->QuadRect);
 }
 
@@ -97,7 +98,7 @@ void Push2DQuad(render_group* RenderGroup, rect2f QuadRect, float Rotation, rect
 void PushOverlayQuad(rect2f QuadRect, v4 Color)
 {
   render_group* RenderGroup = GlobalGameState->RenderCommands->OverlayGroup;
-  Push2DColoredQuad(RenderGroup, QuadRect, Color);
+  Push2DColoredQuad(RenderGroup, QuadRect, Color, 0);
 }
 
 void PushTexturedOverlayQuad(rect2f QuadRect,  rect2f UVRect,  bitmap_handle BitmapHandle)
@@ -332,14 +333,14 @@ void DrawGrid( rect2f ScreenRect, tile_map* TileMap, u32 TileStride, v3 CameraPo
           TileY += StrideYLength)
   {
     rect2f Rect = Rect2f(StartX, TileY - PixelHeightInWorld*0.5f + 0.5f*TileStepY, Width, PixelHeightInWorld );  
-    Push2DColoredQuad(RenderGroup, Rect, V4(1,1,1,Alpha)); 
+    Push2DColoredQuad(RenderGroup, Rect, V4(1,1,1,Alpha), 0); 
   }  
   for(r32 TileX  = StartX;
           TileX <= EndX;
           TileX += StrideXLength)
   {
     rect2f Rect = Rect2f(TileX - PixelWidthInWorld*0.5f + 0.5f*TileStepX, StartY, PixelWidthInWorld, Height );
-    Push2DColoredQuad(RenderGroup, Rect, V4(1,1,1,Alpha));
+    Push2DColoredQuad(RenderGroup, Rect, V4(1,1,1,Alpha), 0);
   }
 }
 void FillRenderPushBuffer(world* World)
@@ -471,29 +472,46 @@ void FillRenderPushBuffer(world* World)
   DrawGrid(ScreenRect, TileMap, 100, RenderGroup->CameraPosition, Alpha2);
   DrawGrid(ScreenRect, TileMap, 10000, RenderGroup->CameraPosition, Alpha3);
   
-  component_position* Pos = 0;
+  component_hitbox* Hitbox = 0;
   {
-    filtered_entity_iterator EntityIterator = GetComponentsOfType(EM, COMPONENT_FLAG_ELECTRICAL | COMPONENT_FLAG_POSITION);
+    filtered_entity_iterator EntityIterator = GetComponentsOfType(EM, COMPONENT_FLAG_ELECTRICAL);
+    mouse_selector* MouseSelector = &GlobalGameState->World->MouseSelector;
+    r32 BoxWidth = 0.05;
     while(Next(&EntityIterator))
     {
       electrical_component* ElectricalComponent = GetElectricalComponent(&EntityIterator);
-      Pos = GetPositionComponent(&EntityIterator);
+      v2 CenterOffset = GetCenterOffset(ElectricalComponent);
+      Hitbox = GetHitboxComponent(&EntityIterator);
       u32 TileSpriteSheet = ElectricalComponentToSpriteType(ElectricalComponent);
       r32 PixelsPerUnitLegth = 128;
-      r32 X = Pos->Position.X;
-      r32 Y = Pos->Position.Y;
-      PushElectricalComponent(X, Y, PixelsPerUnitLegth, Pos->Rotation, TileSpriteSheet, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
+      r32 X = Hitbox->Rect.X + CenterOffset.X;
+      r32 Y = Hitbox->Rect.Y + CenterOffset.Y;
+
+      PushElectricalComponent(X, Y, PixelsPerUnitLegth, Hitbox->Rotation, TileSpriteSheet, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
+      rect2f ColoredRect = Rect2f(X - Hitbox->Rect.W * 0.5f,Y - Hitbox->Rect.H * 0.5f, Hitbox->Rect.W, Hitbox->Rect.H);
+      Push2DColoredQuad(GlobalGameState->RenderCommands->WorldGroup, ColoredRect, V4(1,1,1,0.5), Hitbox->Rotation);
+    
+
+      rect2f CenterBox = Rect2f(Hitbox->Rect.X + Hitbox->RotationCenter.X - BoxWidth/2.f, Hitbox->Rect.Y + Hitbox->RotationCenter.Y - BoxWidth/2.f, BoxWidth, BoxWidth);
+      Push2DColoredQuad(GlobalGameState->RenderCommands->WorldGroup, CenterBox, V4(0,1,0,1), 0);
     }
+    
+    // Draw Mouse
+    rect2f MouseBox = Rect2f(MouseSelector->WorldPos.X - BoxWidth/2.f, MouseSelector->WorldPos.Y - BoxWidth/2.f, BoxWidth, BoxWidth);
+    Push2DColoredQuad(GlobalGameState->RenderCommands->WorldGroup, MouseBox, V4(0,0,0,1), 0);
   }
 
 #if 1
-  if(Pos)
+  if(Hitbox)
   {
     char StringBuffer[1024] = {};
     mouse_input* Mouse = &GlobalGameState->Input->Mouse;
     mouse_selector* ms = &GlobalGameState->World->MouseSelector; 
     rect2f ScreenRect2 = GetCameraScreenRect(OrthoZoom);
-    Platform.DEBUGFormatString(StringBuffer, 1024, 1024-1, "%f %f, %2.2f %2.2f",Pos->Position.X,Pos->Position.Y,
+
+    r32 X = Hitbox->Rect.X + Hitbox->Rect.W * 0.5f;
+    r32 Y = Hitbox->Rect.Y + Hitbox->Rect.H * 0.5f;
+    Platform.DEBUGFormatString(StringBuffer, 1024, 1024-1, "%f %f, %2.2f %2.2f", X, Y,
       ms->WorldPos.X, ms->WorldPos.Y);
     PushTextAt(Mouse->X, Mouse->Y, StringBuffer, 8, V4(1,1,1,1));
   }

@@ -45,6 +45,18 @@ void HandleTranslate(component_camera* Camera, b32 MouseActive, r32 MouseDX, r32
   }
 }
 
+void InitiateElectricalComponent(electrical_component* Component, component_hitbox* Hitbox, u32 ElectricalType)
+{
+  r32 PixelsPerUnitLegth = 128;
+  Component->Type = ElectricalType;
+  u32 SpriteTileType = ElectricalComponentToSpriteType(Component);
+  bitmap_points TilePoint = GetElectricalComponentSpriteBitmapPoints(SpriteTileType);
+  
+  Hitbox->RotationCenter = TilePoint.Center / PixelsPerUnitLegth;
+  Hitbox->Rect.W   = (TilePoint.BotRight.X - TilePoint.TopLeft.X) / PixelsPerUnitLegth;
+  Hitbox->Rect.H   = (TilePoint.BotRight.Y - TilePoint.TopLeft.Y) / PixelsPerUnitLegth;
+}
+
 void ControllerSystemUpdate( world* World )
 {
   TIMED_FUNCTION();
@@ -97,8 +109,8 @@ void ControllerSystemUpdate( world* World )
 
   if(HotSelection.ElectricalComponentEntity.EntityID)
   {
-    component_position* Pos = GetPositionComponent(&HotSelection.ElectricalComponentEntity);
-    MouseSelector->Rotation = Pos->Rotation;
+    component_hitbox* Hitbox = GetHitboxComponent(&HotSelection.ElectricalComponentEntity);
+    MouseSelector->Rotation = Hitbox->Rotation;
 
     if(Pushed(Keyboard->Key_Q))
     {
@@ -116,7 +128,7 @@ void ControllerSystemUpdate( world* World )
       MouseSelector->Rotation += Tau32;
     }
 
-    Pos->Rotation = MouseSelector->Rotation;
+    Hitbox->Rotation = MouseSelector->Rotation;
   }
 
   if(!MouseSelector->SelectedContent.ElectricalComponentEntity.EntityID)
@@ -144,37 +156,41 @@ void ControllerSystemUpdate( world* World )
       entity_id ElectricalEntity = NewEntity(EM);
       NewComponents(EM, &ElectricalEntity, COMPONENT_FLAG_ELECTRICAL);
       electrical_component* Component = GetElectricalComponent(&ElectricalEntity);
-      Component->Type = Type;
-
-      component_position* TilePosComp = GetPositionComponent(&ElectricalEntity);
-      TilePosComp->Position = MouseSelector->WorldPos;
-      TilePosComp->Rotation = MouseSelector->Rotation;
+      component_hitbox* Hitbox = GetHitboxComponent(&ElectricalEntity);
+      InitiateElectricalComponent(Component, Hitbox, Type);
+      v2 CenterOffset = GetCenterOffset(Component);
+      Hitbox->Rect.X   = MouseSelector->WorldPos.X - CenterOffset.X;
+      Hitbox->Rect.Y   = MouseSelector->WorldPos.Y - CenterOffset.Y;
+      Hitbox->Rotation = MouseSelector->Rotation;
 
       MouseSelector->SelectedContent.ElectricalComponentEntity = ElectricalEntity;
     }
   }else
   {
     entity_id* ElectricalEntity = &MouseSelector->SelectedContent.ElectricalComponentEntity;
+    electrical_component* Component = GetElectricalComponent(ElectricalEntity);
+    component_hitbox* Hitbox = GetHitboxComponent(ElectricalEntity);
     if(Pushed(Keyboard->Key_S))
     {
-      GetElectricalComponent(ElectricalEntity)->Type = ElectricalComponentType_Source;
+      InitiateElectricalComponent(Component, Hitbox, ElectricalComponentType_Source);
     }
     if(Pushed(Keyboard->Key_R))
     {
-      GetElectricalComponent(ElectricalEntity)->Type = ElectricalComponentType_Resistor;
+      InitiateElectricalComponent(Component, Hitbox, ElectricalComponentType_Resistor);
     }
     if(Pushed(Keyboard->Key_L))
     {
-      GetElectricalComponent(ElectricalEntity)->Type = ElectricalComponentType_Led_Red;
+      InitiateElectricalComponent(Component, Hitbox, ElectricalComponentType_Led_Red);
     }
     if(Pushed(Keyboard->Key_G))
     {
-      GetElectricalComponent(ElectricalEntity)->Type = ElectricalComponentType_Ground;
+      InitiateElectricalComponent(Component, Hitbox, ElectricalComponentType_Ground);
     }
 
-    component_position* TilePosComp = GetPositionComponent(ElectricalEntity);
-    TilePosComp->Position = MouseSelector->WorldPos;
-    TilePosComp->Rotation = MouseSelector->Rotation;
+    v2 CenterOffset = GetCenterOffset(Component);
+    Hitbox->Rect.X = MouseSelector->WorldPos.X - CenterOffset.X;
+    Hitbox->Rect.Y = MouseSelector->WorldPos.Y - CenterOffset.Y;
+    Hitbox->Rotation = MouseSelector->Rotation;
   }
 
   if(Pushed(MouseSelector->LeftButton))
@@ -183,13 +199,14 @@ void ControllerSystemUpdate( world* World )
     MouseSelector->SelectedContent = GetTileContents(TileMap, MouseSelector->TilePos);
     if(PreviousContent.ElectricalComponentEntity.EntityID)
     {
-      component_position* Pos = GetPositionComponent(&PreviousContent.ElectricalComponentEntity);
-      tile_map_position TilePos = CanonicalizePosition(TileMap, Pos->Position);
+      component_hitbox* Hitbox = GetHitboxComponent(&PreviousContent.ElectricalComponentEntity);
+      v3 Pos = V3(Hitbox->Rect.X, Hitbox->Rect.Y, 0);
+      tile_map_position TilePos = CanonicalizePosition(TileMap, Pos);
       // TODO: We are casting a negative uint (which is a huge number) into a signed and relying on it being cast down to 
       //       the small negative number again. This is compiler dependant behaviour, Maybe fix this?
-      Pos->Position.X = Round( ( (r32) ( (s32) TilePos.AbsTileX))) * TileMap->TileWidth + 0.5f * TileMap->TileWidth;
-      Pos->Position.Y = Round( ( (r32) ( (s32) TilePos.AbsTileY))) * TileMap->TileHeight + 0.5f * TileMap->TileHeight;
-      Pos->Position.Z = Round( ( (r32) ( (s32) TilePos.AbsTileZ))) * TileMap->TileDepth + 0.5f * TileMap->TileDepth;
+      Hitbox->Rect.X = Round( ( (r32) ( (s32) TilePos.AbsTileX))) * TileMap->TileWidth + 0.5f * TileMap->TileWidth;
+      Hitbox->Rect.Y = Round( ( (r32) ( (s32) TilePos.AbsTileY))) * TileMap->TileHeight + 0.5f * TileMap->TileHeight;
+      //Pos->Hitbox.Z = Round( ( (r32) ( (s32) TilePos.AbsTileZ))) * TileMap->TileDepth + 0.5f * TileMap->TileDepth;
     }
     // TODO: Set all the tiles covered by the component.
     SetTileContents(World->Arena, TileMap, &MouseSelector->TilePos, PreviousContent);

@@ -246,3 +246,13 @@ inline bitmap_points GetElectricalComponentSpriteBitmapPoints(u32 Index)
   }
   return Points;
 }
+
+v2 GetCenterOffset(electrical_component* Component)
+{
+  r32 PixelsPerUnitLegth = 128;
+  u32 SpriteTileType = ElectricalComponentToSpriteType(Component);
+  bitmap_points TilePoint = GetElectricalComponentSpriteBitmapPoints(SpriteTileType);
+  v2 HitBoxCenter = GetRelativeCenter(TilePoint.TopLeft, TilePoint.BotRight);
+  v2 CenterOffset = (HitBoxCenter - TilePoint.Center)/PixelsPerUnitLegth;
+  return CenterOffset;
+}

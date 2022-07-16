@@ -13,8 +13,8 @@ entity_manager* CreateEntityManager()
     {COMPONENT_FLAG_CONTROLLER,       COMPONENT_FLAG_NONE,     ControllerChunkCount, sizeof(component_controller)},
     {COMPONENT_FLAG_RENDER,           COMPONENT_FLAG_NONE,     EntityChunkCount,     sizeof(component_render)},
     {COMPONENT_FLAG_SPRITE_ANIMATION, COMPONENT_FLAG_NONE,     EntityChunkCount,     sizeof(component_sprite_animation)},
-    {COMPONENT_FLAG_POSITION,         COMPONENT_FLAG_NONE,     EntityChunkCount,     sizeof(component_position)},
-    {COMPONENT_FLAG_ELECTRICAL,       COMPONENT_FLAG_POSITION, EntityChunkCount,     sizeof(electrical_component)}
+    {COMPONENT_FLAG_HITBOX,           COMPONENT_FLAG_NONE,     EntityChunkCount,     sizeof(component_hitbox)},
+    {COMPONENT_FLAG_ELECTRICAL,       COMPONENT_FLAG_HITBOX,   EntityChunkCount,     sizeof(electrical_component)}
   }; 
   entity_manager* Result = CreateEntityManager(EntityChunkCount, EntityChunkCount, ArrayCount(Definitions), Definitions);
   return Result;

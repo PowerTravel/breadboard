@@ -8,6 +8,7 @@
 #include "breadboard_tile.h"
 #include "data_containers.h"
 #include "breadboard_components.h"
+#include "math/rect2f.h"
 
 
 // Todo, Can we use a location component instead of DeltaRot, DeltaPos etc?
@@ -37,22 +38,11 @@ struct component_controller
   u32 Type;
 };
 
-struct component_position
+struct component_hitbox
 {
-  v3 Position;
+  rect2f Rect;
+  v2 RotationCenter;
   r32 Rotation;
-};
-
-struct component_spatial
-{
-  component_spatial(v3 PosInit = V3(0,0,0), v3 ScaleInit = V3(1,1,1), v4 RotInit = V4(0,0,0,1) ) :
-        Position(PosInit), Scale(ScaleInit), Rotation(RotInit){};
-  v3 Scale;
-  v3 Position;
-  //  We define the Quaternion as (xi,yj,zk, Scalar)
-  //  Some resources define it as (Scalar,xi,yj,zk)
-  v4 Rotation;
-  m4 ModelMatrix;
 };
 
 struct component_render
@@ -80,7 +70,7 @@ enum component_type
   COMPONENT_FLAG_CONTROLLER         = 1<<1,
   COMPONENT_FLAG_RENDER             = 1<<2,
   COMPONENT_FLAG_SPRITE_ANIMATION   = 1<<3,
-  COMPONENT_FLAG_POSITION           = 1<<4,
+  COMPONENT_FLAG_HITBOX             = 1<<4,
   COMPONENT_FLAG_ELECTRICAL         = 1<<5,
   COMPONENT_FLAG_FINAL              = 1<<6,
 };
@@ -92,5 +82,5 @@ entity_manager* CreateEntityManager();
 #define GetControllerComponent(EntityID) ((component_controller*) GetComponent(GlobalGameState->EntityManager, EntityID, COMPONENT_FLAG_CONTROLLER))
 #define GetRenderComponent(EntityID) ((component_render*) GetComponent(GlobalGameState->EntityManager, EntityID, COMPONENT_FLAG_RENDER))
 #define GetSpriteAnimationComponent(EntityID) ((component_sprite_animation*) GetComponent(GlobalGameState->EntityManager, EntityID, COMPONENT_FLAG_SPRITE_ANIMATION))
-#define GetPositionComponent(EntityID) ((component_position*) GetComponent(GlobalGameState->EntityManager, EntityID, COMPONENT_FLAG_POSITION))
+#define GetHitboxComponent(EntityID) ((component_hitbox*) GetComponent(GlobalGameState->EntityManager, EntityID, COMPONENT_FLAG_HITBOX))
 #define GetElectricalComponent(EntityID) ((electrical_component*) GetComponent(GlobalGameState->EntityManager, EntityID, COMPONENT_FLAG_ELECTRICAL))
