@@ -671,7 +671,12 @@ struct mouse_input
 {
   binary_signal_state Button[5];
   r32 dX, dY, dZ;
-  r32 X, Y, Z;
+  // Origin is in bottom left part of the screen
+  // Bottom Left: [0,0], 
+  // Top Right: [AspectRatio, 1]
+  r32 X;  // [Left   0] -> [Right AspectRatio]
+  r32 Y;  // [Bottom 0] -> [Top   1]
+  r32 Z;  // [Scroll Wheel]
 };
 
 struct game_input

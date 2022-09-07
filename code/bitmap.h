@@ -51,7 +51,11 @@ typedef bitmap_coordinate_lh bitmap_coordinate;
 
 inline bitmap_coordinate_lh BitmapCoordinatePxLh(u32 x, u32 y, u32 w, u32 h)
 {
-  bitmap_coordinate_lh Result = {x,y,w,h};
+  bitmap_coordinate_lh Result = {};
+  Result.x = x;
+  Result.y = y;
+  Result.w = w;
+  Result.h = h;
   AssertBitmapPointLh(Result);
   return Result;
 }

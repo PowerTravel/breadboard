@@ -1270,7 +1270,7 @@ void Win32ProcessMouse(mouse_input* Mouse, r32 MouseScroll, HWND WindowHandle, r
   POINT MouseP;
   GetCursorPos(&MouseP);
   ScreenToClient(WindowHandle, &MouseP);
-  // Transforms from Pixel Space [0,Height: Width,0] to OpenGL Viewport Space [-1,-1 : 1,1]
+  // Transforms from Raster Space [0,Height: Width,0] to OpenGL Canonical Space [0,0: 1,1]
   r32 TmpX = Mouse->X;
   r32 TmpY = Mouse->Y;
   r32 TmpZ = Mouse->Z;

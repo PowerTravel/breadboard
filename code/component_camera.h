@@ -22,20 +22,20 @@ rect2f GetCameraScreenRect(r32 Zoom)
 // Mouse Input in Screen Space
 // Cam Pos in World Space
 internal v2
-GetMousePosInProjectionWindow(r32 MouseX, r32 MouseY, r32 Zoom, r32 AspectRatio)
+GetMousePosInProjectionWindow(screen_coordinate MouseScreenSpace, r32 Zoom, r32 AspectRatio)
 {
   rect2f ScreenRect = GetCameraScreenRect(Zoom, AspectRatio);
   v2 Result = {};
-  Result.X = 0.5f * MouseX * ScreenRect.W;
-  Result.Y = 0.5f * MouseY * ScreenRect.H;
+  Result.X = 0.5f * MouseScreenSpace.X * ScreenRect.W;
+  Result.Y = 0.5f * MouseScreenSpace.Y * ScreenRect.H;
   return Result;
 }
 
-v2 GetMousePosInWorld(v3 CameraPosition, r32 OrthoZoom, v2 MouseScreenSpace)
+world_coordinate GetMousePosInWorld(v3 CameraPosition, r32 OrthoZoom, screen_coordinate MouseScreenSpace)
 { 
-  v2 MousePosScreenSpace = GetMousePosInProjectionWindow(MouseScreenSpace.X, MouseScreenSpace.Y, OrthoZoom, GameGetAspectRatio());
-  v2 MousePosWorldSpace = MousePosScreenSpace + V2(CameraPosition);
-  return MousePosWorldSpace;
+  v2 WorldPosRelativeCamera = GetMousePosInProjectionWindow(MouseScreenSpace, OrthoZoom, GameGetAspectRatio());
+  v2 WorldPosRelativeOrigin = WorldPosRelativeCamera + V2(CameraPosition);
+  return WorldCoordinate(WorldPosRelativeOrigin.X, WorldPosRelativeOrigin.Y, 0);
 }
 
 void LookAt( component_camera* Camera, v3 aFrom,  v3 aTo,  v3 aTmp = V3(0,1,0) )
@@ -62,10 +62,11 @@ struct ray
 };
 
 // Works only for 3d projection camera
-ray GetRayFromCamera(component_camera* Camera, v2 MousePos)
+ray GetRayFromCamera(component_camera* Camera, canonical_screen_coordinate MouseCanPos)
 {
   ray Result{};
-  v2 ScreenSpace = CanonicalToScreenSpace(MousePos);
+
+  screen_coordinate ScreenSpace = CanonicalToScreenSpace(MouseCanPos);
   r32 HalfAngleOfView = 0.5f * (Pi32/180.f)*Camera->AngleOfView;
   r32 TanHalfAngle = Tan(HalfAngleOfView);
   v2 DirectionOfPixel = V2((ScreenSpace.X * Camera->AspectRatio * TanHalfAngle),
@@ -74,6 +75,12 @@ ray GetRayFromCamera(component_camera* Camera, v2 MousePos)
   Result.Origin = V3(InvView * V4(0,0,0,1));
   Result.Direction = Normalize(V3(InvView * V4(DirectionOfPixel,-1,0)));
   return Result;
+}
+
+ray GetRayFromCamera(component_camera* Camera, v2 MousePos)
+{
+  canonical_screen_coordinate MouseCanPos = CanonicalScreenCoordinate(MousePos.X, MousePos.Y, GameGetAspectRatio());
+  return GetRayFromCamera(Camera, MouseCanPos);
 }
 
 void GetCameraDirections(component_camera* Camera, v3* Up, v3* Right, v3* Forward)

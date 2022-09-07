@@ -157,6 +157,7 @@ struct quad_2d_data
   u32 TextureSlot;
   rect2f QuadRect;
   r32 Rotation;
+  v2 RotationCenterOffset;
   rect2f UVRect;
   v4 Color;
 };

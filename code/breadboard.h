@@ -14,9 +14,9 @@
 
 struct mouse_selector
 {
-  v2 CanPos;
-  v2 ScreenPos;
-  v3 WorldPos;
+  canonical_screen_coordinate CanPos;
+  screen_coordinate ScreenPos;
+  world_coordinate WorldPos;
   r32 Rotation;
   tile_map_position TilePos;
   binary_signal_state LeftButton;
@@ -114,16 +114,6 @@ inline m4 GetCanonicalSpaceProjectionMatrix()
                        0, 0, 0,  0,
                        0, 0, 0,  1);
   return ProjectionMatrix;
-}
-
-inline v2 CanonicalToScreenSpace(v2 Pos)
-{
-  game_window_size WindowSize = GameGetWindowSize();
-  r32 OneOverAspectRatio = WindowSize.HeightPx/WindowSize.WidthPx;
-  v2 Result{};
-  Result.X = (2*Pos.X*OneOverAspectRatio - 1);
-  Result.Y = (2*Pos.Y - 1);
-  return Result;
 }
 
 inline v2 CanonicalToRasterSpace(v2 Pos)

@@ -3,7 +3,7 @@
 #include "breadboard_tile.h"
 
 // Input in Screen Space
-void HandleZoom(component_camera* Camera, r32 MouseX, r32 MouseY, r32 ScrollWheel)
+internal void HandleZoom(component_camera* Camera, screen_coordinate MouseScreenPos, r32 ScrollWheel)
 {
   if(ScrollWheel != 0)
   {
@@ -11,7 +11,7 @@ void HandleZoom(component_camera* Camera, r32 MouseX, r32 MouseY, r32 ScrollWhee
 
     // TODO:  - Do some slerping here, possibly tied to the scroll wheel, zoom in/zoom out
     r32 ZoomSpeed = 20; 
-    v2 PrePos = GetMousePosInProjectionWindow(MouseX, MouseY, Camera->OrthoZoom, AspectRatio);
+    v2 PrePos = GetMousePosInProjectionWindow(MouseScreenPos, Camera->OrthoZoom, AspectRatio);
     r32 ZoomPercentage = - ZoomSpeed * ScrollWheel * GlobalGameState->Input->dt;
     r32 Zoom = Camera->OrthoZoom * ZoomPercentage;
     Camera->OrthoZoom += Zoom;
@@ -25,23 +25,23 @@ void HandleZoom(component_camera* Camera, r32 MouseX, r32 MouseY, r32 ScrollWhee
     r32 Bot   = ScreenRect.Y;
     SetOrthoProj(Camera, Near, Far, Right, Left, Top, Bot );
 
-    v2 PostPos = GetMousePosInProjectionWindow(MouseX, MouseY, Camera->OrthoZoom, AspectRatio);
+    v2 PostPos = GetMousePosInProjectionWindow(MouseScreenPos, Camera->OrthoZoom, AspectRatio);
 
     v2 CamDelta = PostPos - PrePos;
     TranslateCamera(Camera, -V3(CamDelta,0));  
   }  
 }
-// Input in Screen Space
-void HandleTranslate(component_camera* Camera, b32 MouseActive, r32 MouseDX, r32 MouseDY)
+
+internal void HandleTranslate(component_camera* Camera, b32 MouseActive, screen_coordinate DeltaMouse)
 {
   if(MouseActive)
   {
     rect2f ScreenRect = GetCameraScreenRect(Camera->OrthoZoom);
 
-    MouseDX = 0.5f * MouseDX * ScreenRect.W;
-    MouseDY = 0.5f * MouseDY * ScreenRect.H;
+    DeltaMouse.X = 0.5f * DeltaMouse.X * ScreenRect.W;
+    DeltaMouse.Y = 0.5f * DeltaMouse.Y * ScreenRect.H;
 
-    TranslateCamera(Camera, V3(-MouseDX, -MouseDY,0));
+    TranslateCamera(Camera, V3(-DeltaMouse.X, -DeltaMouse.Y,0));
   }
 }
 
@@ -52,9 +52,12 @@ void InitiateElectricalComponent(electrical_component* Component, component_hitb
   u32 SpriteTileType = ElectricalComponentToSpriteType(Component);
   bitmap_points TilePoint = GetElectricalComponentSpriteBitmapPoints(SpriteTileType);
   
-  Hitbox->RotationCenter = V2( (r32) TilePoint.Center.x, (r32) TilePoint.Center.y) / PixelsPerUnitLegth;
-  Hitbox->Rect.W   = (TilePoint.BotRight.x - TilePoint.TopLeft.x) / PixelsPerUnitLegth;
-  Hitbox->Rect.H   = (TilePoint.BotRight.y - TilePoint.TopLeft.y) / PixelsPerUnitLegth;
+  r32 Width  = (r32) (TilePoint.BotRight.x - TilePoint.TopLeft.x);
+  r32 Height = (r32) (TilePoint.BotRight.y - TilePoint.TopLeft.y);
+  
+  Hitbox->RotationCenter = V2( ((r32) TilePoint.Center.x) - Width/2.f, ((r32) TilePoint.Center.y) - Height/2.f) / PixelsPerUnitLegth;
+  Hitbox->Rect.W   = Width / PixelsPerUnitLegth;
+  Hitbox->Rect.H   = Height / PixelsPerUnitLegth;
 }
 
 void ControllerSystemUpdate( world* World )
@@ -80,24 +83,27 @@ void ControllerSystemUpdate( world* World )
   mouse_input* Mouse = Controller->Mouse;
   mouse_selector* MouseSelector = &GlobalGameState->World->MouseSelector;
 
-  v2 MouseScreenSpaceStart = CanonicalToScreenSpace(V2(Mouse->X - Mouse->dX,Mouse->Y - Mouse->dY));
-  v2 MouseScreenSpace   = CanonicalToScreenSpace(V2(Mouse->X, Mouse->Y));
-  v2 MouseDeltaScreenSpace = MouseScreenSpace - MouseScreenSpaceStart;
+  r32 AspectRatio = GameGetAspectRatio();
+  canonical_screen_coordinate MouseCanPos      = CanonicalScreenCoordinate(Mouse->X, Mouse->Y, AspectRatio);
+  canonical_screen_coordinate MouseCanPosStart = CanonicalScreenCoordinate(Mouse->X - Mouse->dX, Mouse->Y - Mouse->dY, AspectRatio);
+  screen_coordinate MouseScreenSpaceStart      = CanonicalToScreenSpace(MouseCanPosStart);
+  screen_coordinate MouseScreenSpace           = CanonicalToScreenSpace(MouseCanPos);
+  screen_coordinate MouseDeltaScreenSpace      = MouseScreenSpace - MouseScreenSpaceStart;
 
-  HandleZoom(Camera, MouseScreenSpace.X, MouseScreenSpace.Y, Mouse->dZ);
-  HandleTranslate(Camera, Mouse->Button[PlatformMouseButton_Left].Active, MouseDeltaScreenSpace.X, MouseDeltaScreenSpace.Y);
+  HandleZoom(Camera, MouseScreenSpace, Mouse->dZ);
+  HandleTranslate(Camera, Mouse->Button[PlatformMouseButton_Left].Active, MouseDeltaScreenSpace);
 
   tile_map* TileMap = &GlobalGameState->World->TileMap;
 
   v3 CamPos = GetPositionFromMatrix(&Camera->V);
   r32 OrthoZoom = Camera->OrthoZoom;
-  v2 MousePosWorldSpace = GetMousePosInWorld(CamPos, OrthoZoom, MouseScreenSpace);
+  world_coordinate MousePosWorldSpace = GetMousePosInWorld(CamPos, OrthoZoom, MouseScreenSpace);
 
   MouseSelector->LeftButton = Mouse->Button[PlatformMouseButton_Left];
   MouseSelector->RightButton = Mouse->Button[PlatformMouseButton_Right];
-  MouseSelector->CanPos = V2(Mouse->X, Mouse->Y);
+  MouseSelector->CanPos = MouseCanPos;
   MouseSelector->ScreenPos = MouseScreenSpace;
-  MouseSelector->WorldPos = V3(MousePosWorldSpace,0);
+  MouseSelector->WorldPos = MousePosWorldSpace;
   MouseSelector->TilePos = CanonicalizePosition(TileMap, V3(MousePosWorldSpace.X, MousePosWorldSpace.Y,0));
   
   tile_contents HotSelection = GetTileContents(TileMap, MouseSelector->TilePos);
@@ -159,8 +165,8 @@ void ControllerSystemUpdate( world* World )
       component_hitbox* Hitbox = GetHitboxComponent(&ElectricalEntity);
       InitiateElectricalComponent(Component, Hitbox, Type);
       v2 CenterOffset = GetCenterOffset(Component);
-      Hitbox->Rect.X   = MouseSelector->WorldPos.X - CenterOffset.X;
-      Hitbox->Rect.Y   = MouseSelector->WorldPos.Y - CenterOffset.Y;
+      Hitbox->Rect.X   = MouseSelector->WorldPos.X;
+      Hitbox->Rect.Y   = MouseSelector->WorldPos.Y;
       Hitbox->Rotation = MouseSelector->Rotation;
 
       MouseSelector->SelectedContent.ElectricalComponentEntity = ElectricalEntity;
@@ -188,8 +194,8 @@ void ControllerSystemUpdate( world* World )
     }
 
     v2 CenterOffset = GetCenterOffset(Component);
-    Hitbox->Rect.X = MouseSelector->WorldPos.X - CenterOffset.X;
-    Hitbox->Rect.Y = MouseSelector->WorldPos.Y - CenterOffset.Y;
+    Hitbox->Rect.X = MouseSelector->WorldPos.X;
+    Hitbox->Rect.Y = MouseSelector->WorldPos.Y;
     Hitbox->Rotation = MouseSelector->Rotation;
   }
 

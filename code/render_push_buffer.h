@@ -20,6 +20,7 @@ struct entry_type_2d_quad
   rect2f QuadRect;
   rect2f UVRect;
   r32 Rotation;
+  v2 RotationCenterOffset;
   v4 Colour;
   bitmap_handle BitmapHandle;
 };
