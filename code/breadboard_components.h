@@ -1,5 +1,6 @@
 #pragma once
 #include "types.h"
+#include "coordinate_systems.h"
 #include "math/rect2f.h"
 
 enum ElectricalComponentType
@@ -135,112 +136,49 @@ electrical_component* GetComponentConnectedAtPin(electrical_component* Component
 }
 
 
-internal inline r32 Invert(r32 Val, r32 Length)
-{
-  r32 Result =  Length - Val;
-  Assert(Val >= 0);
-  return Result;
-}
-
-internal void ConvertYUp(bitmap_points* Points,  r32 SpriteSheetHeight_Pixels)
-{
-  if(Points->YDirectionUp)
-  {
-    return;
-  }
-
-  Points->TopLeft.Y = Invert(Points->TopLeft.Y, SpriteSheetHeight_Pixels);
-  Points->BotRight.Y = Invert(Points->BotRight.Y, SpriteSheetHeight_Pixels);
-  Points->Center.Y = Invert(Points->Center.Y, SpriteSheetHeight_Pixels);
-  for(u32 i = 0; i < ArrayCount(Points->Points); ++i)
-  {
-    Points->Points[i].Y = Invert(Points->Points[i].Y, SpriteSheetHeight_Pixels);  
-  }
-  Points->YDirectionUp = true;
-}
-
-rect2f GetTextureRect(v2 TopLeft, v2 BotRight,  r32 SpriteSheetWidth_Pixels, r32 SpriteSheetHeight_Pixels, b32 YisUp)
-{
-  // From here on out we are origin bot left
-  rect2f RectInPixels = {};
-  RectInPixels.X = TopLeft.X;
-  r32 X1_Pixels = BotRight.X;
-  RectInPixels.Y = YisUp ? BotRight.Y : Invert(BotRight.Y, SpriteSheetHeight_Pixels);
-  r32 Y1_Pixels = YisUp ? TopLeft.Y : Invert(TopLeft.Y, SpriteSheetHeight_Pixels);
-
-  RectInPixels.W = X1_Pixels-RectInPixels.X;
-  RectInPixels.H = Y1_Pixels-RectInPixels.Y;
-  Assert(RectInPixels.W > 0);
-  Assert(RectInPixels.H > 0);
-  return RectInPixels;
-}
-
-rect2f GetUVRect(rect2f RectInPixels, r32 SpriteSheetWidth_Pixels, r32 SpriteSheetHeight_Pixels)
-{
-  // We want the bitmap_coordinate to fall in the middle of the pixel so that it's clamped to the correct edge
-  RectInPixels.X += 0.5f;
-  RectInPixels.Y += 0.5f;
-  RectInPixels.W -= 1.f;
-  RectInPixels.H -= 1.f;
-
-  rect2f UVRect = {};
-  UVRect.X = RectInPixels.X / SpriteSheetWidth_Pixels;
-  UVRect.Y = RectInPixels.Y / SpriteSheetHeight_Pixels;
-  UVRect.W = RectInPixels.W / SpriteSheetWidth_Pixels;   // Scale W
-  UVRect.H = RectInPixels.H / SpriteSheetHeight_Pixels; // Scale H
-  return UVRect;
-}
-
-inline v2 GetRelativeCenter(v2 TopLeft, v2 BotRight)
-{
-  v2 Result = (TopLeft + BotRight) * 0.5f;
-  Result.X -= TopLeft.X;
-  Result.Y -= TopLeft.Y;
-  return Result;
-}
-
 inline bitmap_points GetElectricalComponentSpriteBitmapPoints(u32 Index)
 {
   Index = Index % ElectricalComponentSprite_MaxSize;
   bitmap_points Points = {};
-  Points.YDirectionUp = false;
+  u32 WidthPx = 1818;
+  u32 HeightPx = 2498;
   switch(Index)
   {
     case ElectricalComponentSprite_Resistor_Fixed:
     {
-      Points.TopLeft = V2(78, 60);
-      Points.BotRight = V2(205, 89);
+      Points.TopLeft = BitmapCoordinatePxLh(78, 60, WidthPx, HeightPx);
+      Points.BotRight = BitmapCoordinatePxLh(205, 89, WidthPx, HeightPx);
       Points.Center = GetRelativeCenter(Points.TopLeft, Points.BotRight);
-      Points.Points[0] = V2(80,75);
-      Points.Points[1] = V2(204,75);
+      Points.Points[0] = BitmapCoordinatePxLh(80,75, WidthPx, HeightPx);
+      Points.Points[1] = BitmapCoordinatePxLh(204,75, WidthPx, HeightPx);
     } break;
     case ElectricalComponentSprite_Ground_Earth:
     {
-      Points.TopLeft = V2(1616, 615);
-      Points.BotRight = V2(1651, 659);
+      Points.TopLeft = BitmapCoordinatePxLh(1616, 615, WidthPx, HeightPx);
+      Points.BotRight = BitmapCoordinatePxLh(1651, 659, WidthPx, HeightPx);
       Points.Center = GetRelativeCenter(Points.TopLeft, Points.BotRight);
-      Points.Points[0] = V2(1634, 618);
+      Points.Points[0] = BitmapCoordinatePxLh(1634, 618, WidthPx, HeightPx);
     } break;
     case ElectricalComponentSprite_Diode_Led:
     {
-      Points.TopLeft = V2(68, 755);
-      Points.BotRight = V2(196, 823);
-      Points.Center = GetRelativeCenter(V2(70,787), V2(181,822));
-      Points.Points[0] = V2(71, 805);
-      Points.Points[1] = V2(180, 805);
+      Points.TopLeft = BitmapCoordinatePxLh(68, 755, WidthPx, HeightPx);
+      Points.BotRight = BitmapCoordinatePxLh(196, 823, WidthPx, HeightPx);
+      Points.Center = GetRelativeCenter(BitmapCoordinatePxLh(70,787, WidthPx, HeightPx), BitmapCoordinatePxLh(181,822, WidthPx, HeightPx));
+      Points.Points[0] = BitmapCoordinatePxLh(71, 805, WidthPx, HeightPx);
+      Points.Points[1] = BitmapCoordinatePxLh(180, 805, WidthPx, HeightPx);
     } break;
     case ElectricalComponentSprite_Battery_SingleCell:
     {
-      Points.TopLeft = V2(1510, 388);
-      Points.BotRight = V2(1588, 446);
+      Points.TopLeft = BitmapCoordinatePxLh(1510, 388, WidthPx, HeightPx);
+      Points.BotRight = BitmapCoordinatePxLh(1588, 446, WidthPx, HeightPx);
       Points.Center = GetRelativeCenter(Points.TopLeft, Points.BotRight);
-      Points.Points[0] = V2(1512, 416);
-      Points.Points[1] = V2(1586, 416);
+      Points.Points[0] = BitmapCoordinatePxLh(1512, 416, WidthPx, HeightPx);
+      Points.Points[1] = BitmapCoordinatePxLh(1586, 416, WidthPx, HeightPx);
     } break;
     case ElectricalComponentSprite_Conductor_Joint:
     {
-      Points.TopLeft = V2(1658, 34);
-      Points.BotRight = V2(1678, 56);
+      Points.TopLeft = BitmapCoordinatePxLh(1658, 34, WidthPx, HeightPx);
+      Points.BotRight = BitmapCoordinatePxLh(1678, 56, WidthPx, HeightPx);
       Points.Center = GetRelativeCenter(Points.TopLeft, Points.BotRight);
     } break;
   }
@@ -252,7 +190,9 @@ v2 GetCenterOffset(electrical_component* Component)
   r32 PixelsPerUnitLegth = 128;
   u32 SpriteTileType = ElectricalComponentToSpriteType(Component);
   bitmap_points TilePoint = GetElectricalComponentSpriteBitmapPoints(SpriteTileType);
-  v2 HitBoxCenter = GetRelativeCenter(TilePoint.TopLeft, TilePoint.BotRight);
-  v2 CenterOffset = (HitBoxCenter - TilePoint.Center)/PixelsPerUnitLegth;
+  bitmap_coordinate_lh HitBoxCenter = GetRelativeCenter(TilePoint.TopLeft, TilePoint.BotRight);
+  v2 HitBoxCenterV = V2( (r32) HitBoxCenter.x,     (r32) HitBoxCenter.y);
+  v2 CenterV       = V2( (r32) TilePoint.Center.x, (r32) TilePoint.Center.y);
+  v2 CenterOffset = (HitBoxCenterV - CenterV)/PixelsPerUnitLegth;
   return CenterOffset;
 }

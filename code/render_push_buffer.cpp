@@ -239,20 +239,20 @@ render_group* InitiateRenderGroup()
 }
 
 void PushElectricalComponent(r32 xPos, r32 yPos, r32 PixelsPerUnitLength, r32 Rotation,
-  u32 TileType, r32 BitmapWidth, r32 BitmapHeight, bitmap_handle TileHandle)
+  u32 TileType, bitmap_handle TileHandle)
 {
   render_group* RenderGroup = GlobalGameState->RenderCommands->WorldGroup;
   bitmap_points TilePoint = GetElectricalComponentSpriteBitmapPoints(TileType);
   
-  rect2f RectInPixels = GetTextureRect(TilePoint.TopLeft, TilePoint.BotRight, BitmapWidth, BitmapHeight, TilePoint.YDirectionUp);
+  rect2f RectInPixels = GetTextureRectRh(TilePoint.TopLeft, TilePoint.BotRight);
 
-  rect2f UVRect = GetUVRect(RectInPixels, BitmapWidth, BitmapHeight);
+  rect2f UVRect = GetUVRectRh(TilePoint.TopLeft, TilePoint.BotRight);
   
   r32 OneOverPixelsPerUnitLength = 1.f/PixelsPerUnitLength;
   r32 ScaleW = RectInPixels.W * OneOverPixelsPerUnitLength;
   r32 ScaleH = RectInPixels.H * OneOverPixelsPerUnitLength;
 
-  v2 Center = TilePoint.Center * OneOverPixelsPerUnitLength;
+  v2 Center = V2((r32) TilePoint.Center.x, (r32) TilePoint.Center.y) * OneOverPixelsPerUnitLength;
 
   xPos -= Center.X;
   yPos -= Center.Y;
@@ -487,7 +487,7 @@ void FillRenderPushBuffer(world* World)
       r32 X = Hitbox->Rect.X + CenterOffset.X;
       r32 Y = Hitbox->Rect.Y + CenterOffset.Y;
 
-      PushElectricalComponent(X, Y, PixelsPerUnitLegth, Hitbox->Rotation, TileSpriteSheet, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
+      PushElectricalComponent(X, Y, PixelsPerUnitLegth, Hitbox->Rotation, TileSpriteSheet, TileHandle);
       rect2f ColoredRect = Rect2f(X - Hitbox->Rect.W * 0.5f,Y - Hitbox->Rect.H * 0.5f, Hitbox->Rect.W, Hitbox->Rect.H);
       Push2DColoredQuad(GlobalGameState->RenderCommands->WorldGroup, ColoredRect, V4(1,1,1,0.5), Hitbox->Rotation);
     

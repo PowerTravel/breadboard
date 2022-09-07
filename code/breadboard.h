@@ -102,33 +102,6 @@ inline r32 GameGetAspectRatio()
   return Result;
 }
 
-/* Types of screen coordinate systems,
- *   AR = AspectRatio = Width/Height
- *   W_px = Width in pixels
- *   H_px = Height in pixels
- *   NDC = Normalized Device Coordinates
- * Canonical Space:                      RasterSpace:
- * (1,0)                     (AR,1)      (0,0)                  (W_px,0)
- * ______________________________        ______________________________
- * |                            |        |                            |
- * |                            |        |                            |
- * |                            |        |                            |
- * |                            |        |                            |
- * |                            |        |                            |
- * |____________________________|        |____________________________|
- * (0,0)                     (AR, 0)     (0,H_px)             (W_px, H_px)
- *
- *  NDC Space                            Screen Space (The world seen from the Camera view matrix)
- * (0,0)                     (1,0)      (-1,1)                     (1,1)
- *  ______________________________        ______________________________
- *  |                            |        |                            |
- *  |                            |        |                            |
- *  |                            |        |                            |
- *  |                            |        |                            |
- *  |                            |        |                            |
- *  |____________________________|        |____________________________|
- *  (0,1)                     (1,1)     (-1,-1)                     (-1, 1)
- */
 
 // Points in Canonical Space will be transformed to ScreenSpace
 inline m4 GetCanonicalSpaceProjectionMatrix()
@@ -152,15 +125,7 @@ inline v2 CanonicalToScreenSpace(v2 Pos)
   Result.Y = (2*Pos.Y - 1);
   return Result;
 }
-inline v2 CanonicalToNDCSpace(v2 Pos)
-{
-  game_window_size WindowSize = GameGetWindowSize();
-  r32 OneOverAspectRatio = WindowSize.HeightPx/WindowSize.WidthPx;
-  v2 Result{};
-  Result.X = Pos.X*OneOverAspectRatio;
-  Result.Y = 1-Pos.Y;
-  return Result;
-}
+
 inline v2 CanonicalToRasterSpace(v2 Pos)
 {
   game_window_size WindowSize = GameGetWindowSize();

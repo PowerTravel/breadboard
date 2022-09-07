@@ -52,9 +52,9 @@ void InitiateElectricalComponent(electrical_component* Component, component_hitb
   u32 SpriteTileType = ElectricalComponentToSpriteType(Component);
   bitmap_points TilePoint = GetElectricalComponentSpriteBitmapPoints(SpriteTileType);
   
-  Hitbox->RotationCenter = TilePoint.Center / PixelsPerUnitLegth;
-  Hitbox->Rect.W   = (TilePoint.BotRight.X - TilePoint.TopLeft.X) / PixelsPerUnitLegth;
-  Hitbox->Rect.H   = (TilePoint.BotRight.Y - TilePoint.TopLeft.Y) / PixelsPerUnitLegth;
+  Hitbox->RotationCenter = V2( (r32) TilePoint.Center.x, (r32) TilePoint.Center.y) / PixelsPerUnitLegth;
+  Hitbox->Rect.W   = (TilePoint.BotRight.x - TilePoint.TopLeft.x) / PixelsPerUnitLegth;
+  Hitbox->Rect.H   = (TilePoint.BotRight.y - TilePoint.TopLeft.y) / PixelsPerUnitLegth;
 }
 
 void ControllerSystemUpdate( world* World )
