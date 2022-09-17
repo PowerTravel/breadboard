@@ -38,11 +38,25 @@ struct component_controller
   u32 Type;
 };
 
-struct component_hitbox
+struct hitbox
 {
-  rect2f Rect;
-  v2 RotationCenter;
-  r32 Rotation;
+  world_coordinate Pos;    // Center of hitbox
+  r32 W;                   // Width of hitbox
+  r32 H;                   // Height of hitbox
+  v2 RotationCenterOffset; // Measured from Pos
+  r32 Rotation;            // Radians
+};
+
+union component_hitbox
+{
+  struct
+  {
+    hitbox Main; // Main Box
+    hitbox C1;   // Connector
+    hitbox C2;   // Connector
+    hitbox C3;   // Connector
+  };
+  hitbox Box[4];
 };
 
 struct component_render

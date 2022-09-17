@@ -3,22 +3,31 @@
 #include "types.h"
 #include "coordinate_systems.h"
 
+#define PIXELS_PER_UNIT_LENGTH 128
 
-#define AssertBitmapPointLh(Point) \
+#define AssertBitmapPoint(Point) \
   Assert(Point.x >= 0);            \
   Assert(Point.y >= 0);            \
   Assert(Point.x <= Point.w);      \
-  Assert(Point.y <= Point.h);
-  
+  Assert(Point.y <= Point.h);      \
+  Assert(Point.w > 0);             \
+  Assert(Point.h > 0);
 
 #define AssertBitmapPairLh(TopLeft, BotRight) \
   Assert(TopLeft.w == BotRight.w);            \
   Assert(TopLeft.h == BotRight.h);            \
   Assert(TopLeft.x <= BotRight.x);            \
   Assert(TopLeft.y <= BotRight.y);            \
-  AssertBitmapPointLh(TopLeft);               \
-  AssertBitmapPointLh(BotRight);
+  AssertBitmapPoint(TopLeft);                 \
+  AssertBitmapPoint(BotRight);
 
+#define AssertBitmapPairRh(TopLeft, BotRight) \
+  Assert(TopLeft.w == BotRight.w);            \
+  Assert(TopLeft.h == BotRight.h);            \
+  Assert(TopLeft.x <= BotRight.x);            \
+  Assert(TopLeft.y >= BotRight.y);            \
+  AssertBitmapPoint(TopLeft);                 \
+  AssertBitmapPoint(BotRight);
 
 
 
@@ -56,7 +65,7 @@ inline bitmap_coordinate_lh BitmapCoordinatePxLh(u32 x, u32 y, u32 w, u32 h)
   Result.y = y;
   Result.w = w;
   Result.h = h;
-  AssertBitmapPointLh(Result);
+  AssertBitmapPoint(Result);
   return Result;
 }
 
@@ -72,8 +81,6 @@ union bitmap_points
   };
 };
 
-#if 0 
-Not used by us, bitmap coordinates always is left handed. Origin top left, y down
 /*                   
  *  --== Pixel Space Right Hand oriented ==--
  *  Note:
@@ -103,10 +110,36 @@ struct bitmap_coordinate_rh
 
 inline bitmap_coordinate_rh BitmapCoordinatePxRh(u32 x, u32 y, u32 w, u32 h)
 {
-  bitmap_coordinate_rh Result = {x,y,w,h};
+  bitmap_coordinate_rh Result = {};
+  Result.x = x;
+  Result.y = y;
+  Result.w = w;
+  Result.h = h;
+  AssertBitmapPoint(Result);
   return Result;
 }
-#endif
+
+inline bitmap_coordinate_rh
+ToRightHanded(bitmap_coordinate_lh const * A)
+{
+  bitmap_coordinate_rh Result = BitmapCoordinatePxRh(A->x, A->h - A->y, A->w, A->h);
+  return Result;
+}
+
+inline v2 Subtract( bitmap_coordinate_rh const *  A, bitmap_coordinate_rh const * B)
+{
+  r32 Ax = (r32) A->x;
+  r32 Ay = (r32) A->y;
+  r32 Bx = (r32) B->x;
+  r32 By = (r32) B->y;
+  v2 Result = V2(Ax-Bx, Ay-By);
+  return Result;
+}
+inline v2 Add( bitmap_coordinate_rh const *  A, bitmap_coordinate_rh const * B)
+{
+  v2 Result = V2( (r32) (A->x + B->x), (r32) (A->y+B->y));
+  return Result;
+}
 
 #if 0 
 Not used in OpenGl so maybe we don't even need it
@@ -188,7 +221,7 @@ internal inline bitmap_coordinate_lh GetRelativeCenter(bitmap_coordinate_lh TopL
   bitmap_coordinate_lh Result = BitmapCoordinatePxLh(
     (u32)((BotRight.x - TopLeft.x) * 0.5f),
     (u32)((BotRight.y - TopLeft.y) * 0.5f),
-    HeightPx, WidthPx);
+    WidthPx, HeightPx);
   return Result;
 }
 
@@ -201,7 +234,7 @@ internal inline bitmap_coordinate_lh GetAbsoluteCenter(bitmap_coordinate_lh TopL
   bitmap_coordinate_lh Result = BitmapCoordinatePxLh(
     (u32)((BotRight.x + TopLeft.x) * 0.5f),
     (u32)((BotRight.y + TopLeft.y) * 0.5f),
-    HeightPx, WidthPx);
+    WidthPx, HeightPx);
   return Result;
 }
 

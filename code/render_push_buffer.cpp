@@ -257,30 +257,40 @@ void PushElectricalComponent(component_hitbox* HitBox, r32 PixelsPerUnitLength, 
   rect2f UVRect = GetUVRectRh(TilePoint.TopLeft, TilePoint.BotRight);
   v4 Color = V4(1,1,1,1);
 
-  rect2f Rect = HitBox->Rect;
-  Rect.X -= Rect.W/2.f;
-  Rect.Y -= Rect.H/2.f;
+
+  rect2f Rect = Rect2f(HitBox->Main.Pos.X - HitBox->Main.W/2.f,
+                       HitBox->Main.Pos.Y - HitBox->Main.H/2.f,
+                       HitBox->Main.W,
+                       HitBox->Main.H);
   
-  Push2DQuadSpecial(GlobalGameState->RenderCommands->WorldGroup, Rect, HitBox->Rotation, HitBox->RotationCenter, UVRect, Color, TileHandle);
+  Push2DQuadSpecial(GlobalGameState->RenderCommands->WorldGroup, Rect, HitBox->Main.Rotation, HitBox->Main.RotationCenterOffset, UVRect, Color, TileHandle);
 
   #if DRAW_HITBOX_AND_POINTS
 
   local_persist r32 angle = 0;
   angle+=0.01;
 
-  r32 BoxSide = 0.1;
+  r32 MouseSelectionWidth = GlobalGameState->World->TileMap.TileWidth;
+  r32 MouseSelectionHeight = GlobalGameState->World->TileMap.TileHeight;
 
   // Hitbox
-  Push2DColoredQuad(GlobalGameState->RenderCommands->WorldGroup, Rect, V4(1,1,1,0.7), HitBox->Rotation, HitBox->RotationCenter);
+  Push2DColoredQuad(GlobalGameState->RenderCommands->WorldGroup, Rect, V4(1,1,1,0.7), HitBox->Main.Rotation, HitBox->Main.RotationCenterOffset);
   
   // Rotation Center
-  Push2DColoredQuad(GlobalGameState->RenderCommands->WorldGroup, Rect2f(HitBox->Rect.X - BoxSide/2.f, HitBox->Rect.Y - BoxSide/2.f, BoxSide, BoxSide), V4(1,0,0,1), HitBox->Rotation, V2(0,0));
+  Push2DColoredQuad(GlobalGameState->RenderCommands->WorldGroup, Rect2f(HitBox->Main.Pos.X - MouseSelectionWidth/2.f, HitBox->Main.Pos.Y - MouseSelectionHeight/2.f, MouseSelectionWidth, MouseSelectionHeight), V4(1,0,0,1), HitBox->Main.Rotation, V2(0,0));
 
-  // Point 1
-  // Push2DColoredQuad(GlobalGameState->RenderCommands->WorldGroup, Rect2f(HitBox->Rect.X-BoxSide/2.f, HitBox->Rect.Y - BoxSide/2.f, BoxSide, BoxSide), V4(0,1,1,1), HitBox->Rotation, HitBox->RotationCenter);
-
-  // Point 2
-  // Push2DColoredQuad(GlobalGameState->RenderCommands->WorldGroup, Rect2f(HitBox->Rect.X-BoxSide/2.f, HitBox->Rect.Y - BoxSide/2.f, BoxSide, BoxSide), V4(0,1,1,1), HitBox->Rotation, HitBox->RotationCenter);
+  for(u32 idx = 1; idx < ArrayCount(HitBox->Box); idx++)
+  {
+    hitbox* hb = HitBox->Box + idx;
+    if(hb->W > 0)
+    {
+      rect2f RectP = Rect2f(HitBox->Main.Pos.X - hb->W/2,
+                            HitBox->Main.Pos.Y - hb->H/2,
+                            hb->W,
+                            hb->H);
+      Push2DColoredQuad(GlobalGameState->RenderCommands->WorldGroup, RectP, V4(1,1,1,0.7),  HitBox->Main.Rotation, hb->RotationCenterOffset);
+    } 
+  }
 
   #endif
 
@@ -505,7 +515,6 @@ void FillRenderPushBuffer(world* World)
     while(Next(&EntityIterator))
     {
       electrical_component* ElectricalComponent = GetElectricalComponent(&EntityIterator);
-      v2 CenterOffset = GetCenterOffset(ElectricalComponent);
       Hitbox = GetHitboxComponent(&EntityIterator);
       u32 TileSpriteSheet = ElectricalComponentToSpriteType(ElectricalComponent);
       r32 PixelsPerUnitLegth = 128;

@@ -45,19 +45,56 @@ internal void HandleTranslate(component_camera* Camera, b32 MouseActive, screen_
   }
 }
 
-void InitiateElectricalComponent(electrical_component* Component, component_hitbox* Hitbox, u32 ElectricalType)
+void InitiateElectricalComponent(electrical_component* Component, component_hitbox* HitboxComponent, u32 ElectricalType)
 {
-  r32 PixelsPerUnitLegth = 128;
   Component->Type = ElectricalType;
   u32 SpriteTileType = ElectricalComponentToSpriteType(Component);
   bitmap_points TilePoint = GetElectricalComponentSpriteBitmapPoints(SpriteTileType);
-  
-  r32 Width  = (r32) (TilePoint.BotRight.x - TilePoint.TopLeft.x);
-  r32 Height = (r32) (TilePoint.BotRight.y - TilePoint.TopLeft.y);
-  
-  Hitbox->RotationCenter = V2( ((r32) TilePoint.Center.x) - Width/2.f, ((r32) TilePoint.Center.y) - Height/2.f) / PixelsPerUnitLegth;
-  Hitbox->Rect.W   = Width / PixelsPerUnitLegth;
-  Hitbox->Rect.H   = Height / PixelsPerUnitLegth;
+
+  // WC = WorldCoordinate
+  // PS = PixelCoordinate
+  // Rh = RightHanded (increasing y goes up)
+  // Rh = LeftHanded  (increasing y goes down)
+  bitmap_coordinate_rh TopLeftPS          = ToRightHanded(&TilePoint.TopLeft);
+  bitmap_coordinate_rh BotRightPS         = ToRightHanded(&TilePoint.BotRight);
+  bitmap_coordinate_rh RotationalCenterPS = ToRightHanded(&TilePoint.Center);
+  bitmap_coordinate_rh BotLeftPS          = BitmapCoordinatePxRh(TopLeftPS.x,  BotRightPS.y, BotRightPS.w, BotRightPS.h);
+  bitmap_coordinate_rh TopRightPS         = BitmapCoordinatePxRh(BotRightPS.x,  TopLeftPS.y, TopLeftPS.w, TopLeftPS.h);
+
+  v2 BoxDimensionsWS          = Subtract(&TopRightPS, &BotLeftPS) / PIXELS_PER_UNIT_LENGTH;
+  v2 GeometricCenterWS        = Add(&BotLeftPS, &TopRightPS) * 0.5f / PIXELS_PER_UNIT_LENGTH;
+  v2 RotationalCenterWS       = V2( (r32) RotationalCenterPS.x, (r32) RotationalCenterPS.y) / PIXELS_PER_UNIT_LENGTH;
+  v2 RotationalCenterOffsetWS = RotationalCenterWS - GeometricCenterWS;
+
+  hitbox* MainHitbox = HitboxComponent->Box; 
+
+  *MainHitbox = {};
+  MainHitbox->W   = BoxDimensionsWS.X;
+  MainHitbox->H   = BoxDimensionsWS.Y;
+  MainHitbox->RotationCenterOffset = RotationalCenterOffsetWS;
+
+  r32 ConnectorSideLength = 0.1;
+
+  Assert(ArrayCount(TilePoint.Points) >= (ArrayCount(HitboxComponent->Box)-1));
+  for(u32 idx = 1; idx < ArrayCount(HitboxComponent->Box); idx++)
+  {
+    bitmap_coordinate_lh* BitmapPointLh = TilePoint.Points + idx - 1;
+    if(BitmapPointLh->w > 0)
+    {
+      bitmap_coordinate_rh BitmapPointRh = ToRightHanded(BitmapPointLh);
+      v2 BitmapPointWS = V2( (r32) BitmapPointRh.x, (r32) BitmapPointRh.y) / PIXELS_PER_UNIT_LENGTH;
+      hitbox* Hitbox = HitboxComponent->Box + idx;
+      *Hitbox = {};
+      Hitbox->W     = ConnectorSideLength;
+      Hitbox->H     = ConnectorSideLength;
+
+      v2 PosRelativeGeometricCenterWS = BitmapPointWS - GeometricCenterWS;
+      Hitbox->Pos.X = {};
+      Hitbox->Pos.Y = {};
+      Hitbox->RotationCenterOffset = RotationalCenterOffsetWS - PosRelativeGeometricCenterWS;
+    } 
+  }
+
 }
 
 void ControllerSystemUpdate( world* World )
@@ -116,7 +153,7 @@ void ControllerSystemUpdate( world* World )
   if(HotSelection.ElectricalComponentEntity.EntityID)
   {
     component_hitbox* Hitbox = GetHitboxComponent(&HotSelection.ElectricalComponentEntity);
-    MouseSelector->Rotation = Hitbox->Rotation;
+    MouseSelector->Rotation = Hitbox->Main.Rotation;
 
     if(Pushed(Keyboard->Key_Q))
     {
@@ -134,7 +171,7 @@ void ControllerSystemUpdate( world* World )
       MouseSelector->Rotation += Tau32;
     }
 
-    Hitbox->Rotation = MouseSelector->Rotation;
+    Hitbox->Main.Rotation = MouseSelector->Rotation;
   }
 
   if(!MouseSelector->SelectedContent.ElectricalComponentEntity.EntityID)
@@ -164,10 +201,9 @@ void ControllerSystemUpdate( world* World )
       electrical_component* Component = GetElectricalComponent(&ElectricalEntity);
       component_hitbox* Hitbox = GetHitboxComponent(&ElectricalEntity);
       InitiateElectricalComponent(Component, Hitbox, Type);
-      v2 CenterOffset = GetCenterOffset(Component);
-      Hitbox->Rect.X   = MouseSelector->WorldPos.X;
-      Hitbox->Rect.Y   = MouseSelector->WorldPos.Y;
-      Hitbox->Rotation = MouseSelector->Rotation;
+      Hitbox->Main.Pos.X = MouseSelector->WorldPos.X;
+      Hitbox->Main.Pos.Y = MouseSelector->WorldPos.Y;
+      Hitbox->Main.Rotation = MouseSelector->Rotation;
 
       MouseSelector->SelectedContent.ElectricalComponentEntity = ElectricalEntity;
     }
@@ -193,10 +229,9 @@ void ControllerSystemUpdate( world* World )
       InitiateElectricalComponent(Component, Hitbox, ElectricalComponentType_Ground);
     }
 
-    v2 CenterOffset = GetCenterOffset(Component);
-    Hitbox->Rect.X = MouseSelector->WorldPos.X;
-    Hitbox->Rect.Y = MouseSelector->WorldPos.Y;
-    Hitbox->Rotation = MouseSelector->Rotation;
+    Hitbox->Main.Pos.X = MouseSelector->WorldPos.X;
+    Hitbox->Main.Pos.Y = MouseSelector->WorldPos.Y;
+    Hitbox->Main.Rotation = MouseSelector->Rotation;
   }
 
   if(Pushed(MouseSelector->LeftButton))
@@ -206,12 +241,12 @@ void ControllerSystemUpdate( world* World )
     if(PreviousContent.ElectricalComponentEntity.EntityID)
     {
       component_hitbox* Hitbox = GetHitboxComponent(&PreviousContent.ElectricalComponentEntity);
-      v3 Pos = V3(Hitbox->Rect.X, Hitbox->Rect.Y, 0);
+      v3 Pos = V3(Hitbox->Main.Pos.X, Hitbox->Main.Pos.Y, 0);
       tile_map_position TilePos = CanonicalizePosition(TileMap, Pos);
       // TODO: We are casting a negative uint (which is a huge number) into a signed and relying on it being cast down to 
       //       the small negative number again. This is compiler dependant behaviour, Maybe fix this?
-      Hitbox->Rect.X = Round( ( (r32) ( (s32) TilePos.AbsTileX))) * TileMap->TileWidth + 0.5f * TileMap->TileWidth;
-      Hitbox->Rect.Y = Round( ( (r32) ( (s32) TilePos.AbsTileY))) * TileMap->TileHeight + 0.5f * TileMap->TileHeight;
+      Hitbox->Main.Pos.X = Round( ( (r32) ( (s32) TilePos.AbsTileX))) * TileMap->TileWidth + 0.5f * TileMap->TileWidth;
+      Hitbox->Main.Pos.Y = Round( ( (r32) ( (s32) TilePos.AbsTileY))) * TileMap->TileHeight + 0.5f * TileMap->TileHeight;
       //Pos->Hitbox.Z = Round( ( (r32) ( (s32) TilePos.AbsTileZ))) * TileMap->TileDepth + 0.5f * TileMap->TileDepth;
     }
     // TODO: Set all the tiles covered by the component.

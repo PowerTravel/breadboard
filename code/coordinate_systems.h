@@ -39,7 +39,7 @@
 // [X,      Y] -> [X,        Y]
 // [Left, Bot] -> [Right,  Top]
 // [0,      0] -> [AR,       1]
-// TODO: Rename canonical_coordinate_2d_a ? 
+// TODO: Rename canonical_coordinate_2d_rh ? 
 struct canonical_screen_coordinate_a
 {
   r32 X;
@@ -54,7 +54,7 @@ typedef canonical_screen_coordinate_a canonical_screen_coordinate;
 // [X,      Y] -> [X,        Y]
 // [Left, Top] -> [Right,  Bot]
 // [0,      0] -> [AR,       1]
-// TODO: Rename canonical_coordinate_2d_b ? 
+// TODO: Rename canonical_coordinate_2d_lh ? 
 struct canonical_screen_coordinate_b
 {
   r32 X;

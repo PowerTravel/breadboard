@@ -11,7 +11,11 @@
 struct entity_component_link
 {
   component_head* Component;
-  entity_component_link* Next;
+  entity_component_link* Next; // Next of different type
+
+  // TODO: Enable to have many of the same component type
+  //       How to associate with required components?
+//  entity_component_link* NextOfSameType;
 };
 
 struct entity

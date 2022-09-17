@@ -148,7 +148,7 @@ inline bitmap_points GetElectricalComponentSpriteBitmapPoints(u32 Index)
     {
       Points.TopLeft = BitmapCoordinatePxLh(78, 60, WidthPx, HeightPx);
       Points.BotRight = BitmapCoordinatePxLh(205, 89, WidthPx, HeightPx);
-      Points.Center = GetRelativeCenter(Points.TopLeft, Points.BotRight);
+      Points.Center = GetAbsoluteCenter(Points.TopLeft, Points.BotRight);
       Points.Points[0] = BitmapCoordinatePxLh(80,75, WidthPx, HeightPx);
       Points.Points[1] = BitmapCoordinatePxLh(204,75, WidthPx, HeightPx);
     } break;
@@ -156,14 +156,14 @@ inline bitmap_points GetElectricalComponentSpriteBitmapPoints(u32 Index)
     {
       Points.TopLeft = BitmapCoordinatePxLh(1616, 615, WidthPx, HeightPx);
       Points.BotRight = BitmapCoordinatePxLh(1651, 659, WidthPx, HeightPx);
-      Points.Center = GetRelativeCenter(Points.TopLeft, Points.BotRight);
+      Points.Center = GetAbsoluteCenter(Points.TopLeft, Points.BotRight);
       Points.Points[0] = BitmapCoordinatePxLh(1634, 618, WidthPx, HeightPx);
     } break;
     case ElectricalComponentSprite_Diode_Led:
     {
       Points.TopLeft = BitmapCoordinatePxLh(68, 755, WidthPx, HeightPx);
       Points.BotRight = BitmapCoordinatePxLh(196, 823, WidthPx, HeightPx);
-      Points.Center = GetRelativeCenter(BitmapCoordinatePxLh(70,787, WidthPx, HeightPx), BitmapCoordinatePxLh(181,822, WidthPx, HeightPx));
+      Points.Center = GetAbsoluteCenter(BitmapCoordinatePxLh(70,787, WidthPx, HeightPx), BitmapCoordinatePxLh(181,822, WidthPx, HeightPx));
       Points.Points[0] = BitmapCoordinatePxLh(71, 805, WidthPx, HeightPx);
       Points.Points[1] = BitmapCoordinatePxLh(180, 805, WidthPx, HeightPx);
     } break;
@@ -171,7 +171,7 @@ inline bitmap_points GetElectricalComponentSpriteBitmapPoints(u32 Index)
     {
       Points.TopLeft = BitmapCoordinatePxLh(1510, 388, WidthPx, HeightPx);
       Points.BotRight = BitmapCoordinatePxLh(1588, 446, WidthPx, HeightPx);
-      Points.Center = GetRelativeCenter(Points.TopLeft, Points.BotRight);
+      Points.Center = GetAbsoluteCenter(Points.TopLeft, Points.BotRight);
       Points.Points[0] = BitmapCoordinatePxLh(1512, 416, WidthPx, HeightPx);
       Points.Points[1] = BitmapCoordinatePxLh(1586, 416, WidthPx, HeightPx);
     } break;
@@ -179,20 +179,8 @@ inline bitmap_points GetElectricalComponentSpriteBitmapPoints(u32 Index)
     {
       Points.TopLeft = BitmapCoordinatePxLh(1658, 34, WidthPx, HeightPx);
       Points.BotRight = BitmapCoordinatePxLh(1678, 56, WidthPx, HeightPx);
-      Points.Center = GetRelativeCenter(Points.TopLeft, Points.BotRight);
+      Points.Center = GetAbsoluteCenter(Points.TopLeft, Points.BotRight);
     } break;
   }
   return Points;
-}
-
-v2 GetCenterOffset(electrical_component* Component)
-{
-  r32 PixelsPerUnitLegth = 128;
-  u32 SpriteTileType = ElectricalComponentToSpriteType(Component);
-  bitmap_points TilePoint = GetElectricalComponentSpriteBitmapPoints(SpriteTileType);
-  bitmap_coordinate_lh HitBoxCenter = GetRelativeCenter(TilePoint.TopLeft, TilePoint.BotRight);
-  v2 HitBoxCenterV = V2( (r32) HitBoxCenter.x,     (r32) HitBoxCenter.y);
-  v2 CenterV       = V2( (r32) TilePoint.Center.x, (r32) TilePoint.Center.y);
-  v2 CenterOffset = (HitBoxCenterV - CenterV)/PixelsPerUnitLegth;
-  return CenterOffset;
 }

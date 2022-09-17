@@ -1022,7 +1022,7 @@ void DrawRenderGroup(open_gl* OpenGL, render_group* RenderGroup, game_asset_mana
             Quad2dData->UVRect       = Quad->UVRect;
             Quad2dData->Color        = Quad->Colour;
             Quad2dData->Rotation     = Quad->Rotation;
-            Quad2dData->RotationCenterOffset     = Quad->RotationCenterOffset;
+            Quad2dData->RotationCenterOffset = Quad->RotationCenterOffset;
           }break;
           case render_buffer_entry_type::QUAD_2D_SPECIAL:
           {
@@ -1036,16 +1036,16 @@ void DrawRenderGroup(open_gl* OpenGL, render_group* RenderGroup, game_asset_mana
             Quad2dData->UVRect       = Quad->UVRect;
             Quad2dData->Color        = Quad->Colour;
             Quad2dData->Rotation     = Quad->Rotation;
-            Quad2dData->RotationCenterOffset     = Quad->RotationCenterOffset;
+            Quad2dData->RotationCenterOffset = Quad->RotationCenterOffset;
           }break;
           case render_buffer_entry_type::QUAD_2D_COLOR:
           {
-            entry_type_2d_quad* Quad  = (entry_type_2d_quad*) Body; 
-            quad_2d_data* Quad2dData  = &Quad2DColorBuffer[Quad2DBufferColorInstanceIndex++];
-            Quad2dData->QuadRect       = Quad->QuadRect;
-            Quad2dData->Color          = Quad->Colour;
-            Quad2dData->Rotation       = Quad->Rotation;
-            Quad2dData->RotationCenterOffset     = Quad->RotationCenterOffset;
+            entry_type_2d_quad* Quad = (entry_type_2d_quad*) Body; 
+            quad_2d_data* Quad2dData = &Quad2DColorBuffer[Quad2DBufferColorInstanceIndex++];
+            Quad2dData->QuadRect     = Quad->QuadRect;
+            Quad2dData->Color        = Quad->Colour;
+            Quad2dData->Rotation     = Quad->Rotation;
+            Quad2dData->RotationCenterOffset = Quad->RotationCenterOffset;
           }break;
         }
       }
