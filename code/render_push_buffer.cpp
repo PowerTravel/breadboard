@@ -5,7 +5,7 @@
 #include "random.h"
 
 // TODO: Move to settings
-#define DRAW_HITBOX_AND_POINTS 1
+#define DRAW_HITBOX_AND_POINTS 0
 
 #define GetBody(Header, Type) ((Type*) (((push_buffer_header*) Header ) + 1))
 
@@ -252,43 +252,145 @@ render_group* InitiateRenderGroup()
 
 void PushElectricalComponent(component_hitbox* HitBox, r32 PixelsPerUnitLength, u32 TileType, bitmap_handle TileHandle)
 {
+  render_group* RenderGroup = GlobalGameState->RenderCommands->WorldGroup;
   bitmap_points TilePoint = GetElectricalComponentSpriteBitmapPoints(TileType);
   rect2f RectInPixels = GetTextureRectRh(TilePoint.TopLeft, TilePoint.BotRight);
   rect2f UVRect = GetUVRectRh(TilePoint.TopLeft, TilePoint.BotRight);
   v4 Color = V4(1,1,1,1);
 
 
-  rect2f Rect = Rect2f(HitBox->Main.Pos.X - HitBox->Main.W/2.f,
-                       HitBox->Main.Pos.Y - HitBox->Main.H/2.f,
-                       HitBox->Main.W,
-                       HitBox->Main.H);
-  
-  Push2DQuadSpecial(GlobalGameState->RenderCommands->WorldGroup, Rect, HitBox->Main.Rotation, HitBox->Main.RotationCenterOffset, UVRect, Color, TileHandle);
+  rect2f MainRect = Rect2f(HitBox->Main.Pos.X - HitBox->Main.W*0.5f,
+                           HitBox->Main.Pos.Y - HitBox->Main.H*0.5f,
+                           HitBox->Main.W,
+                           HitBox->Main.H);
+  v2 MainRectRotOffset = HitBox->Main.RotationCenterOffset;
 
-  #if DRAW_HITBOX_AND_POINTS
+  // Actual Sprite
+  Push2DQuadSpecial(RenderGroup, MainRect, HitBox->Main.Rotation, MainRectRotOffset, UVRect, Color, TileHandle);
 
-  local_persist r32 angle = 0;
-  angle+=0.01;
 
   r32 MouseSelectionWidth = GlobalGameState->World->TileMap.TileWidth;
   r32 MouseSelectionHeight = GlobalGameState->World->TileMap.TileHeight;
 
-  // Hitbox
-  Push2DColoredQuad(GlobalGameState->RenderCommands->WorldGroup, Rect, V4(1,1,1,0.7), HitBox->Main.Rotation, HitBox->Main.RotationCenterOffset);
+  if(Intersects(&HitBox->Main, &GlobalGameState->World->MouseSelector.WorldPos))
+  {
+    v2 BoxDimensions     = V2(HitBox->Main.W,
+                              HitBox->Main.H);
+    v2 BoxCenterPosition = V2(HitBox->Main.Pos.X,
+                              HitBox->Main.Pos.Y);
+    v2 RelativeRotationCenter = HitBox->Main.RotationCenterOffset;
+    v4 BoxColor = V4(1,1,1,0.5);
+
+    Push2DColoredQuad(RenderGroup, Rect2f(
+      (BoxCenterPosition.X - BoxDimensions.X*0.5f),
+      (BoxCenterPosition.Y - BoxDimensions.Y*0.5f),
+      BoxDimensions.X, BoxDimensions.Y), BoxColor, HitBox->Main.Rotation, RelativeRotationCenter);
+
+    r32 BorderThickness = 0.01f;
+    r32 BorderWidth  = BoxDimensions.X - 2 * BorderThickness;
+    r32 BorderOffsetX = (BorderWidth + BorderThickness)*0.5f;
+
+    r32 BorderHeight = BoxDimensions.Y - 2 * BorderThickness;
+    r32 BorderOffsetY = (BorderHeight + BorderThickness)*0.5f;
+    v4 BorderColor = V4(0,1,0,1);
+    v4 CornerColor = V4(1,0,0,1);
+
+    // Top Right Corner
+    Push2DColoredQuad(RenderGroup, Rect2f(
+      (BoxCenterPosition.X - BorderThickness * 0.5f),
+      (BoxCenterPosition.Y - BorderThickness * 0.5f),
+      BorderThickness,
+      BorderThickness),
+      CornerColor, HitBox->Main.Rotation,
+      V2(RelativeRotationCenter.X - BorderOffsetX,
+         RelativeRotationCenter.Y - BorderOffsetY));
+
+    // Top Left Corner
+    Push2DColoredQuad(RenderGroup, Rect2f(
+      (BoxCenterPosition.X - BorderThickness * 0.5f),
+      (BoxCenterPosition.Y - BorderThickness * 0.5f),
+      BorderThickness,
+      BorderThickness),
+      CornerColor, HitBox->Main.Rotation,
+      V2(RelativeRotationCenter.X + BorderOffsetX,
+         RelativeRotationCenter.Y - BorderOffsetY));
+
+    // Bot Right Corner
+    Push2DColoredQuad(RenderGroup, Rect2f(
+      (BoxCenterPosition.X - BorderThickness * 0.5f),
+      (BoxCenterPosition.Y - BorderThickness * 0.5f),
+      BorderThickness,
+      BorderThickness),
+      CornerColor, HitBox->Main.Rotation,
+      V2(RelativeRotationCenter.X - BorderOffsetX,
+         RelativeRotationCenter.Y + BorderOffsetY));
+
+    // Bot Left Corner
+    Push2DColoredQuad(RenderGroup, Rect2f(
+      (BoxCenterPosition.X - BorderThickness * 0.5f),
+      (BoxCenterPosition.Y - BorderThickness * 0.5f),
+      BorderThickness,
+      BorderThickness),
+      CornerColor, HitBox->Main.Rotation,
+      V2(RelativeRotationCenter.X + BorderOffsetX,
+         RelativeRotationCenter.Y + BorderOffsetY));
+
+    // Top Border
+    Push2DColoredQuad(RenderGroup, Rect2f(
+      (BoxCenterPosition.X - BorderWidth * 0.5f),
+      (BoxCenterPosition.Y - BorderThickness * 0.5f),
+      BorderWidth,
+      BorderThickness),
+      BorderColor, HitBox->Main.Rotation,
+      V2(RelativeRotationCenter.X,
+         RelativeRotationCenter.Y - BorderOffsetY));
+    
+    // Bot Border
+    Push2DColoredQuad(RenderGroup, Rect2f(
+      (BoxCenterPosition.X - BorderWidth * 0.5f),
+      (BoxCenterPosition.Y - BorderThickness*0.5f),
+      BorderWidth,
+      BorderThickness),
+      BorderColor, HitBox->Main.Rotation,
+      V2(RelativeRotationCenter.X,
+         RelativeRotationCenter.Y + BorderOffsetY));
+
+    // Left Border
+    Push2DColoredQuad(RenderGroup, Rect2f(
+      (BoxCenterPosition.X - BorderThickness*0.5f),
+      (BoxCenterPosition.Y - BorderHeight*0.5f),
+      BorderThickness,
+      BorderHeight),
+      BorderColor, HitBox->Main.Rotation,
+      V2(RelativeRotationCenter.X + BorderOffsetX,
+         RelativeRotationCenter.Y));
+
+    // Right Border
+    Push2DColoredQuad(RenderGroup, Rect2f(
+      (BoxCenterPosition.X - BorderThickness*0.5f),
+      (BoxCenterPosition.Y - BorderHeight*0.5f),
+      BorderThickness,
+      BorderHeight),
+      BorderColor, HitBox->Main.Rotation,
+      V2(RelativeRotationCenter.X - BorderOffsetX,
+         RelativeRotationCenter.Y));
+
+  }
   
+  #if DRAW_HITBOX_AND_POINTS
   // Rotation Center
-  Push2DColoredQuad(GlobalGameState->RenderCommands->WorldGroup, Rect2f(HitBox->Main.Pos.X - MouseSelectionWidth/2.f, HitBox->Main.Pos.Y - MouseSelectionHeight/2.f, MouseSelectionWidth, MouseSelectionHeight), V4(1,0,0,1), HitBox->Main.Rotation, V2(0,0));
+  Push2DColoredQuad(RenderGroup, Rect2f(HitBox->Main.Pos.X - MouseSelectionWidth/2.f, HitBox->Main.Pos.Y - MouseSelectionHeight/2.f, MouseSelectionWidth, MouseSelectionHeight), V4(1,0,0,1), HitBox->Main.Rotation, V2(0,0));
 
   for(u32 idx = 1; idx < ArrayCount(HitBox->Box); idx++)
   {
     hitbox* hb = HitBox->Box + idx;
     if(hb->W > 0)
     {
-      rect2f RectP = Rect2f(HitBox->Main.Pos.X - hb->W/2,
-                            HitBox->Main.Pos.Y - hb->H/2,
-                            hb->W,
-                            hb->H);
-      Push2DColoredQuad(GlobalGameState->RenderCommands->WorldGroup, RectP, V4(1,1,1,0.7),  HitBox->Main.Rotation, hb->RotationCenterOffset);
+      rect2f Rect = Rect2f(HitBox->Main.Pos.X - hb->W * 0.5f,
+                           HitBox->Main.Pos.Y - hb->H * 0.5f,
+                           hb->W,
+                           hb->H);
+      Push2DColoredQuad(RenderGroup, Rect, V4(1,1,1,0.7),  HitBox->Main.Rotation, hb->RotationCenterOffset);
     } 
   }
 
@@ -501,21 +603,13 @@ void FillRenderPushBuffer(world* World)
   DrawGrid(ScreenRect, TileMap, 100, RenderGroup->CameraPosition, Alpha2);
   DrawGrid(ScreenRect, TileMap, 10000, RenderGroup->CameraPosition, Alpha3);
 
-  component_hitbox* Hitbox = 0;
-  local_persist r32 angle = 0;
-  angle += 0.01;
-  if(angle > Pi32)
-  {
-    angle -= 2*Pi32;
-  }
-
   mouse_selector* MouseSelector = &GlobalGameState->World->MouseSelector;
   {
     filtered_entity_iterator EntityIterator = GetComponentsOfType(EM, COMPONENT_FLAG_ELECTRICAL | COMPONENT_FLAG_HITBOX);
     while(Next(&EntityIterator))
     {
       electrical_component* ElectricalComponent = GetElectricalComponent(&EntityIterator);
-      Hitbox = GetHitboxComponent(&EntityIterator);
+      component_hitbox* Hitbox = GetHitboxComponent(&EntityIterator);
       u32 TileSpriteSheet = ElectricalComponentToSpriteType(ElectricalComponent);
       r32 PixelsPerUnitLegth = 128;
       PushElectricalComponent(Hitbox, PixelsPerUnitLegth, TileSpriteSheet, TileHandle);

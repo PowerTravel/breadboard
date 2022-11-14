@@ -139,7 +139,7 @@ struct world_coordinate
   r32 Z;
 };
 
-world_coordinate WorldCoordinate(r32 X, r32 Y, r32 Z)
+inline world_coordinate WorldCoordinate(r32 X, r32 Y, r32 Z)
 {
   world_coordinate Result = {};
   Result.X = X;
@@ -147,6 +147,13 @@ world_coordinate WorldCoordinate(r32 X, r32 Y, r32 Z)
   Result.Z = Z;
   return Result;
 }
+
+inline v3 ToV3(world_coordinate* r)
+{
+  v3 Result = V3(r->X, r->Y, r->Z);
+  return Result;
+}
+
 
 inline screen_coordinate CanonicalToScreenSpace(canonical_screen_coordinate CanPos)
 {

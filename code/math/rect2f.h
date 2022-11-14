@@ -64,17 +64,35 @@ Shrink(rect2f Rect, r32 dx)
   return Result;
 }
 
-inline rect2f
-Rotate(rect2f Rect, r32 dx)
+inline v2 CenterPoint(const rect2f & Rect)
 {
-  rect2f Result = Rect;
-  Result.X += dx;
-  Result.Y += dx;
-  Result.H -= 2*dx;
-  Result.W -= 2*dx;
+  v2 Result = V2(Rect.X + Rect.W * 0.5f, Rect.Y + Rect.H * 0.5f);
   return Result;
 }
 
+inline v2 LowerLeftPoint(const rect2f & Rect)
+{
+  v2 Result = V2(Rect.X, Rect.Y);
+  return Result;
+}
+
+inline v2 LowerRightPoint(const rect2f & Rect)
+{
+  v2 Result = V2(Rect.X + Rect.W, Rect.Y);
+  return Result;
+}
+
+inline v2 UpperLeftPoint(const rect2f & Rect)
+{
+  v2 Result = V2(Rect.X, Rect.Y + Rect.H);
+  return Result;
+}
+
+inline v2 UpperRightPoint(const rect2f & Rect)
+{
+  v2 Result = V2(Rect.X + Rect.W, Rect.Y + Rect.H);
+  return Result;
+}
 
 inline b32
 Intersects(const rect2f & Rect, v2 P)

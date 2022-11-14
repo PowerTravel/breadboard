@@ -47,6 +47,11 @@ struct hitbox
   r32 Rotation;            // Radians
 };
 
+inline b32 Intersects(hitbox* Hitbox, world_coordinate* P)
+{
+  return true;
+}
+
 union component_hitbox
 {
   struct
