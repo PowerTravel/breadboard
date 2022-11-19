@@ -1049,6 +1049,7 @@ v3 GetBaryocentricCoordinatesSlow(const v3& p0, const v3& p1, const v3& p2, cons
   return Result;
 }
 
+// Points must be ordered CCW
 v3 GetBaryocentricCoordinates(const v3& p0, const v3& p1, const v3& p2, const v3& normal, const v3& Point)
 {
   r32 OneOverFaceArea = 1.f/(normal * CrossProduct( p1 - p0, p2 - p0));
@@ -1064,6 +1065,7 @@ v3 GetBaryocentricCoordinates(const v3& p0, const v3& p1, const v3& p2, const v3
 }
 
 // Checks if the Vertex can be projected onto the Triangle.
+// Points must be ordered CCW
 inline b32
 IsVertexInsideTriangle(const v3& VertexOnPlane, const v3& Normal, const v3& p0, const v3& p1, const v3& p2)
 {

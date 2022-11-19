@@ -97,6 +97,107 @@ void InitiateElectricalComponent(electrical_component* Component, component_hitb
 
 }
 
+struct electrical_component_id_list_entry
+{
+  entity_id* ID;
+  electrical_component_id_list_entry* Next;
+};
+
+struct electrical_component_id_list
+{
+  u32 Count; 
+  electrical_component_id_list_entry* First;
+};
+
+electrical_component_id_list GetElectricalComponentAt(entity_manager* EM, memory_arena* Arena, world_coordinate* WorldPos)
+{
+  filtered_entity_iterator EntityIterator = GetComponentsOfType(EM, COMPONENT_FLAG_ELECTRICAL);
+  electrical_component_id_list Result = {};
+  electrical_component_id_list_entry* Tail = 0;
+  while(Next(&EntityIterator))
+  {
+    component_hitbox* Hitbox = GetHitboxComponent(&EntityIterator);
+    if(Intersects_XYPlane(&Hitbox->Main, WorldPos))
+    {
+      ++Result.Count;
+      if(!Result.First)
+      {
+        Result.First = PushStruct(Arena, electrical_component_id_list_entry);
+        Tail = Result.First;
+      }else{
+        Tail->Next = PushStruct(Arena, electrical_component_id_list_entry);
+        Tail = Tail->Next; 
+      }
+      Tail->ID = GetEntityID(&EntityIterator);
+    }
+  }
+
+  return Result;
+}
+
+entity_id InitiateElectricalEntity(entity_manager* EM, entity_id ElectricalEntity, keyboard_input* Keyboard, world_coordinate WorldPos, r32 Rotation)
+{
+  entity_id Result = ElectricalEntity;
+  u32 Type = ElectricalComponentType_None;
+  if(Pushed(Keyboard->Key_S))
+  {
+    Type = ElectricalComponentType_Source;
+  }
+  if(Pushed(Keyboard->Key_R))
+  {
+    Type = ElectricalComponentType_Resistor;
+  }
+  if(Pushed(Keyboard->Key_L))
+  {
+    Type = ElectricalComponentType_Led_Red;
+  }
+  if(Pushed(Keyboard->Key_G))
+  {
+    Type = ElectricalComponentType_Ground;
+  }
+  
+  if(Type != ElectricalComponentType_None)
+  {
+    if(!IsValid(&Result))
+    {
+      Result = NewEntity(EM);
+      NewComponents(EM, &Result, COMPONENT_FLAG_ELECTRICAL);
+    }
+
+    electrical_component* Component = GetElectricalComponent(&Result);
+    component_hitbox* Hitbox = GetHitboxComponent(&Result);
+    InitiateElectricalComponent(Component, Hitbox, Type);
+    Hitbox->Main.Pos = WorldPos;
+    Hitbox->Main.Rotation = Rotation;
+  }
+
+  return Result;
+}
+
+internal void RotateElectricalComponent(entity_id* ElectricalComponent, mouse_selector* MouseSelector, keyboard_input* Keyboard)
+{
+  component_hitbox* Hitbox = GetHitboxComponent(ElectricalComponent);
+  MouseSelector->Rotation = Hitbox->Main.Rotation;
+
+  if(Pushed(Keyboard->Key_Q))
+  {
+    MouseSelector->Rotation += Tau32/4.f;
+  }
+  if(Pushed(Keyboard->Key_E))
+  {
+    MouseSelector->Rotation -= Tau32/4.f;
+  }
+  if(MouseSelector->Rotation > Pi32)
+  {
+    MouseSelector->Rotation -= Tau32;
+  }else if(MouseSelector->Rotation < -Pi32)
+  {
+    MouseSelector->Rotation += Tau32;
+  }
+
+  Hitbox->Main.Rotation = MouseSelector->Rotation;
+}
+
 void ControllerSystemUpdate( world* World )
 {
   TIMED_FUNCTION();
@@ -142,124 +243,130 @@ void ControllerSystemUpdate( world* World )
   MouseSelector->ScreenPos = MouseScreenSpace;
   MouseSelector->WorldPos = MousePosWorldSpace;
   MouseSelector->TilePos = CanonicalizePosition(TileMap, V3(MousePosWorldSpace.X, MousePosWorldSpace.Y,0));
+
+  electrical_component_id_list HotSelectionList = GetElectricalComponentAt(EM, GlobalGameState->TransientArena, &MouseSelector->WorldPos);
   
-  tile_contents HotSelection = GetTileContents(TileMap, MouseSelector->TilePos);
-  
-  if(MouseSelector->SelectedContent.ElectricalComponentEntity.EntityID)
+  // Cursor is holding an electrical component
+  if(IsValid(&MouseSelector->HotSelection))
   {
-    HotSelection = MouseSelector->SelectedContent;
+    // Actions:
+    //  - Swap it with what's beneath (left mouse, occupied underneath, swaps with closest component as measured from rotation point)  
+    //  - Place it on empty spot      (left mouse, empty underneath)
+    //  - Turn into another           (S, R, L, G)
+    //  - Rotate                      (Q or E)
+    // Update the position:
+    {
+      component_hitbox* Hitbox = GetHitboxComponent(&MouseSelector->HotSelection);
+      Hitbox->Main.Pos = MousePosWorldSpace;
+    }
+
+    // Left Mouse:
+    if(Pushed(MouseSelector->LeftButton))
+    {
+      if(HotSelectionList.Count > 1)
+      {
+        // Find closest component
+        electrical_component_id_list_entry* Entry = HotSelectionList.First;
+        entity_id* ClosestComponent = 0;
+        component_hitbox* SelectedHitbox = GetHitboxComponent(&MouseSelector->HotSelection);
+        v2 SelectedPosition = V2(SelectedHitbox->Main.Pos.X, SelectedHitbox->Main.Pos.Y);
+        r32 ClosestDistance = R32Max;
+        
+        while(Entry)
+        {
+          if(!Compare(&MouseSelector->HotSelection, Entry->ID))
+          {
+            component_hitbox* Hitbox = GetHitboxComponent(Entry->ID);
+            v2 Position = V2(Hitbox->Main.Pos.X, Hitbox->Main.Pos.Y);
+            r32 Distance = Norm(Position - SelectedPosition);
+            if(ClosestDistance > Distance)
+            {
+              Distance = ClosestDistance;
+              ClosestComponent = Entry->ID;
+            }
+          }
+
+          Entry = Entry->Next;
+        }
+
+        if(ClosestComponent)
+        {
+          #if 0
+          // Swap places of components if we have standardized component sizes?
+          component_hitbox* Hitbox = GetHitboxComponent(ClosestComponent);
+          SelectedHitbox->Main.Pos = Hitbox->Main.Pos;
+          Hitbox->Main.Pos = MousePosWorldSpace;
+          #endif
+          MouseSelector->HotSelection = *ClosestComponent;
+        }
+
+      }else{
+        // Place
+        world_coordinate PlacementSpot = MousePosWorldSpace;
+        #if 0
+        // TODO: Hold <ALT> to bring up alignment grids to snap the placement
+        if(Keyboard->Key_ALT.Active)
+        {
+          PlacementSpot = FindNearestGrid();
+        }
+        #endif
+        
+        component_hitbox* Hitbox = GetHitboxComponent(&MouseSelector->HotSelection);
+        Hitbox->Main.Pos = MousePosWorldSpace;
+        MouseSelector->HotSelection = {};
+      }
+    }
+    // Delete Electrical component
+    else if(Pushed(MouseSelector->RightButton))
+    {
+      DeleteEntity(EM, &MouseSelector->HotSelection);
+      MouseSelector->HotSelection = {};
+    }
+    // Rotate 
+    else if(Pushed(Keyboard->Key_Q) || Pushed(Keyboard->Key_E))
+    {
+      RotateElectricalComponent(&MouseSelector->HotSelection, MouseSelector, Keyboard);
+    }
+    // Turn into another  
+    else if(Pushed(Keyboard->Key_S) || Pushed(Keyboard->Key_R) || Pushed(Keyboard->Key_L) || Pushed(Keyboard->Key_G))
+    {
+      MouseSelector->HotSelection = InitiateElectricalEntity(EM ,MouseSelector->HotSelection, Keyboard, MouseSelector->WorldPos, MouseSelector->Rotation);  
+    }
   }
-
-  if(HotSelection.ElectricalComponentEntity.EntityID)
+  // Cursor is not holding an electrical component but is hovering over one
+  else if(HotSelectionList.Count)
   {
-    component_hitbox* Hitbox = GetHitboxComponent(&HotSelection.ElectricalComponentEntity);
-    MouseSelector->Rotation = Hitbox->Main.Rotation;
+    // Actions:
+    //  - Create a new electrical component (S, R, L, G)
+    //  - Rotate it   (Q, E)
+    //  - Pick it up  (left mouse)
 
-    if(Pushed(Keyboard->Key_Q))
+    //  Create a new electrical component
+    if(Pushed(Keyboard->Key_S) || Pushed(Keyboard->Key_R) || Pushed(Keyboard->Key_L) || Pushed(Keyboard->Key_G))
     {
-      MouseSelector->Rotation += Tau32/4.f;
+      MouseSelector->HotSelection = InitiateElectricalEntity(EM ,MouseSelector->HotSelection, Keyboard, MouseSelector->WorldPos, MouseSelector->Rotation);  
     }
-    if(Pushed(Keyboard->Key_E))
+    // Rotate
+    else if(Pushed(Keyboard->Key_Q) || Pushed(Keyboard->Key_E))
     {
-      MouseSelector->Rotation -= Tau32/4.f;
+      RotateElectricalComponent(HotSelectionList.First->ID, MouseSelector, Keyboard);
     }
-    if(MouseSelector->Rotation > Pi32)
+    // Pick it up
+    else if(Pushed(MouseSelector->LeftButton))
     {
-      MouseSelector->Rotation -= Tau32;
-    }else if(MouseSelector->Rotation < -Pi32)
-    {
-      MouseSelector->Rotation += Tau32;
+      MouseSelector->HotSelection = *HotSelectionList.First->ID;
     }
 
-    Hitbox->Main.Rotation = MouseSelector->Rotation;
+  }else{
+    // Cursor is not holding an electrical component and is not is hovering over one
+    // Actions:
+    //  - Create a new electrical component (S, R, L, G)
+
+    // (S, R, L, G)
+    if(Pushed(Keyboard->Key_S) || Pushed(Keyboard->Key_R) || Pushed(Keyboard->Key_L) || Pushed(Keyboard->Key_G))
+    {
+      //  - Create a new electrical component
+      MouseSelector->HotSelection = InitiateElectricalEntity(EM ,MouseSelector->HotSelection, Keyboard, MouseSelector->WorldPos, MouseSelector->Rotation);  
+    }
   }
-
-  if(!MouseSelector->SelectedContent.ElectricalComponentEntity.EntityID)
-  {
-    u32 Type = ElectricalComponentType_None;
-    if(Pushed(Keyboard->Key_S))
-    {
-      Type = ElectricalComponentType_Source;
-    }
-    if(Pushed(Keyboard->Key_R))
-    {
-      Type = ElectricalComponentType_Resistor;
-    }
-    if(Pushed(Keyboard->Key_L))
-    {
-      Type = ElectricalComponentType_Led_Red;
-    }
-    if(Pushed(Keyboard->Key_G))
-    {
-      Type = ElectricalComponentType_Ground;
-    }
-    
-    if(Type)
-    {
-      entity_id ElectricalEntity = NewEntity(EM);
-      NewComponents(EM, &ElectricalEntity, COMPONENT_FLAG_ELECTRICAL);
-      electrical_component* Component = GetElectricalComponent(&ElectricalEntity);
-      component_hitbox* Hitbox = GetHitboxComponent(&ElectricalEntity);
-      InitiateElectricalComponent(Component, Hitbox, Type);
-      Hitbox->Main.Pos.X = MouseSelector->WorldPos.X;
-      Hitbox->Main.Pos.Y = MouseSelector->WorldPos.Y;
-      Hitbox->Main.Rotation = MouseSelector->Rotation;
-
-      MouseSelector->SelectedContent.ElectricalComponentEntity = ElectricalEntity;
-    }
-  }else
-  {
-    entity_id* ElectricalEntity = &MouseSelector->SelectedContent.ElectricalComponentEntity;
-    electrical_component* Component = GetElectricalComponent(ElectricalEntity);
-    component_hitbox* Hitbox = GetHitboxComponent(ElectricalEntity);
-    if(Pushed(Keyboard->Key_S))
-    {
-      InitiateElectricalComponent(Component, Hitbox, ElectricalComponentType_Source);
-    }
-    if(Pushed(Keyboard->Key_R))
-    {
-      InitiateElectricalComponent(Component, Hitbox, ElectricalComponentType_Resistor);
-    }
-    if(Pushed(Keyboard->Key_L))
-    {
-      InitiateElectricalComponent(Component, Hitbox, ElectricalComponentType_Led_Red);
-    }
-    if(Pushed(Keyboard->Key_G))
-    {
-      InitiateElectricalComponent(Component, Hitbox, ElectricalComponentType_Ground);
-    }
-
-    Hitbox->Main.Pos.X = MouseSelector->WorldPos.X;
-    Hitbox->Main.Pos.Y = MouseSelector->WorldPos.Y;
-    Hitbox->Main.Rotation = MouseSelector->Rotation;
-  }
-
-  if(Pushed(MouseSelector->LeftButton))
-  {
-    tile_contents PreviousContent = MouseSelector->SelectedContent;
-    MouseSelector->SelectedContent = GetTileContents(TileMap, MouseSelector->TilePos);
-    if(PreviousContent.ElectricalComponentEntity.EntityID)
-    {
-      component_hitbox* Hitbox = GetHitboxComponent(&PreviousContent.ElectricalComponentEntity);
-      v3 Pos = V3(Hitbox->Main.Pos.X, Hitbox->Main.Pos.Y, 0);
-      tile_map_position TilePos = CanonicalizePosition(TileMap, Pos);
-      // TODO: We are casting a negative uint (which is a huge number) into a signed and relying on it being cast down to 
-      //       the small negative number again. This is compiler dependant behaviour, Maybe fix this?
-      Hitbox->Main.Pos.X = Round( ( (r32) ( (s32) TilePos.AbsTileX))) * TileMap->TileWidth + 0.5f * TileMap->TileWidth;
-      Hitbox->Main.Pos.Y = Round( ( (r32) ( (s32) TilePos.AbsTileY))) * TileMap->TileHeight + 0.5f * TileMap->TileHeight;
-      //Pos->Hitbox.Z = Round( ( (r32) ( (s32) TilePos.AbsTileZ))) * TileMap->TileDepth + 0.5f * TileMap->TileDepth;
-    }
-    // TODO: Set all the tiles covered by the component.
-    SetTileContents(World->Arena, TileMap, &MouseSelector->TilePos, PreviousContent);
-    
-  }
-  
-
-  if(Pushed(MouseSelector->RightButton) && MouseSelector->SelectedContent.ElectricalComponentEntity.EntityID > 0)
-  {
-    DeleteEntity(EM, &MouseSelector->SelectedContent.ElectricalComponentEntity);
-    MouseSelector->SelectedContent = {};
-  }
-
-
 }

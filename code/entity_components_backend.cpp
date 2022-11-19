@@ -416,12 +416,14 @@ u32 GetEntityCountHoldingTypes(entity_manager* EM, bitmask32 ComponentFlags)
   return Result;
 }
 
+//TODO: Return value instead??
 entity_id* GetEntityIDFromComponent( bptr Component )
 {
   component_head* Base = (component_head*) RetreatByType(Component, component_head);
   return &Base->Entity->ID;
 }
 
+//TODO: Return value instead??
 entity_id* GetEntityID( filtered_entity_iterator* Iterator )
 {
   Assert(Iterator->CurrentEntity);

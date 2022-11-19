@@ -47,9 +47,41 @@ struct hitbox
   r32 Rotation;            // Radians
 };
 
-inline b32 Intersects(hitbox* Hitbox, world_coordinate* P)
+internal inline rect2f HitboxToRect(hitbox* Hitbox)
 {
-  return true;
+  rect2f Result = Rect2f(Hitbox->Pos.X - Hitbox->W * 0.5f,
+                         Hitbox->Pos.Y - Hitbox->H * 0.5f,
+                         Hitbox->W, Hitbox->H);
+  return Result;
+}
+
+inline b32 Intersects_XYPlane(hitbox* Hitbox, world_coordinate* P)
+{
+  rect2f Rect = HitboxToRect(Hitbox);
+
+  // Translate unrotated hitbox to center
+  world_coordinate Pos = Hitbox->Pos;
+  v3 PointToTest = V3(P->X - Pos.X, P->Y - Pos.Y, 0);
+  
+  // Rotate the point we want to test "backwards" instead of rotating the hitbox "Forward"
+  r32 Rotation = -Hitbox->Rotation;
+  v3 RotatedPointToTest = M3(Cos(Rotation), -Sin(Rotation), 0,
+                             Sin(Rotation),  Cos(Rotation), 0,
+                             0,              0,             1) * PointToTest;
+  // LowerLeft
+  v3 A = V3(-Hitbox->W, -Hitbox->H, 0) * 0.5f - V3(Hitbox->RotationCenterOffset,0);
+  // LowerRight
+  v3 B = V3( Hitbox->W, -Hitbox->H, 0) * 0.5f - V3(Hitbox->RotationCenterOffset,0);
+  // UpperRight
+  v3 C = V3( Hitbox->W,  Hitbox->H, 0) * 0.5f - V3(Hitbox->RotationCenterOffset,0);
+  // UpperLeft
+  v3 D = V3(-Hitbox->W,  Hitbox->H, 0) * 0.5f - V3(Hitbox->RotationCenterOffset,0);
+
+  b32 InLowerLeftTriangle  = IsVertexInsideTriangle(RotatedPointToTest, V3(0, 0, 1), A, B, D);
+  b32 InUpperRightTriangle = IsVertexInsideTriangle(RotatedPointToTest, V3(0, 0, 1), B, C, D);
+  b32 Result = InLowerLeftTriangle || InUpperRightTriangle;
+  
+  return InLowerLeftTriangle || InUpperRightTriangle;
 }
 
 union component_hitbox

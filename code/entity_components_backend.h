@@ -56,6 +56,19 @@ entity_id NewEntity( entity_manager* EM );
 entity_id NewEntity( entity_manager* EM, bitmask32 ComponentFlags);
 void NewComponents(entity_manager* EM, entity_id* EntityID, bitmask32 ComponentFlags);
 
+// TODO: Add Unit tests
+inline b32 IsValid(entity_id* EntityID)
+{
+  return EntityID && EntityID->EntityID;
+}
+
+// TODO: Add Unit tests
+inline b32 Compare(entity_id* A, entity_id* B)
+{
+  // Two invalid entities are not considered to be the same
+  return IsValid(A) && IsValid(B) && (A->EntityID == B->EntityID);
+}
+
 // Access Entities and components
 entity_id* GetEntityIDFromComponent( bptr Component );
 

@@ -11,6 +11,7 @@
 #include "breadboard_components.h"
 
 #define MAX_ELECTRICAL_IO 32
+#define PIXELS_PER_UNIT_LENGTH 128
 
 struct mouse_selector
 {
@@ -22,6 +23,7 @@ struct mouse_selector
   binary_signal_state LeftButton;
   binary_signal_state RightButton;
   tile_contents SelectedContent;
+  entity_id HotSelection;
 };
 
 

@@ -271,8 +271,8 @@ void PushElectricalComponent(component_hitbox* HitBox, r32 PixelsPerUnitLength, 
 
   r32 MouseSelectionWidth = GlobalGameState->World->TileMap.TileWidth;
   r32 MouseSelectionHeight = GlobalGameState->World->TileMap.TileHeight;
-
-  if(Intersects(&HitBox->Main, &GlobalGameState->World->MouseSelector.WorldPos))
+  b32 IsIntersecting = Intersects_XYPlane(&HitBox->Main, &GlobalGameState->World->MouseSelector.WorldPos);
+  if(IsIntersecting)
   {
     v2 BoxDimensions     = V2(HitBox->Main.W,
                               HitBox->Main.H);
@@ -611,8 +611,7 @@ void FillRenderPushBuffer(world* World)
       electrical_component* ElectricalComponent = GetElectricalComponent(&EntityIterator);
       component_hitbox* Hitbox = GetHitboxComponent(&EntityIterator);
       u32 TileSpriteSheet = ElectricalComponentToSpriteType(ElectricalComponent);
-      r32 PixelsPerUnitLegth = 128;
-      PushElectricalComponent(Hitbox, PixelsPerUnitLegth, TileSpriteSheet, TileHandle);
+      PushElectricalComponent(Hitbox, PIXELS_PER_UNIT_LENGTH, TileSpriteSheet, TileHandle);
     }
     
   }

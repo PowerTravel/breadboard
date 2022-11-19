@@ -3,8 +3,6 @@
 #include "types.h"
 #include "coordinate_systems.h"
 
-#define PIXELS_PER_UNIT_LENGTH 128
-
 #define AssertBitmapPoint(Point) \
   Assert(Point.x >= 0);            \
   Assert(Point.y >= 0);            \
