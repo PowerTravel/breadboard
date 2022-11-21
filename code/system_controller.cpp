@@ -244,6 +244,7 @@ void ControllerSystemUpdate( world* World )
   MouseSelector->WorldPos = MousePosWorldSpace;
   MouseSelector->TilePos = CanonicalizePosition(TileMap, V3(MousePosWorldSpace.X, MousePosWorldSpace.Y,0));
 
+  temporary_memory TempMem = BeginTemporaryMemory(GlobalGameState->TransientArena);
   electrical_component_id_list HotSelectionList = GetElectricalComponentAt(EM, GlobalGameState->TransientArena, &MouseSelector->WorldPos);
   
   // Cursor is holding an electrical component
@@ -369,4 +370,6 @@ void ControllerSystemUpdate( world* World )
       MouseSelector->HotSelection = InitiateElectricalEntity(EM ,MouseSelector->HotSelection, Keyboard, MouseSelector->WorldPos, MouseSelector->Rotation);  
     }
   }
+
+  EndTemporaryMemory(TempMem);
 }
