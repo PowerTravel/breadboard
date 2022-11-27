@@ -116,6 +116,12 @@ struct opengl_vertex
 	v2 vt;
 };
 
+struct circle_2d_vertex
+{
+  v2 v;
+  v2 Value;
+};
+
 
 struct opengl_info
 {
@@ -150,6 +156,14 @@ struct opengl_program
   u32 UVCoordinate;
   u32 Shininess;
   u32 TextureIndex;
+};
+
+struct circle_2d_data
+{
+  v2 Position;
+  v2 Scale;
+  v4 Color;
+  r32 Thickness;
 };
 
 struct quad_2d_data
@@ -190,6 +204,7 @@ struct open_gl
   opengl_program Quad2DProgram;
   opengl_program Colored2DQuadProgram;
   opengl_program Quad2DProgramSpecial;
+  opengl_program Circle2DProgram;
 
   u32 Quad3DOffset; // unused atm
   opengl_program Quad3DProgram; // unused atm
@@ -213,11 +228,19 @@ struct open_gl
 
   u32 BufferSize;
   
+  glHandle VertexArrayBuffer;  // Keeps any data
+  glHandle ElementArrayBuffer; // Keeps Indices
+  glHandle VertexArrayObject;  // Tells how the data in buffers above is to be intrepreted
+  u32 OffsetForInstanceData;   // After this offset we get instance data, before it we have vertex data
+
+  // TODO: Remove below, those Buffers bellow were for when we needed more complex geometries
+  //       We only need a single geometr the quad.
+
   // Keeps Geometry (vertex, normal, uv)  
   glHandle ElementVAO;
   u32 ElementVBOOffset;
   glHandle ElementVBO;
-  
+
   // Keeps Idexes to the ElementVAO
   u32 ElementEBOOffset;
   glHandle ElementEBO;
@@ -227,6 +250,8 @@ struct open_gl
   
   // A 2D object rendered in x-y-Plane. Specifies how to interpret data in the VBO
   glHandle Quad2DVAO;
+
+  glHandle Circle2DVAO;
 };
 
 void InitOpenGL(open_gl* OpenGL);

@@ -44,7 +44,6 @@ struct bitmap_keeper
 struct buffer_keeper
 {
   b32 Loaded;
-  u32 VAO;  // Vertex Array Object
   u32 VBO;  // Vertex Buffer Object
   u32 EBO;  // Element Buffer Object
 
