@@ -321,6 +321,12 @@ GetModelMatrix( v3 Position, v4 Rotation, v3 Scale)
 
 v3 GetPositionFromMatrix( const m4* M )
 {
+  // Todo: Can't we just take column 3 and take its negative?
+  #if 0
+  // This is a slow way, don't know why I did it this way.
+  // I'm keeping it just in case there was some reason.
   m4 inv = RigidInverse(*M);
   return V3(Column(inv,3));
+  #endif
+  return V3(-Column(*M,3));
 }

@@ -38,22 +38,142 @@ struct component_controller
   u32 Type;
 };
 
-struct hitbox
+enum class HitboxType
 {
-  world_coordinate Pos;    // Center of hitbox
-  r32 W;                   // Width of hitbox
-  r32 H;                   // Height of hitbox
-  v2 RotationCenterOffset; // Measured from Pos
-  r32 Rotation;            // Radians
+  RECTANGLE,
+  CIRCLE,
+  TRIANGLE
 };
 
-internal inline rect2f HitboxToRect(hitbox* Hitbox)
+struct hitbox_circle
 {
-  rect2f Result = Rect2f(Hitbox->Pos.X - Hitbox->W * 0.5f,
-                         Hitbox->Pos.Y - Hitbox->H * 0.5f,
-                         Hitbox->W, Hitbox->H);
+  r32 Radius;
+};
+
+struct hitbox_rectangle
+{
+  r32 Width;
+  r32 Height;
+  r32 Rotation;
+};
+
+struct hitbox_triangle
+{
+
+//          /|\
+//         / | \
+//       /   | \
+//   Height->|  \
+//     /     |   \  
+//   /_______|____\
+//   Base    |    
+//      CenterPoint
+
+  r32 Base;
+  r32 CenterPoint; // Base center point. [0 (All the way to the left), 1 (all the way to the right)] 
+  r32 Height;
+  r32 Rotation;
+};
+
+struct component_hitbox
+{
+  HitboxType Type;
+  world_coordinate Position;
+  union
+  {
+    hitbox_circle Circle;
+    hitbox_rectangle Rectangle;
+    hitbox_triangle Triangle;
+  };
+};
+
+
+void getTriangle2DPointsCentroidAtOrigin(hitbox_triangle* HitboxTriangle, v2* A, v2* B, v2* C)
+{
+  *A = V2(-HitboxTriangle->Base * HitboxTriangle->CenterPoint, 0);
+  *B = V2( HitboxTriangle->Base * (1.f-HitboxTriangle->CenterPoint), 0);
+  *C = V2(0, HitboxTriangle->Height);
+  v2 Centroid = GetTriangleCentroid(*A,*B,*C);
+  *A -= Centroid;
+  *B -= Centroid;
+  *C -= Centroid;
+}
+
+bool Intersects(component_hitbox* HitboxComponent, world_coordinate IntersectionPoint)
+{
+  b32 Result = false;
+  switch(HitboxComponent->Type)
+  {
+    case HitboxType::CIRCLE:
+    {
+      r32 Radius = Norm(IntersectionPoint - HitboxComponent->Position);
+      Result = Radius < HitboxComponent->Circle.Radius;
+    }break;
+    case HitboxType::RECTANGLE:
+    {
+      // If the roatation angle of the htibox is off center, this is the vector from the center 
+      // of the hitbox to the center of rotation, if it's zero, it means the rotation point is equal to 
+      // the geometric center.
+      world_coordinate RotationCenterOffset = {};
+
+      hitbox_rectangle HitboxRect = HitboxComponent->Rectangle;
+
+      // Translate IntersectionPoint to have origin at the rectangle
+      world_coordinate PointToTest = IntersectionPoint - HitboxComponent->Position;
+      
+      // Rotate the point we want to test "backwards" instead of rotating the hitbox "Forward"
+      r32 Rotation = -HitboxRect.Rotation;
+      v3 RotatedPointToTest = M3(Cos(Rotation), -Sin(Rotation), 0,
+                                 Sin(Rotation),  Cos(Rotation), 0,
+                                 0,              0,             1) * PointToTest;
+      // LowerLeft
+      v3 A = V3(-HitboxRect.Width, -HitboxRect.Height, 0) * 0.5f - RotationCenterOffset;
+      // LowerRight
+      v3 B = V3( HitboxRect.Width, -HitboxRect.Height, 0) * 0.5f - RotationCenterOffset;
+      // UpperRight
+      v3 C = V3( HitboxRect.Width,  HitboxRect.Height, 0) * 0.5f - RotationCenterOffset;
+      // UpperLeft
+      v3 D = V3(-HitboxRect.Width,  HitboxRect.Height, 0) * 0.5f - RotationCenterOffset;
+
+      b32 InLowerLeftTriangle  = IsVertexInsideTriangle(RotatedPointToTest, V3(0, 0, 1), A, B, D);
+      b32 InUpperRightTriangle = IsVertexInsideTriangle(RotatedPointToTest, V3(0, 0, 1), B, C, D);
+      
+      Result = InLowerLeftTriangle || InUpperRightTriangle;
+  
+    }break;
+    case HitboxType::TRIANGLE:
+    {
+      // If the roatation angle of the htibox is off center, this is the vector from the center 
+      // of the hitbox to the center of rotation, if it's zero, it means the rotation point is equal to 
+      // the geometric center.
+      world_coordinate RotationCenterOffset = {};
+
+      hitbox_triangle HitboxTriangle = HitboxComponent->Triangle;
+
+      v2 A,B,C;
+      getTriangle2DPointsCentroidAtOrigin(&HitboxTriangle, &A,&B,&C);
+      A -= V2(RotationCenterOffset);
+      B -= V2(RotationCenterOffset);
+      C -= V2(RotationCenterOffset);
+
+      // Translate IntersectionPoint to have origin at the rectangle
+      world_coordinate PointToTest = IntersectionPoint - (HitboxComponent->Position);
+
+      // Rotate the point we want to test "backwards" instead of rotating the hitbox "Forward"
+      r32 Rotation = -HitboxTriangle.Rotation;
+      v3 RotatedPointToTest = M3(Cos(Rotation), -Sin(Rotation), 0,
+                                 Sin(Rotation),  Cos(Rotation), 0,
+                                 0,              0,             1) * PointToTest;
+      
+      v3 TriangleNormal = V3(0, 0, 1);
+      Result  = IsVertexInsideTriangle(RotatedPointToTest, TriangleNormal, V3(A,0), V3(B,0), V3(C,0));
+    }break;
+  }
+
   return Result;
 }
+
+#if 0
 
 inline b32 Intersects_XYPlane(hitbox* Hitbox, world_coordinate* P)
 {
@@ -83,18 +203,7 @@ inline b32 Intersects_XYPlane(hitbox* Hitbox, world_coordinate* P)
   
   return InLowerLeftTriangle || InUpperRightTriangle;
 }
-
-union component_hitbox
-{
-  struct
-  {
-    hitbox Main; // Main Box
-    hitbox C1;   // Connector
-    hitbox C2;   // Connector
-    hitbox C3;   // Connector
-  };
-  hitbox Box[4];
-};
+#endif
 
 struct component_render
 {
@@ -123,7 +232,8 @@ enum component_type
   COMPONENT_FLAG_SPRITE_ANIMATION   = 1<<3,
   COMPONENT_FLAG_HITBOX             = 1<<4,
   COMPONENT_FLAG_ELECTRICAL         = 1<<5,
-  COMPONENT_FLAG_FINAL              = 1<<6,
+  COMPONENT_FLAG_CONNECTOR_PIN      = 1<<6,
+  COMPONENT_FLAG_FINAL              = 1<<7,
 };
 
 // Initiates the backend entity manager with breadboard specific components
@@ -134,4 +244,5 @@ entity_manager* CreateEntityManager();
 #define GetRenderComponent(EntityID) ((component_render*) GetComponent(GlobalGameState->EntityManager, EntityID, COMPONENT_FLAG_RENDER))
 #define GetSpriteAnimationComponent(EntityID) ((component_sprite_animation*) GetComponent(GlobalGameState->EntityManager, EntityID, COMPONENT_FLAG_SPRITE_ANIMATION))
 #define GetHitboxComponent(EntityID) ((component_hitbox*) GetComponent(GlobalGameState->EntityManager, EntityID, COMPONENT_FLAG_HITBOX))
-#define GetElectricalComponent(EntityID) ((electrical_component*) GetComponent(GlobalGameState->EntityManager, EntityID, COMPONENT_FLAG_ELECTRICAL))
+#define GetElectricalComponent(EntityID) ((component_electrical*) GetComponent(GlobalGameState->EntityManager, EntityID, COMPONENT_FLAG_ELECTRICAL))
+#define GetConnectorPinComponent(EntityID) ((component_connector_pin*) GetComponent(GlobalGameState->EntityManager, EntityID, COMPONENT_FLAG_CONNECTOR_PIN))

@@ -11,7 +11,7 @@ internal void HandleZoom(component_camera* Camera, screen_coordinate MouseScreen
 
     // TODO:  - Do some slerping here, possibly tied to the scroll wheel, zoom in/zoom out
     r32 ZoomSpeed = 20; 
-    v2 PrePos = GetMousePosInProjectionWindow(MouseScreenPos, Camera->OrthoZoom, AspectRatio);
+    world_coordinate PrePos = ToWorldCoordinateRelativeCameraPosition(MouseScreenPos, Camera->OrthoZoom, AspectRatio);
     r32 ZoomPercentage = - ZoomSpeed * ScrollWheel * GlobalGameState->Input->dt;
     r32 Zoom = Camera->OrthoZoom * ZoomPercentage;
     Camera->OrthoZoom += Zoom;
@@ -25,10 +25,10 @@ internal void HandleZoom(component_camera* Camera, screen_coordinate MouseScreen
     r32 Bot   = ScreenRect.Y;
     SetOrthoProj(Camera, Near, Far, Right, Left, Top, Bot );
 
-    v2 PostPos = GetMousePosInProjectionWindow(MouseScreenPos, Camera->OrthoZoom, AspectRatio);
+    world_coordinate PostPos = ToWorldCoordinateRelativeCameraPosition(MouseScreenPos, Camera->OrthoZoom, AspectRatio);
 
-    v2 CamDelta = PostPos - PrePos;
-    TranslateCamera(Camera, -V3(CamDelta,0));  
+    world_coordinate CamDelta = PostPos - PrePos;
+    TranslateCamera(Camera, -CamDelta);  
   }  
 }
 
@@ -45,61 +45,9 @@ internal void HandleTranslate(component_camera* Camera, b32 MouseActive, screen_
   }
 }
 
-void InitiateElectricalComponent(electrical_component* Component, component_hitbox* HitboxComponent, u32 ElectricalType)
-{
-  Component->Type = ElectricalType;
-  u32 SpriteTileType = ElectricalComponentToSpriteType(Component);
-  bitmap_points TilePoint = GetElectricalComponentSpriteBitmapPoints(SpriteTileType);
-
-  // WC = WorldCoordinate
-  // PS = PixelCoordinate
-  // Rh = RightHanded (increasing y goes up)
-  // Rh = LeftHanded  (increasing y goes down)
-  bitmap_coordinate_rh TopLeftPS          = ToRightHanded(&TilePoint.TopLeft);
-  bitmap_coordinate_rh BotRightPS         = ToRightHanded(&TilePoint.BotRight);
-  bitmap_coordinate_rh RotationalCenterPS = ToRightHanded(&TilePoint.Center);
-  bitmap_coordinate_rh BotLeftPS          = BitmapCoordinatePxRh(TopLeftPS.x,  BotRightPS.y, BotRightPS.w, BotRightPS.h);
-  bitmap_coordinate_rh TopRightPS         = BitmapCoordinatePxRh(BotRightPS.x,  TopLeftPS.y, TopLeftPS.w, TopLeftPS.h);
-
-  v2 BoxDimensionsWS          = Subtract(&TopRightPS, &BotLeftPS) / PIXELS_PER_UNIT_LENGTH;
-  v2 GeometricCenterWS        = Add(&BotLeftPS, &TopRightPS) * 0.5f / PIXELS_PER_UNIT_LENGTH;
-  v2 RotationalCenterWS       = V2( (r32) RotationalCenterPS.x, (r32) RotationalCenterPS.y) / PIXELS_PER_UNIT_LENGTH;
-  v2 RotationalCenterOffsetWS = RotationalCenterWS - GeometricCenterWS;
-
-  hitbox* MainHitbox = HitboxComponent->Box; 
-
-  *MainHitbox = {};
-  MainHitbox->W   = BoxDimensionsWS.X;
-  MainHitbox->H   = BoxDimensionsWS.Y;
-  MainHitbox->RotationCenterOffset = RotationalCenterOffsetWS;
-
-  r32 ConnectorSideLength = 0.1;
-
-  Assert(ArrayCount(TilePoint.Points) >= (ArrayCount(HitboxComponent->Box)-1));
-  for(u32 idx = 1; idx < ArrayCount(HitboxComponent->Box); idx++)
-  {
-    bitmap_coordinate_lh* BitmapPointLh = TilePoint.Points + idx - 1;
-    if(BitmapPointLh->w > 0)
-    {
-      bitmap_coordinate_rh BitmapPointRh = ToRightHanded(BitmapPointLh);
-      v2 BitmapPointWS = V2( (r32) BitmapPointRh.x, (r32) BitmapPointRh.y) / PIXELS_PER_UNIT_LENGTH;
-      hitbox* Hitbox = HitboxComponent->Box + idx;
-      *Hitbox = {};
-      Hitbox->W     = ConnectorSideLength;
-      Hitbox->H     = ConnectorSideLength;
-
-      v2 PosRelativeGeometricCenterWS = BitmapPointWS - GeometricCenterWS;
-      Hitbox->Pos.X = {};
-      Hitbox->Pos.Y = {};
-      Hitbox->RotationCenterOffset = RotationalCenterOffsetWS - PosRelativeGeometricCenterWS;
-    } 
-  }
-
-}
-
 struct electrical_component_id_list_entry
 {
-  entity_id* ID;
+  entity_id ID;
   electrical_component_id_list_entry* Next;
 };
 
@@ -111,13 +59,13 @@ struct electrical_component_id_list
 
 electrical_component_id_list GetElectricalComponentAt(entity_manager* EM, memory_arena* Arena, world_coordinate* WorldPos)
 {
-  filtered_entity_iterator EntityIterator = GetComponentsOfType(EM, COMPONENT_FLAG_ELECTRICAL);
+  filtered_entity_iterator EntityIterator = GetComponentsOfType(EM, COMPONENT_FLAG_HITBOX);
   electrical_component_id_list Result = {};
   electrical_component_id_list_entry* Tail = 0;
   while(Next(&EntityIterator))
   {
     component_hitbox* Hitbox = GetHitboxComponent(&EntityIterator);
-    if(Intersects_XYPlane(&Hitbox->Main, WorldPos))
+    if(Intersects(Hitbox, *WorldPos))
     {
       ++Result.Count;
       if(!Result.First)
@@ -135,68 +83,228 @@ electrical_component_id_list GetElectricalComponentAt(entity_manager* EM, memory
   return Result;
 }
 
-entity_id InitiateElectricalEntity(entity_manager* EM, entity_id ElectricalEntity, keyboard_input* Keyboard, world_coordinate WorldPos, r32 Rotation)
+internal void CreateRectanglePinHitbox(ElectricalPinType Type, hitbox_rectangle* Rectangle, r32 RotationAroundCenter)
 {
-  entity_id Result = ElectricalEntity;
-  u32 Type = ElectricalComponentType_None;
-  if(Pushed(Keyboard->Key_S))
+  switch(Type)
   {
-    Type = ElectricalComponentType_Source;
-  }
-  if(Pushed(Keyboard->Key_R))
-  {
-    Type = ElectricalComponentType_Resistor;
-  }
-  if(Pushed(Keyboard->Key_L))
-  {
-    Type = ElectricalComponentType_Led_Red;
-  }
-  if(Pushed(Keyboard->Key_G))
-  {
-    Type = ElectricalComponentType_Ground;
-  }
-  
-  if(Type != ElectricalComponentType_None)
-  {
-    if(!IsValid(&Result))
+    case ElectricalPinType::InputOutput:
     {
-      Result = NewEntity(EM);
-      NewComponents(EM, &Result, COMPONENT_FLAG_ELECTRICAL);
-    }
 
-    electrical_component* Component = GetElectricalComponent(&Result);
-    component_hitbox* Hitbox = GetHitboxComponent(&Result);
-    InitiateElectricalComponent(Component, Hitbox, Type);
-    Hitbox->Main.Pos = WorldPos;
-    Hitbox->Main.Rotation = Rotation;
+    }break;
+    case ElectricalPinType::A:
+    {
+
+    }break;
+    case ElectricalPinType::B:
+    {
+
+    }break;
+    default:
+    {
+      // ElectricalPinType is not a rectangle
+      Assert(0);
+    }break;
+  }
+}
+
+
+internal void UpdatePinHitboxPosition(ElectricalPinType Type, r32 X, r32 Y, r32 R, component_hitbox* PinHitbox)
+{
+  r32 Angle = 0;
+  switch(Type)
+  {
+    case ElectricalPinType::Positive:
+    case ElectricalPinType::Input:
+    case ElectricalPinType::Sink:
+    {
+      Angle = PinHitbox->Triangle.Rotation + Pi32/6.f;
+    }break;
+
+    case ElectricalPinType::Negative:
+    case ElectricalPinType::Output:
+    case ElectricalPinType::Source:
+    {
+      Angle = PinHitbox->Triangle.Rotation - Pi32/6.f;
+    }break;
+    default:
+    {
+      Angle = PinHitbox->Triangle.Rotation;
+    }break;
+  }
+  PinHitbox->Position.X = X + R * Cos(Angle);
+  PinHitbox->Position.Y = Y + R * Sin(Angle);
+}
+
+internal component_hitbox CreateTrianglePinHitbox(ElectricalPinType Type, r32 RotationAroundCenter)
+{
+  component_hitbox Result = {};
+  Result.Type = HitboxType::TRIANGLE;
+  hitbox_triangle* Triangle = &Result.Triangle;
+  Triangle->Base = 0.2;
+  Triangle->Height = Triangle->Base * Sin(Pi32/3.f);
+  Triangle->CenterPoint = 0.5;
+  switch(Type)
+  {
+    case ElectricalPinType::Positive:
+    case ElectricalPinType::Input:
+    case ElectricalPinType::Sink:
+    {
+      Triangle->Rotation = RotationAroundCenter - Pi32/6.f;
+    }break;
+
+    case ElectricalPinType::Negative:
+    case ElectricalPinType::Output:
+    case ElectricalPinType::Source:
+    {
+      Triangle->Rotation = RotationAroundCenter + Pi32/6.f;
+    }break;
+    default:
+    {
+      // ElectricalPinType is not a triangle
+      Assert(0);
+    }break;
   }
 
   return Result;
 }
 
-internal void RotateElectricalComponent(entity_id* ElectricalComponent, mouse_selector* MouseSelector, keyboard_input* Keyboard)
+internal void SetPositionOfConnectorPin(world_coordinate ElectricalComponentCenter, r32 ConnectorRadius, r32 Angle, component_hitbox* PinHitbox)
 {
-  component_hitbox* Hitbox = GetHitboxComponent(ElectricalComponent);
-  MouseSelector->Rotation = Hitbox->Main.Rotation;
-
-  if(Pushed(Keyboard->Key_Q))
-  {
-    MouseSelector->Rotation += Tau32/4.f;
-  }
-  if(Pushed(Keyboard->Key_E))
-  {
-    MouseSelector->Rotation -= Tau32/4.f;
-  }
-  if(MouseSelector->Rotation > Pi32)
-  {
-    MouseSelector->Rotation -= Tau32;
-  }else if(MouseSelector->Rotation < -Pi32)
-  {
-    MouseSelector->Rotation += Tau32;
-  }
-
-  Hitbox->Main.Rotation = MouseSelector->Rotation;
+  PinHitbox->Position.X = ElectricalComponentCenter.X + ConnectorRadius * Cos(Angle);
+  PinHitbox->Position.Y = ElectricalComponentCenter.Y + ConnectorRadius * Sin(Angle); 
 }
+
+entity_id CreateElectricalComponent(entity_manager* EM, keyboard_input* Keyboard, world_coordinate WorldPos)
+{
+  entity_id Result = NewEntity(EM, COMPONENT_FLAG_ELECTRICAL);
+  component_electrical* Component = GetElectricalComponent(&Result);
+  component_hitbox* ElectricalComponentHitbox = GetHitboxComponent(&Result);
+  ElectricalComponentHitbox->Type = HitboxType::CIRCLE;
+  ElectricalComponentHitbox->Position = WorldPos;
+  ElectricalComponentHitbox->Circle.Radius = 0.5;
+
+  r32 Thickness = 0.1;
+  r32 ConnectorRadius = ElectricalComponentHitbox->Circle.Radius;
+
+  if(Pushed(Keyboard->Key_S))
+  {
+    entity_id ConnectorPin = NewEntity(EM, COMPONENT_FLAG_CONNECTOR_PIN);
+    component_connector_pin* Pin = GetConnectorPinComponent(&ConnectorPin);
+    Pin->Type = ElectricalPinType::Source;
+    Pin->Component = Component;
+
+    component_hitbox* PinHitbox = GetHitboxComponent(&ConnectorPin);
+    r32 Angle = 0;
+    *PinHitbox = CreateTrianglePinHitbox(Pin->Type, Angle);
+    SetPositionOfConnectorPin(ElectricalComponentHitbox->Position, ConnectorRadius, Angle, PinHitbox);
+
+    Component->Type = ElectricalComponentType_Source;
+    Component->FirstPin = Pin;
+  }
+#if 0
+  else if(Pushed(Keyboard->Key_R))
+  {
+    entity_id ConnectorPinA = NewEntity(EM, COMPONENT_FLAG_CONNECTOR_PIN);
+    component_connector_pin* PinA = GetConnectorPinComponent(&ConnectorPinA);
+    PinA->Type = ElectricalPinType::InputOutput;
+    PinA->Component = Component;
+
+    r32 Angle = Pi32;
+    component_hitbox* PinHitbox = GetHitboxComponent(&ConnectorPinA);
+    hitbox_rectangle* Rectangle = &PinHitbox->Rectangle;
+    CreateRectanglePinHitbox(PinA->Type, Rectangle, Angle);
+
+    PinHitbox->Position.X = ElectricalComponentHitbox->Position.X + ConnectorRadius * Cos(Angle);
+    PinHitbox->Position.Y = ElectricalComponentHitbox->Position.Y + ConnectorRadius * Sin(Angle);
+
+
+    entity_id ConnectorPinB = NewEntity(EM, COMPONENT_FLAG_CONNECTOR_PIN);
+    component_connector_pin* PinB = GetConnectorPinComponent(&ConnectorPinB);
+    PinB->Type = ElectricalPinType::InputOutput;
+    PinB->Component = Component;
+
+    Angle = 0;
+    PinHitbox = GetHitboxComponent(&ConnectorPinB);
+    Rectangle = &PinHitbox->Rectangle;
+    CreateRectanglePinHitbox(PinB->Type, Rectangle, Angle);
+
+    PinHitbox->Position.X = ElectricalComponentHitbox->Position.X + ConnectorRadius * Cos(Angle);
+    PinHitbox->Position.Y = ElectricalComponentHitbox->Position.Y + ConnectorRadius * Sin(Angle);
+
+    PinA->NextPin = PinB;
+    Component->Type = ElectricalComponentType_Resistor;
+    Component->FirstPin = PinA;
+  }
+  else if(Pushed(Keyboard->Key_L))
+  {
+
+    entity_id ConnectorPinAnode = NewEntity(EM, COMPONENT_FLAG_CONNECTOR_PIN);
+    component_connector_pin* Anode = GetConnectorPinComponent(&ConnectorPinAnode);
+    Anode->Type = ElectricalPinType::Positive;
+    Anode->Component = Component;
+    Component->FirstPin = Anode;
+
+    r32 Angle = Pi32;
+    component_hitbox* PinHitbox = GetHitboxComponent(&ConnectorPinAnode);
+    *PinHitbox = CreateTrianglePinHitbox(Pin->Type, Angle);
+    SetPositionOfConnectorPin(ElectricalComponentHitbox->Position, ConnectorRadius, Angle, PinHitbox);
+
+    entity_id ConnectorPinCathode = NewEntity(EM, COMPONENT_FLAG_CONNECTOR_PIN);
+    component_connector_pin* Cathode = GetConnectorPinComponent(&ConnectorPinCathode);
+    Cathode->Type = ElectricalPinType::Negative;
+    Cathode->Component = Component;
+
+    Angle = 0;
+    PinHitbox = GetHitboxComponent(&ConnectorPinCathode);
+    *PinHitbox = CreateTrianglePinHitbox(Pin->Type, Angle);
+    SetPositionOfConnectorPin(ElectricalComponentHitbox->Position, ConnectorRadius, Angle, PinHitbox);
+
+    PinHitbox->Position.X = ElectricalComponentHitbox->Position.X + ConnectorRadius * Cos(Angle);
+    PinHitbox->Position.Y = ElectricalComponentHitbox->Position.Y + ConnectorRadius * Sin(Angle);
+
+    Anode->NextPin = Cathode;
+    Component->Type = ElectricalComponentType_Diode;
+    Component->FirstPin = Anode;
+  }
+  if(Pushed(Keyboard->Key_G))
+  {
+    entity_id ConnectorPin = NewEntity(EM, COMPONENT_FLAG_CONNECTOR_PIN);
+    component_connector_pin* Pin = GetConnectorPinComponent(&ConnectorPin);
+    Pin->Type = ElectricalPinType::Sink;
+    Pin->Component = Component;
+    
+    r32 Angle = Pi32;
+    component_hitbox* PinHitbox = GetHitboxComponent(&ConnectorPin);
+    hitbox_triangle* Triangle = &PinHitbox->Triangle;
+    CreateTrianglePinHitbox(Pin->Type, Triangle, Angle);
+    SetPositionOfConnectorPin(ElectricalComponentHitbox->Position, Angle, PinHitbox);
+
+    PinHitbox->Position.X = Hitbox->Position.X + ConnectorRadius * Cos(Angle);
+    PinHitbox->Position.Y = Hitbox->Position.Y + ConnectorRadius * Sin(Angle);
+
+    Component->Type = ElectricalComponentType_Ground;
+    Component->FirstPin = Pin;
+  }
+  #endif
+
+  return Result;
+}
+
+void DeleteElectricalEntity(entity_manager* EM, entity_id ElectricalComponent)
+{
+  component_electrical* Component = GetElectricalComponent(&ElectricalComponent);
+  component_connector_pin* Pin = Component->FirstPin;
+  while(Pin)
+  {
+    component_connector_pin* NextPin = Pin->NextPin;
+    entity_id PinID = GetEntityIDFromComponent( (bptr) Pin);
+    DeleteEntity(EM, &PinID);
+    Pin = NextPin;
+  }
+
+  DeleteEntity(EM, &ElectricalComponent);
+}
+
 
 void ControllerSystemUpdate( world* World )
 {
@@ -235,7 +343,7 @@ void ControllerSystemUpdate( world* World )
 
   v3 CamPos = GetPositionFromMatrix(&Camera->V);
   r32 OrthoZoom = Camera->OrthoZoom;
-  world_coordinate MousePosWorldSpace = GetMousePosInWorld(CamPos, OrthoZoom, MouseScreenSpace);
+  world_coordinate MousePosWorldSpace = ToWorldCoordinate(MouseScreenSpace, CamPos, OrthoZoom, GameGetAspectRatio());
 
   MouseSelector->LeftButton = Mouse->Button[PlatformMouseButton_Left];
   MouseSelector->RightButton = Mouse->Button[PlatformMouseButton_Right];
@@ -254,11 +362,43 @@ void ControllerSystemUpdate( world* World )
     //  - Swap it with what's beneath (left mouse, occupied underneath, swaps with closest component as measured from rotation point)  
     //  - Place it on empty spot      (left mouse, empty underneath)
     //  - Turn into another           (S, R, L, G)
-    //  - Rotate                      (Q or E)
     // Update the position:
     {
       component_hitbox* Hitbox = GetHitboxComponent(&MouseSelector->HotSelection);
-      Hitbox->Main.Pos = MousePosWorldSpace;
+      Hitbox->Position = MousePosWorldSpace;
+
+      if(HasComponents(EM, &MouseSelector->HotSelection, COMPONENT_FLAG_ELECTRICAL))
+      {
+        // Update position of a selected electrical component
+        component_electrical* ElecticalComponent = GetElectricalComponent(&MouseSelector->HotSelection);
+        component_connector_pin* Pin = ElecticalComponent->FirstPin;
+        while(Pin)
+        {
+          entity_id PinID = GetEntityIDFromComponent((bptr)Pin);
+          component_hitbox* PinHitbox = GetHitboxComponent(&PinID);
+          
+          UpdatePinHitboxPosition(Pin->Type, Hitbox->Position.X, Hitbox->Position.Y, Hitbox->Circle.Radius, PinHitbox);
+          Pin = Pin->NextPin;
+        }
+      }
+      else if(HasComponents(EM, &MouseSelector->HotSelection, COMPONENT_FLAG_CONNECTOR_PIN))
+      {
+        // Update position of a selected connector pin
+        component_connector_pin* ConnectorPin = GetConnectorPinComponent(&MouseSelector->HotSelection);
+        entity_id ComponentID = GetEntityIDFromComponent((bptr)ConnectorPin->Component);
+        component_electrical* ElecticalComponent = GetElectricalComponent(&ComponentID);
+        component_hitbox* ElectricalComponentHitbox = GetHitboxComponent(&ComponentID);
+        world_coordinate ComponentCenter = ElectricalComponentHitbox->Position;
+        world_coordinate HorizontalLine = V3(1,0,0);
+        world_coordinate ComponentToMouse = Normalize(MousePosWorldSpace - ComponentCenter);
+        r32 CosAngle = HorizontalLine*ComponentToMouse;
+        r32 Angle = ACos(CosAngle);
+        Assert(ElectricalComponentHitbox->Type == HitboxType::CIRCLE);
+
+        component_hitbox* PinHitbox = GetHitboxComponent(&MouseSelector->HotSelection);
+        PinHitbox->Triangle.Rotation = Angle;
+        UpdatePinHitboxPosition(ConnectorPin->Type, ComponentCenter.X, ComponentCenter.Y, ElectricalComponentHitbox->Circle.Radius, PinHitbox);
+      }
     }
 
     // Left Mouse:
@@ -268,17 +408,17 @@ void ControllerSystemUpdate( world* World )
       {
         // Find closest component
         electrical_component_id_list_entry* Entry = HotSelectionList.First;
-        entity_id* ClosestComponent = 0;
+        entity_id ClosestComponent = {};
         component_hitbox* SelectedHitbox = GetHitboxComponent(&MouseSelector->HotSelection);
-        v2 SelectedPosition = V2(SelectedHitbox->Main.Pos.X, SelectedHitbox->Main.Pos.Y);
+        v2 SelectedPosition = V2(SelectedHitbox->Position.X, SelectedHitbox->Position.Y);
         r32 ClosestDistance = R32Max;
         
         while(Entry)
         {
-          if(!Compare(&MouseSelector->HotSelection, Entry->ID))
+          if(!Compare(&MouseSelector->HotSelection, &Entry->ID))
           {
-            component_hitbox* Hitbox = GetHitboxComponent(Entry->ID);
-            v2 Position = V2(Hitbox->Main.Pos.X, Hitbox->Main.Pos.Y);
+            component_hitbox* Hitbox = GetHitboxComponent(&Entry->ID);
+            v2 Position = V2(Hitbox->Position.X, Hitbox->Position.Y);
             r32 Distance = Norm(Position - SelectedPosition);
             if(ClosestDistance > Distance)
             {
@@ -290,15 +430,16 @@ void ControllerSystemUpdate( world* World )
           Entry = Entry->Next;
         }
 
-        if(ClosestComponent)
+        if(IsValid(&ClosestComponent))
         {
-          #if 0
+          component_electrical* ElecticalComponent = GetElectricalComponent(&MouseSelector->HotSelection);
+          #if 1
           // Swap places of components if we have standardized component sizes?
-          component_hitbox* Hitbox = GetHitboxComponent(ClosestComponent);
-          SelectedHitbox->Main.Pos = Hitbox->Main.Pos;
-          Hitbox->Main.Pos = MousePosWorldSpace;
+          component_hitbox* Hitbox = GetHitboxComponent(&ClosestComponent);
+          SelectedHitbox->Position = Hitbox->Position;
+          Hitbox->Position = MousePosWorldSpace;
           #endif
-          MouseSelector->HotSelection = *ClosestComponent;
+          MouseSelector->HotSelection = ClosestComponent;
         }
 
       }else{
@@ -313,7 +454,30 @@ void ControllerSystemUpdate( world* World )
         #endif
         
         component_hitbox* Hitbox = GetHitboxComponent(&MouseSelector->HotSelection);
-        Hitbox->Main.Pos = MousePosWorldSpace;
+        
+        if(HasComponents(EM, &MouseSelector->HotSelection, COMPONENT_FLAG_ELECTRICAL))
+        {
+          Hitbox->Position = MousePosWorldSpace;
+        }
+        else if(HasComponents(EM, &MouseSelector->HotSelection, COMPONENT_FLAG_CONNECTOR_PIN))
+        {
+          component_connector_pin* ConnectorPin = GetConnectorPinComponent(&MouseSelector->HotSelection);
+          entity_id ComponentID = GetEntityIDFromComponent((bptr)ConnectorPin->Component);
+          component_hitbox* ElectricalComponentHitbox = GetHitboxComponent(&ComponentID);
+          world_coordinate ComponentCenter = ElectricalComponentHitbox->Position;
+          world_coordinate HorizontalLine = V3(1,0,0);
+          world_coordinate ComponentToMouse = Normalize(MousePosWorldSpace - ComponentCenter);
+          r32 CosAngle = HorizontalLine*ComponentToMouse;
+          r32 Angle = ACos(CosAngle);
+          Platform.DEBUGPrint("Angle %f\n", Angle);
+
+          Assert(ElectricalComponentHitbox->Type == HitboxType::CIRCLE);
+
+          Hitbox->Triangle.Rotation = Angle;
+
+          UpdatePinHitboxPosition(ConnectorPin->Type, ComponentCenter.X, ComponentCenter.Y, ElectricalComponentHitbox->Circle.Radius, Hitbox);
+        }
+
         MouseSelector->HotSelection = {};
       }
     }
@@ -323,15 +487,11 @@ void ControllerSystemUpdate( world* World )
       DeleteEntity(EM, &MouseSelector->HotSelection);
       MouseSelector->HotSelection = {};
     }
-    // Rotate 
-    else if(Pushed(Keyboard->Key_Q) || Pushed(Keyboard->Key_E))
-    {
-      RotateElectricalComponent(&MouseSelector->HotSelection, MouseSelector, Keyboard);
-    }
     // Turn into another  
     else if(Pushed(Keyboard->Key_S) || Pushed(Keyboard->Key_R) || Pushed(Keyboard->Key_L) || Pushed(Keyboard->Key_G))
     {
-      MouseSelector->HotSelection = InitiateElectricalEntity(EM ,MouseSelector->HotSelection, Keyboard, MouseSelector->WorldPos, MouseSelector->Rotation);  
+      DeleteElectricalEntity(EM, MouseSelector->HotSelection);
+      MouseSelector->HotSelection = CreateElectricalComponent(EM, Keyboard, MouseSelector->WorldPos);
     }
   }
   // Cursor is not holding an electrical component but is hovering over one
@@ -339,23 +499,17 @@ void ControllerSystemUpdate( world* World )
   {
     // Actions:
     //  - Create a new electrical component (S, R, L, G)
-    //  - Rotate it   (Q, E)
     //  - Pick it up  (left mouse)
 
     //  Create a new electrical component
     if(Pushed(Keyboard->Key_S) || Pushed(Keyboard->Key_R) || Pushed(Keyboard->Key_L) || Pushed(Keyboard->Key_G))
     {
-      MouseSelector->HotSelection = InitiateElectricalEntity(EM ,MouseSelector->HotSelection, Keyboard, MouseSelector->WorldPos, MouseSelector->Rotation);  
-    }
-    // Rotate
-    else if(Pushed(Keyboard->Key_Q) || Pushed(Keyboard->Key_E))
-    {
-      RotateElectricalComponent(HotSelectionList.First->ID, MouseSelector, Keyboard);
+      MouseSelector->HotSelection = CreateElectricalComponent(EM, Keyboard, MouseSelector->WorldPos);  
     }
     // Pick it up
     else if(Pushed(MouseSelector->LeftButton))
     {
-      MouseSelector->HotSelection = *HotSelectionList.First->ID;
+      MouseSelector->HotSelection = HotSelectionList.First->ID;
     }
 
   }else{
@@ -367,7 +521,7 @@ void ControllerSystemUpdate( world* World )
     if(Pushed(Keyboard->Key_S) || Pushed(Keyboard->Key_R) || Pushed(Keyboard->Key_L) || Pushed(Keyboard->Key_G))
     {
       //  - Create a new electrical component
-      MouseSelector->HotSelection = InitiateElectricalEntity(EM ,MouseSelector->HotSelection, Keyboard, MouseSelector->WorldPos, MouseSelector->Rotation);  
+      MouseSelector->HotSelection = CreateElectricalComponent(EM, Keyboard, MouseSelector->WorldPos);  
     }
   }
 

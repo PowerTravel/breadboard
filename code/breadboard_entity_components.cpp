@@ -14,7 +14,8 @@ entity_manager* CreateEntityManager()
     {COMPONENT_FLAG_RENDER,           COMPONENT_FLAG_NONE,     EntityChunkCount,     sizeof(component_render)},
     {COMPONENT_FLAG_SPRITE_ANIMATION, COMPONENT_FLAG_NONE,     EntityChunkCount,     sizeof(component_sprite_animation)},
     {COMPONENT_FLAG_HITBOX,           COMPONENT_FLAG_NONE,     EntityChunkCount,     sizeof(component_hitbox)},
-    {COMPONENT_FLAG_ELECTRICAL,       COMPONENT_FLAG_HITBOX,   EntityChunkCount,     sizeof(electrical_component)}
+    {COMPONENT_FLAG_ELECTRICAL,       COMPONENT_FLAG_HITBOX,   EntityChunkCount,     sizeof(component_electrical)},
+    {COMPONENT_FLAG_CONNECTOR_PIN,    COMPONENT_FLAG_HITBOX,   EntityChunkCount,     sizeof(component_connector_pin)}
   }; 
   entity_manager* Result = CreateEntityManager(EntityChunkCount, EntityChunkCount, ArrayCount(Definitions), Definitions);
   return Result;

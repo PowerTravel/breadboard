@@ -35,7 +35,6 @@ struct world
   memory_arena* Arena;
   
   tile_map TileMap;
-  electrical_component* Source;
   mouse_selector MouseSelector;
 };
 

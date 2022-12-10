@@ -278,6 +278,72 @@ void main()
   return Result;
 }
 
+opengl_program OpenGLSolid2D()
+{
+  char VertexShaderCode[] = R"FOO(
+uniform mat4 ViewMat;        // View Matrix - Transforms points from WorldSpace to ScreenSpace.
+uniform mat4 ProjectionMat;  // Projection Matrix - Transforms points from ScreenSpace to UnitQube.
+layout (location = 0)  in vec2 vertice;
+layout (location = 1)  in vec2 value;
+layout (location = 3)  in vec2 Position;
+layout (location = 4)  in vec2 Scale;
+layout (location = 5)  in vec4 Color;
+layout (location = 6)  in float RotationAngle;
+out vec4 VertColor;
+void main()
+{
+
+  float CosAngle = cos(RotationAngle);
+  float SinAngle = sin(RotationAngle);
+  float Width = Scale.x;
+  float Height = Scale.y;
+  float X = Position.x;
+  float Y = Position.y;
+
+  mat4 RotationMatrix;
+  RotationMatrix[0] = vec4(CosAngle, SinAngle, 0, 0);
+  RotationMatrix[1] = vec4(-SinAngle, CosAngle, 0, 0);
+  RotationMatrix[2] = vec4(0, 0, 1, 0);
+  RotationMatrix[3] = vec4(0, 0, 0, 1);
+
+  mat4 ScaleMatrix;
+  ScaleMatrix[0] = vec4(Width, 0, 0, 0);
+  ScaleMatrix[1] = vec4(0, Height, 0, 0);
+  ScaleMatrix[2] = vec4(0, 0, 1, 0);
+  ScaleMatrix[3] = vec4(0, 0, 0, 1);
+
+  mat4 TransMat;
+  TransMat[0] = vec4(1, 0, 0, 0);
+  TransMat[1] = vec4(0, 1, 0, 0);
+  TransMat[2] = vec4(0, 0, 1, 0);
+  TransMat[3] = vec4(X, Y, 0, 1);
+
+  mat4 ModelMatrix = TransMat * RotationMatrix * ScaleMatrix;
+  gl_Position = ProjectionMat * ViewMat * ModelMatrix * vec4(vertice.xy, 0, 1);
+
+  VertColor = Color;
+}
+ )FOO";
+
+   char* FragmentShaderCode = R"FOO(
+out vec4 fragColor;
+in vec4 VertColor;
+void main() 
+{
+  fragColor = VertColor;
+}
+)FOO";
+
+  opengl_program Result = {};
+  Result.Program = OpenGLCreateProgram("#version 330 core\n", VertexShaderCode, FragmentShaderCode );
+  glUseProgram(Result.Program);
+  Result.ProjectionMat = glGetUniformLocation(Result.Program, "ProjectionMat");
+  Result.ViewMat = glGetUniformLocation(Result.Program, "ViewMat");
+  glUseProgram(0);
+  
+  return Result;
+}
+
 opengl_program OpenGLCircle2D()
 {
   char VertexShaderCode[] = R"FOO(
@@ -651,6 +717,7 @@ void InitOpenGL(open_gl* OpenGL)
   OpenGL->Quad2DProgramSpecial = OpenGLQuad2DProgram(true,true,true);
   OpenGL->Colored2DQuadProgram = OpenGLQuad2DProgram(false,true,false);
   OpenGL->Circle2DProgram = OpenGLCircle2D();
+  OpenGL->Solid2DProgram  = OpenGLSolid2D();
 
   // 
   OpenGL->BufferSize = Megabytes(32);
@@ -752,19 +819,24 @@ void InitOpenGL(open_gl* OpenGL)
   OpenGL->Quad2DVAO = EnableAttribArrayQuad2DData(OpenGL->ElementEBO, OpenGL->ElementVBO, OpenGL->InstanceVBO, 0);
   
 
-  circle_2d_vertex VertexData[4] = 
+
+  circle_2d_vertex VertexData[7] = 
   {
     //   x, y,       vx,   vy
-    {V2(-0.5,-0.5), V2(-0.5, -0.5)}, // 0
-    {V2( 0.5,-0.5), V2( 0.5, -0.5)}, // 1
-    {V2( 0.5, 0.5), V2( 0.5,  0.5)}, // 2
-    {V2(-0.5, 0.5), V2(-0.5,  0.5)}, // 3
+    {V2(-0.5,-0.5), V2(-0.5, -0.5)}, // 0 Square
+    {V2( 0.5,-0.5), V2( 0.5, -0.5)}, // 1 Square
+    {V2( 0.5, 0.5), V2( 0.5,  0.5)}, // 2 Square
+    {V2(-0.5, 0.5), V2(-0.5,  0.5)}, // 3 Square
+    {V2(-0.5f,  -0.866025/3.f), V2(-0.5f, -0.5f)}, // 4 Equilateral Triangle
+    {V2( 0.5f,  -0.866025/3.f), V2(-0.5f,  0.5f)}, // 5 Equilateral Triangle
+    {V2( 0.0f, 2*0.866025/3.f), V2(-0.5f,  0.5f)}, // 6 Equilateral Triangle
   };
   
-  u32 IndiceData[6] =
+  u32 IndiceData[9] =
   {
     0, 1, 3,
-    1, 2, 3
+    1, 2, 3,
+    4, 5, 6
   };
   
   u32 OffsetForVertexData = 0;
@@ -782,16 +854,16 @@ void InitOpenGL(open_gl* OpenGL)
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(IndiceData), IndiceData, GL_STATIC_DRAW);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-  glGenVertexArrays(1, &OpenGL->VertexArrayObject);
-  glBindVertexArray(OpenGL->VertexArrayObject);
+  glGenVertexArrays(1, &OpenGL->Circle2DVAO);
+  glBindVertexArray(OpenGL->Circle2DVAO);
   
-  // The IndexBufferHandle is now implicitly bound to the VertexArrayObject (VAO)
+  // The IndexBufferHandle is now implicitly bound to the Circle2DVAO (VAO)
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, OpenGL->ElementArrayBuffer);
 
-  // This implicitly binds the VertexBufferHandle ArrayBuffer and it's data-structure is now implicitly bound to the bound VertexArrayObject
+  // This implicitly binds the VertexBufferHandle ArrayBuffer and it's data-structure is now implicitly bound to the bound Circle2DVAO
   glBindBuffer(GL_ARRAY_BUFFER, OpenGL->VertexArrayBuffer);
-  EnableBufferAttributePerVertex(  0, 2, GL_FLOAT, OffsetForVertexData,   OffsetOf(circle_2d_vertex, v),       sizeof(circle_2d_vertex));
-  EnableBufferAttributePerVertex(  1, 2, GL_FLOAT, OffsetForVertexData,   OffsetOf(circle_2d_vertex, Value),   sizeof(circle_2d_vertex));
+  EnableBufferAttributePerVertex(  0, 2, GL_FLOAT, OffsetForVertexData,           OffsetOf(circle_2d_vertex, v),       sizeof(circle_2d_vertex));
+  EnableBufferAttributePerVertex(  1, 2, GL_FLOAT, OffsetForVertexData,           OffsetOf(circle_2d_vertex, Value),   sizeof(circle_2d_vertex));
   EnableBufferAttributePerInstance(3, 2, GL_FLOAT, OpenGL->OffsetForInstanceData, OffsetOf(circle_2d_data, Position),  sizeof(circle_2d_data));
   EnableBufferAttributePerInstance(4, 2, GL_FLOAT, OpenGL->OffsetForInstanceData, OffsetOf(circle_2d_data, Scale),     sizeof(circle_2d_data));
   EnableBufferAttributePerInstance(5, 4, GL_FLOAT, OpenGL->OffsetForInstanceData, OffsetOf(circle_2d_data, Color),     sizeof(circle_2d_data));
@@ -800,6 +872,24 @@ void InitOpenGL(open_gl* OpenGL)
 
   glBindVertexArray(0);
   
+
+  glGenVertexArrays(1, &OpenGL->Solid2DVAO);
+  glBindVertexArray(OpenGL->Solid2DVAO);
+  
+  // The IndexBufferHandle is now implicitly bound to the Solid2DVAO (VAO)
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, OpenGL->ElementArrayBuffer);
+
+  // This implicitly binds the VertexBufferHandle ArrayBuffer and it's data-structure is now implicitly bound to the bound Solid2DVAO
+  glBindBuffer(GL_ARRAY_BUFFER, OpenGL->VertexArrayBuffer);
+  EnableBufferAttributePerVertex(  0, 2, GL_FLOAT, OffsetForVertexData,           OffsetOf(circle_2d_vertex, v),         sizeof(circle_2d_vertex));
+  EnableBufferAttributePerVertex(  1, 2, GL_FLOAT, OffsetForVertexData,           OffsetOf(circle_2d_vertex, Value),     sizeof(circle_2d_vertex));
+  EnableBufferAttributePerInstance(3, 2, GL_FLOAT, OpenGL->OffsetForInstanceData, OffsetOf(triangle_2d_data, Position),  sizeof(triangle_2d_data));
+  EnableBufferAttributePerInstance(4, 2, GL_FLOAT, OpenGL->OffsetForInstanceData, OffsetOf(triangle_2d_data, Scale),     sizeof(triangle_2d_data));
+  EnableBufferAttributePerInstance(5, 4, GL_FLOAT, OpenGL->OffsetForInstanceData, OffsetOf(triangle_2d_data, Color),     sizeof(triangle_2d_data));
+  EnableBufferAttributePerInstance(6, 1, GL_FLOAT, OpenGL->OffsetForInstanceData, OffsetOf(triangle_2d_data, Rotation),  sizeof(triangle_2d_data));
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+  glBindVertexArray(0);
 
 
 #if HANDMADE_INTERNAL
@@ -1161,38 +1251,6 @@ void DrawRenderGroup(open_gl* OpenGL, render_group* RenderGroup, game_asset_mana
   if( !RenderGroup->First) {return;}
   temporary_memory TempMem = BeginTemporaryMemory(&RenderGroup->Arena);
   {
-
-#if 0
-    u32 OffsetInElementBuffer = 0;
-    u32 OffsetInInstanceBuffer = OpenGL->OffsetForInstanceData;
-    
-    u32 InstanceCount = 1;
-
-    circle_2d_data InstanceData = {};
-
-    InstanceData.Position = V2(0,0);
-    InstanceData.Scale = V2(1,1);
-    InstanceData.Color = V4(0,0,1,1);
-    InstanceData.Thickness = 0.05f;
-
-    SendDataToBuffer(GL_ARRAY_BUFFER, OpenGL->VertexArrayBuffer, OffsetInInstanceBuffer, sizeof(circle_2d_data), (void*) &InstanceData);
-
-
-    u32 IndexCount = 6;
-    glUseProgram(OpenGL->Circle2DProgram.Program);
-    glUniformMatrix4fv(OpenGL->Circle2DProgram.ProjectionMat, 1, GL_TRUE, RenderGroup->ProjectionMatrix.E);
-    glUniformMatrix4fv(OpenGL->Circle2DProgram.ViewMat,       1, GL_TRUE, RenderGroup->ViewMatrix.E);
-    glBindVertexArray(OpenGL->VertexArrayObject);
-    u32 StartingVertex = 0;
-    glDrawElementsInstancedBaseVertex(GL_TRIANGLES,                                 // Mode
-                                      IndexCount,                                   // Nr of Elements (Triangles*3)
-                                      GL_UNSIGNED_INT,                              // Index Data Type  
-                                      (GLvoid*)( (u8*) 0 + OffsetInElementBuffer),  // Pointer somewhere in the index buffer
-                                      InstanceCount,                                // How many Instances to draw
-                                      StartingVertex);                              // Base Offset into the geometry vbo, starting from offset in attrib array
-    glBindVertexArray(0);
-
-    #else
     push_buffer_header* StartEntry = RenderGroup->First;
     push_buffer_header* BreakEntry = 0;
     while(StartEntry)
@@ -1200,13 +1258,17 @@ void DrawRenderGroup(open_gl* OpenGL, render_group* RenderGroup, game_asset_mana
       u32 Quad2DCount = 0;
       u32 Quad2DColorCount = 0;
       u32 Quad2DCountSpecial = 0;
+      u32 ElectricalComponentCount = 0;
+      u32 TriangleCount = 0;
       for(push_buffer_header* Entry = StartEntry;
           Entry != 0;
           Entry = Entry->Next )
       {
-        Quad2DCount           += ((Entry->Type == render_buffer_entry_type::QUAD_2D)              ? 1 : 0);
-        Quad2DColorCount      += ((Entry->Type == render_buffer_entry_type::QUAD_2D_COLOR)        ? 1 : 0);
-        Quad2DCountSpecial    += ((Entry->Type == render_buffer_entry_type::QUAD_2D_SPECIAL)      ? 1 : 0);
+        Quad2DCount                 += ((Entry->Type == render_buffer_entry_type::QUAD_2D)              ? 1 : 0);
+        Quad2DColorCount            += ((Entry->Type == render_buffer_entry_type::QUAD_2D_COLOR)        ? 1 : 0);
+        Quad2DCountSpecial          += ((Entry->Type == render_buffer_entry_type::QUAD_2D_SPECIAL)      ? 1 : 0);
+        ElectricalComponentCount    += ((Entry->Type == render_buffer_entry_type::ELECTRICAL_COMPONENT) ? 1 : 0);
+        TriangleCount              += ((Entry->Type == render_buffer_entry_type::ELECTRICAL_CONNECTOR) ? 1 : 0);
         if(Entry->Type == render_buffer_entry_type::NEW_LEVEL)
         {
           BreakEntry = Entry;
@@ -1217,15 +1279,22 @@ void DrawRenderGroup(open_gl* OpenGL, render_group* RenderGroup, game_asset_mana
       u32 Quad2DBufferSize         = sizeof(quad_2d_data)*Quad2DCount;
       u32 Quad2DColorBufferSize    = sizeof(quad_2d_data)*Quad2DColorCount;
       u32 Quad2DBufferSizeSpecial  = sizeof(quad_2d_data)*Quad2DCountSpecial;
+      u32 ElectricalComponentSize  = sizeof(circle_2d_data)*ElectricalComponentCount;
+      u32 TriangleDataSize         = sizeof(triangle_2d_data)*TriangleCount;
       u32 SpecialTextureSlot = 0;
 
-      quad_2d_data* Quad2DBuffer        = PushArray(&RenderGroup->Arena, Quad2DCount,        quad_2d_data);
-      quad_2d_data* Quad2DColorBuffer   = PushArray(&RenderGroup->Arena, Quad2DColorCount,   quad_2d_data);
-      quad_2d_data* Quad2DSpecialBuffer = PushArray(&RenderGroup->Arena, Quad2DCountSpecial, quad_2d_data);
+      quad_2d_data* Quad2DBuffer          = PushArray(&RenderGroup->Arena, Quad2DCount,              quad_2d_data);
+      quad_2d_data* Quad2DColorBuffer     = PushArray(&RenderGroup->Arena, Quad2DColorCount,         quad_2d_data);
+      quad_2d_data* Quad2DSpecialBuffer   = PushArray(&RenderGroup->Arena, Quad2DCountSpecial,       quad_2d_data);
+      circle_2d_data* Circle2DBuffer      = PushArray(&RenderGroup->Arena, ElectricalComponentCount, circle_2d_data);
+      triangle_2d_data* Triangle2DBuffer   = PushArray(&RenderGroup->Arena, TriangleCount,           triangle_2d_data);
+      
 
       u32 Quad2DBufferInstanceIndex = 0;
       u32 Quad2DBufferColorInstanceIndex = 0;
       u32 Quad2DBufferSpecialInstanceIndex = 0;
+      u32 Circle2DBufferIndex = 0;
+      u32 ConnectorBufferIndex = 0;
       for( push_buffer_header* Entry = StartEntry; Entry != BreakEntry; Entry = Entry->Next)
       {
         u8* Head = (u8*) Entry;
@@ -1270,8 +1339,54 @@ void DrawRenderGroup(open_gl* OpenGL, render_group* RenderGroup, game_asset_mana
             Quad2dData->Rotation     = Quad->Rotation;
             Quad2dData->RotationCenterOffset = Quad->RotationCenterOffset;
           }break;
+          case render_buffer_entry_type::ELECTRICAL_COMPONENT:
+          {
+            entry_type_electrical_component* Component = (entry_type_electrical_component*) Body; 
+            circle_2d_data* Circle2DData = &Circle2DBuffer[Circle2DBufferIndex++];
+            Circle2DData->Position     = Component->Position;
+            Circle2DData->Color        = V4(Component->Color,1);
+            Circle2DData->Scale        = V2(1,1);
+            Circle2DData->Thickness    = 0.1;
+          }break;
+          case render_buffer_entry_type::ELECTRICAL_CONNECTOR:
+          {
+            entry_type_electrical_connector* Connector = (entry_type_electrical_connector*) Body; 
+            triangle_2d_data* ConnectorData = &Triangle2DBuffer[ConnectorBufferIndex++];
+            ConnectorData->Position     = Connector->Position;
+            ConnectorData->Color        = V4(Connector->Color,1);
+            ConnectorData->Scale        = Connector->Scale;
+            ConnectorData->Rotation     = Connector->Rotation;
+          }break;
         }
       }
+
+      SendDataToBuffer(GL_ARRAY_BUFFER, OpenGL->VertexArrayBuffer, OpenGL->OffsetForInstanceData, ElectricalComponentSize, (void*) Circle2DBuffer);
+
+      glUseProgram(OpenGL->Circle2DProgram.Program);
+      glUniformMatrix4fv(OpenGL->Circle2DProgram.ProjectionMat, 1, GL_TRUE, RenderGroup->ProjectionMatrix.E);
+      glUniformMatrix4fv(OpenGL->Circle2DProgram.ViewMat,       1, GL_TRUE, RenderGroup->ViewMatrix.E);
+      glBindVertexArray(OpenGL->Circle2DVAO);
+      glDrawElementsInstancedBaseVertex(GL_TRIANGLES,                                 // Mode
+                                        6,                                            // Nr of Elements (Triangles*3)
+                                        GL_UNSIGNED_INT,                              // Index Data Type  
+                                        0,                                            // Pointer somewhere in the index buffer
+                                        ElectricalComponentCount,                     // How many Instances to draw
+                                        0);                                           // Base Offset into the geometry vbo, starting from offset in attrib array
+      glBindVertexArray(0);
+
+      
+      SendDataToBuffer(GL_ARRAY_BUFFER, OpenGL->VertexArrayBuffer, OpenGL->OffsetForInstanceData, TriangleDataSize, (void*) Triangle2DBuffer);
+      glUseProgram(OpenGL->Solid2DProgram.Program);
+      glUniformMatrix4fv(OpenGL->Solid2DProgram.ProjectionMat, 1, GL_TRUE, RenderGroup->ProjectionMatrix.E);
+      glUniformMatrix4fv(OpenGL->Solid2DProgram.ViewMat,       1, GL_TRUE, RenderGroup->ViewMatrix.E);
+      glBindVertexArray(OpenGL->Circle2DVAO);
+      glDrawElementsInstancedBaseVertex(GL_TRIANGLES,                                 // Mode
+                                        3,                                            // Nr of Elements (Triangles*3)
+                                        GL_UNSIGNED_INT,                              // Index Data Type  
+                                        (GLvoid*)( (u8*) 0 + 6*sizeof(u32)),          // Pointer somewhere in the index buffer
+                                        TriangleCount,                                // How many Instances to draw
+                                        0);                                           // Base Offset into the geometry vbo, starting from offset in attrib array
+      glBindVertexArray(0);
 
       buffer_keeper* ElementObjectKeeper = 0;
       object_handle ObjectHandle = GetEnumeratedObjectHandle(AssetManager, predefined_mesh::QUAD);
@@ -1305,8 +1420,7 @@ void DrawRenderGroup(open_gl* OpenGL, render_group* RenderGroup, game_asset_mana
         StartEntry = BreakEntry->Next;
         BreakEntry = 0;
       }
-    }  
-    #endif
+    }
   }
   EndTemporaryMemory(TempMem);
 }
@@ -1354,8 +1468,7 @@ void OpenGLRenderGroupToOutput(game_render_commands* Commands)
   OpenGLSetViewport( DesiredAspectRatio, Commands->ScreenWidthPixels,  Commands->ScreenHeightPixels );
   
   DrawRenderGroup(OpenGL, Commands->WorldGroup, AssetManager);
-  //Commands->OverlayGroup->ViewMatrix = M4Identity();
-
-
-  //DrawRenderGroup(OpenGL, Commands->OverlayGroup, AssetManager);
+  
+  Commands->OverlayGroup->ViewMatrix = M4Identity();
+  DrawRenderGroup(OpenGL, Commands->OverlayGroup, AssetManager);
 }

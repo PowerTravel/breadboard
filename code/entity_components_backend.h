@@ -70,13 +70,14 @@ inline b32 Compare(entity_id* A, entity_id* B)
 }
 
 // Access Entities and components
-entity_id* GetEntityIDFromComponent( bptr Component );
+entity_id GetEntityIDFromComponent( bptr Component );
 
 u32 GetEntityCountHoldingTypes(entity_manager* EM, bitmask32 ComponentFlags);
 void GetEntitiesHoldingTypes(entity_manager* EM, bitmask32 ComponentFlags, entity_id* ResultVector);
-
 bptr GetComponent(entity_manager* EM, entity_id* EntityID, bitmask32 ComponentFlag);
 
+// TODO: Add Unit tests
+b32 HasComponents(entity_manager* EM, entity_id* EntityID, u32 ComponentFlags);
 
 struct filtered_entity_iterator
 {
@@ -85,7 +86,7 @@ struct filtered_entity_iterator
   entity* CurrentEntity;
   chunk_list_iterator ComponentIterator;
 };
-entity_id* GetEntityID( filtered_entity_iterator* Iterator );
+entity_id GetEntityID( filtered_entity_iterator* Iterator);
 b32 Next(filtered_entity_iterator* EntityIterator);
 filtered_entity_iterator GetComponentsOfType(entity_manager* EM, bitmask32 ComponentFlagsToFilterOn);
 bptr GetComponent(entity_manager* EM, filtered_entity_iterator* ComponentList, bitmask32 ComponentFlag);

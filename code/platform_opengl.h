@@ -166,6 +166,14 @@ struct circle_2d_data
   r32 Thickness;
 };
 
+struct triangle_2d_data
+{
+  v2 Position;
+  v2 Scale;
+  v4 Color;
+  r32 Rotation;
+};
+
 struct quad_2d_data
 {
   u32 TextureSlot;
@@ -205,6 +213,7 @@ struct open_gl
   opengl_program Colored2DQuadProgram;
   opengl_program Quad2DProgramSpecial;
   opengl_program Circle2DProgram;
+  opengl_program Solid2DProgram;
 
   u32 Quad3DOffset; // unused atm
   opengl_program Quad3DProgram; // unused atm
@@ -230,7 +239,9 @@ struct open_gl
   
   glHandle VertexArrayBuffer;  // Keeps any data
   glHandle ElementArrayBuffer; // Keeps Indices
-  glHandle VertexArrayObject;  // Tells how the data in buffers above is to be intrepreted
+  glHandle Circle2DVAO;  // Tells how the data in buffers above is to be intrepreted for a ring
+  glHandle Solid2DVAO;   // Tells how the data in buffers above is to be intrepreted for a solid color geometry
+
   u32 OffsetForInstanceData;   // After this offset we get instance data, before it we have vertex data
 
   // TODO: Remove below, those Buffers bellow were for when we needed more complex geometries
@@ -251,7 +262,6 @@ struct open_gl
   // A 2D object rendered in x-y-Plane. Specifies how to interpret data in the VBO
   glHandle Quad2DVAO;
 
-  glHandle Circle2DVAO;
 };
 
 void InitOpenGL(open_gl* OpenGL);

@@ -113,6 +113,8 @@ rect2f PlotToBitmap( bitmap* Bitmap, r32 ChartXMin, r32 ChartXMax, r32 ChartYMin
 game_memory* DebugGlobalMemory = 0;
 #endif
 
+global_variable r32 debug_angle = 0;
+
 #include "math/aabb.cpp"
 #include "obj_loader.cpp"
 #include "render_push_buffer.cpp"
@@ -167,27 +169,11 @@ GameOutputSound(game_sound_output_buffer* SoundBuffer, int ToneHz)
   }
 }
 
+
 world* CreateWorld( )
 {
   world* World = PushStruct(GlobalGameState->PersistentArena, world);
   InitializeTileMap( &World->TileMap );
-  World->Arena = GlobalGameState->PersistentArena;
-
-  electrical_component* Source = PushStruct(World->Arena, electrical_component);
-  Source->Type = ElectricalComponentType_Source;
-  electrical_component* res    = PushStruct(World->Arena, electrical_component);
-  res->Type = ElectricalComponentType_Resistor;
-  electrical_component* l      = PushStruct(World->Arena, electrical_component);
-  l->Type = ElectricalComponentType_Led_Red;
-  electrical_component* gr     = PushStruct(World->Arena, electrical_component);
-  gr->Type = ElectricalComponentType_Ground;
-
-  ConnectPin(Source, ElectricalPinType_Output, res, ElectricalPinType_A);
-  ConnectPin(res, ElectricalPinType_B, l, ElectricalPinType_Positive);
-  ConnectPin(l, ElectricalPinType_Negative, gr, ElectricalPinType_Input);
-
-  World->Source = Source;
-
   return World;
 }
 
@@ -331,6 +317,12 @@ void BeginFrame(game_memory* Memory, game_render_commands* RenderCommands, game_
 
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
+  debug_angle += 0.005;
+  if(debug_angle > Pi32)
+  {
+    debug_angle -= 2*Pi32;
+  }
+
   BeginFrame(Memory, RenderCommands, Input);
 
   TIMED_FUNCTION();

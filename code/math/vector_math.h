@@ -213,7 +213,7 @@ NormSq( const v2& A )
 inline r32
 Norm( const v2& A )
 {
-   r32 Result;
+  r32 Result;
   Result = Sqrt( A*A );
   return Result;
 }
@@ -1216,4 +1216,16 @@ void getOrthronormalVectorPair(v3 Normal, v3* Tangent1, v3* Tangent2)
   }
   Normalize(*Tangent1);
   *Tangent2 = CrossProduct(Normal, *Tangent1);
+}
+
+v2 GetTriangleCentroid(v2 A, v2 B, v2 C)
+{
+  v2 Result = (A + B + C) / 3;
+  return Result;
+}
+
+v3 GetTriangleCentroid(v3 A, v3 B, v3 C)
+{
+  v3 Result = (A + B + C) / 3;
+  return Result;
 }

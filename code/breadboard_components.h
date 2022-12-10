@@ -8,6 +8,7 @@ enum ElectricalComponentType
   ElectricalComponentType_None,
   ElectricalComponentType_Source,
   ElectricalComponentType_Ground,
+  ElectricalComponentType_Diode,
   ElectricalComponentType_Led_Red,
   ElectricalComponentType_Led_Green,
   ElectricalComponentType_Led_Blue,
@@ -32,15 +33,18 @@ const c8* ComponentTypeToString(u32 Type)
   return "";
 };
 
-enum ElectricalPinType
+enum class ElectricalPinType
 {
-  ElectricalPinType_Positive,
-  ElectricalPinType_Negative,
-  ElectricalPinType_Output,
-  ElectricalPinType_Input,
-  ElectricalPinType_A,
-  ElectricalPinType_B,
-  ElectricalPinType_Count
+  Positive,
+  Negative,
+  Output,
+  Input,
+  InputOutput,
+  A,
+  B,
+  Source,
+  Sink,
+  Count
 };
 
 enum LEDColor
@@ -62,21 +66,22 @@ struct electric_static_state
   u32 Resistance;
 };
 
-struct io_pin
+struct component_electrical;
+
+struct component_connector_pin
 {
-  struct electrical_component* Component;
+  ElectricalPinType Type;
+  component_connector_pin* NextPin;
+  component_electrical* Component;
 };
 
-struct electrical_component
+struct component_electrical
 {
   u32 Type;
-  r32 Rotation;
-  u32 PinCount;
-  io_pin Pins[6];
-  electric_dynamic_state DynamicState;
-  electric_static_state StaticState;
+  component_connector_pin* FirstPin;
 };
 
+#if 0
 enum ElectricalComponentSprite
 {
   ElectricalComponentSprite_Resistor_Fixed,
@@ -87,7 +92,7 @@ enum ElectricalComponentSprite
   ElectricalComponentSprite_MaxSize,
 };
 
-u32 ElectricalComponentToSpriteType(electrical_component* Component)
+u32 ElectricalComponentToSpriteType(component_electrical* Component)
 {
   u32 TileSpriteSheetIndex = 0;
   switch(Component->Type)
@@ -102,7 +107,7 @@ u32 ElectricalComponentToSpriteType(electrical_component* Component)
   return TileSpriteSheetIndex;
 }
 
-void ConnectPin(electrical_component* ComponentA, ElectricalPinType PinA, electrical_component* ComponentB, ElectricalPinType PinB)
+void ConnectPin(component_electrical* ComponentA, ElectricalPinType PinA, component_electrical* ComponentB, ElectricalPinType PinB)
 {
   Assert(ArrayCount(ComponentA->Pins) == ElectricalPinType_Count);
   Assert(ArrayCount(ComponentB->Pins) == ElectricalPinType_Count);
@@ -114,7 +119,7 @@ void ConnectPin(electrical_component* ComponentA, ElectricalPinType PinA, electr
   ComponentB->Pins[PinB].Component = ComponentA;
 }
 
-void DisconnectPin(electrical_component* ComponentA, ElectricalPinType PinA, electrical_component* ComponentB, ElectricalPinType PinB)
+void DisconnectPin(component_electrical* ComponentA, ElectricalPinType PinA, component_electrical* ComponentB, ElectricalPinType PinB)
 {
   Assert(ArrayCount(ComponentA->Pins) == ElectricalPinType_Count);
   Assert(ArrayCount(ComponentB->Pins) == ElectricalPinType_Count);
@@ -126,11 +131,11 @@ void DisconnectPin(electrical_component* ComponentA, ElectricalPinType PinA, ele
   ComponentB->Pins[PinB].Component = 0;
 }
 
-electrical_component* GetComponentConnectedAtPin(electrical_component* Component, ElectricalPinType PinType)
+component_electrical* GetComponentConnectedAtPin(component_electrical* Component, ElectricalPinType PinType)
 {
   Assert(ArrayCount(Component->Pins) == ElectricalPinType_Count);
   Assert(PinType <= ElectricalPinType_Count);
-  electrical_component* Result = Component->Pins[PinType].Component;
+  component_electrical* Result = Component->Pins[PinType].Component;
   Assert(Result);
   return Result;
 }
@@ -184,3 +189,5 @@ inline bitmap_points GetElectricalComponentSpriteBitmapPoints(u32 Index)
   }
   return Points;
 }
+
+#endif

@@ -1,41 +1,13 @@
 #pragma once
 
 #include "math/affine_transformations.h"
-
-rect2f GetCameraScreenRect(r32 Zoom, r32 AspectRatio)
-{
-  const r32 Right = Zoom*AspectRatio;
-  const r32 Left  = -Right;
-  const r32 Top   = Zoom;
-  const r32 Bot   = -Top;
-  rect2f Result = Rect2f(Left, Bot, Right-Left, Top-Bot);
-  return Result;
-}
+#include "coordinate_systems.h"
 
 rect2f GetCameraScreenRect(r32 Zoom)
 {
   r32 AspectRatio = GameGetAspectRatio();
   rect2f Result = GetCameraScreenRect(Zoom, AspectRatio);
   return Result;
-}
-
-// Mouse Input in Screen Space
-// Cam Pos in World Space
-internal v2
-GetMousePosInProjectionWindow(screen_coordinate MouseScreenSpace, r32 Zoom, r32 AspectRatio)
-{
-  rect2f ScreenRect = GetCameraScreenRect(Zoom, AspectRatio);
-  v2 Result = {};
-  Result.X = 0.5f * MouseScreenSpace.X * ScreenRect.W;
-  Result.Y = 0.5f * MouseScreenSpace.Y * ScreenRect.H;
-  return Result;
-}
-
-world_coordinate GetMousePosInWorld(v3 CameraPosition, r32 OrthoZoom, screen_coordinate MouseScreenSpace)
-{ 
-  v2 WorldPosRelativeCamera = GetMousePosInProjectionWindow(MouseScreenSpace, OrthoZoom, GameGetAspectRatio());
-  v2 WorldPosRelativeOrigin = WorldPosRelativeCamera + V2(CameraPosition);
-  return WorldCoordinate(WorldPosRelativeOrigin.X, WorldPosRelativeOrigin.Y, 0);
 }
 
 void LookAt( component_camera* Camera, v3 aFrom,  v3 aTo,  v3 aTmp = V3(0,1,0) )

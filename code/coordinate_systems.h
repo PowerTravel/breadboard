@@ -1,6 +1,10 @@
 #pragma once 
 
+#pragma once
+
 #include "types.h"
+#include "math/rect2f.h"
+#include "math/vector_math.h"
 
 /*
  * --== Types of screen coordinate systems ==--
@@ -89,11 +93,8 @@ struct raster_screen_coordinate
 // [X,      Y] -> [X,        Y]
 // [Left, Bot] -> [Right,  Top]
 // [-1,    -1] -> [1,        1]
-struct screen_coordinate
-{
-  r32 X;
-  r32 Y;
-};
+typedef v2 screen_coordinate;
+
 
 screen_coordinate ScreenCoordinate(r32 X, r32 Y)
 {
@@ -103,12 +104,13 @@ screen_coordinate ScreenCoordinate(r32 X, r32 Y)
   return Result;
 }
 
-inline screen_coordinate
-operator-( const screen_coordinate& A, const screen_coordinate& B )
+rect2f GetCameraScreenRect(r32 Zoom, r32 AspectRatio)
 {
-  screen_coordinate Result;
-  Result.X = A.X - B.X;
-  Result.Y = A.Y - B.Y;
+  const r32 Right = Zoom*AspectRatio;
+  const r32 Left  = -Right;
+  const r32 Top   = Zoom;
+  const r32 Bot   = -Top;
+  rect2f Result = Rect2f(Left, Bot, Right-Left, Top-Bot);
   return Result;
 }
 
@@ -132,12 +134,7 @@ operator-( const screen_coordinate& A, const screen_coordinate& B )
 
 // [Left,          Top,    OutOfScreen] -> [Right,   Bot,     IntoScreen]
 // [-R32_MAX, -R32_MAX,       -R32_MAX] -> [R32_MAX, R32_MAX,    R32_MAX]
-struct world_coordinate
-{
-  r32 X;
-  r32 Y;
-  r32 Z;
-};
+typedef v3 world_coordinate;
 
 inline world_coordinate WorldCoordinate(r32 X, r32 Y, r32 Z)
 {
@@ -163,3 +160,22 @@ inline screen_coordinate CanonicalToScreenSpace(canonical_screen_coordinate CanP
   return Result;
 }
 
+
+
+// Result coordinate has origin in the center of the screen
+world_coordinate ToWorldCoordinateRelativeCameraPosition(screen_coordinate ScreenCoordinate, r32 Zoom, r32 AspectRatio)
+{
+  rect2f ScreenRect = GetCameraScreenRect(Zoom, AspectRatio);
+  world_coordinate Result = {};
+  Result.X = 0.5f * ScreenCoordinate.X * ScreenRect.W;
+  Result.Y = 0.5f * ScreenCoordinate.Y * ScreenRect.H;
+  return Result;
+}
+
+// Result coordinate is relative world origin
+world_coordinate ToWorldCoordinate(screen_coordinate ScreenCoordinate, world_coordinate CameraPosition, r32 OrthoZoom, r32 AspectRatio)
+{ 
+  world_coordinate PosRelativeCamera = ToWorldCoordinateRelativeCameraPosition(ScreenCoordinate, OrthoZoom, AspectRatio);
+  world_coordinate PosRelativeOrigin = PosRelativeCamera + CameraPosition;
+  return PosRelativeOrigin;
+}

@@ -27,6 +27,8 @@ u32 RenderTypeToBodySize(render_buffer_entry_type Type)
     case render_buffer_entry_type::QUAD_2D: return sizeof(entry_type_2d_quad); 
     case render_buffer_entry_type::QUAD_2D_SPECIAL: return sizeof(entry_type_2d_quad); 
     case render_buffer_entry_type::QUAD_2D_COLOR: return sizeof(entry_type_2d_quad);
+    case render_buffer_entry_type::ELECTRICAL_COMPONENT: return sizeof(entry_type_electrical_component);
+    case render_buffer_entry_type::ELECTRICAL_CONNECTOR: return sizeof(entry_type_electrical_connector);
   }
   Assert(0);
   return 0;
@@ -250,6 +252,79 @@ render_group* InitiateRenderGroup()
   return Result;
 }
 
+void PushElectricalComponent_2(entity_manager* EM, component_electrical* ElectricalComponent, component_hitbox* Hitbox)
+{
+  render_group* RenderGroup = GlobalGameState->RenderCommands->WorldGroup;
+  
+  push_buffer_header* Header = PushNewEntry(RenderGroup, render_buffer_entry_type::ELECTRICAL_COMPONENT);
+  entry_type_electrical_component* Body = GetBody(Header, entry_type_electrical_component);
+  
+  Body->Position.X = Hitbox->Position.X; 
+  Body->Position.Y = Hitbox->Position.Y; 
+
+  switch(ElectricalComponent->Type)
+  {
+    case ElectricalComponentType_Source:
+    {
+      Body->Color = V3(1,0,0);
+    }break;
+    case ElectricalComponentType_Ground:
+    {
+      Body->Color = V3(1,1,0);
+    }break;
+    case ElectricalComponentType_Diode:
+    {
+      Body->Color = V3(0,1,1);
+    }break;
+    case ElectricalComponentType_Resistor:
+    {
+      Body->Color = V3(0,1,0);
+    }break;
+    case ElectricalComponentType_Wire:
+    {
+    }break;
+  }
+
+  b32 IsIntersecting = Intersects(Hitbox, GlobalGameState->World->MouseSelector.WorldPos);
+  if(IsIntersecting)
+  {
+    Body->Color = V3(1,1,1);
+  }
+
+  component_connector_pin* Pin = ElectricalComponent->FirstPin;
+  r32 InputPinAngle = Pi32;
+  r32 OutputPinAngle = 0;
+  while(Pin)
+  {
+    entity_id PinID = GetEntityIDFromComponent((bptr)Pin);
+    component_connector_pin* PinConnector = GetConnectorPinComponent(&PinID);
+    component_hitbox* PinHitbox = GetHitboxComponent(&PinID);
+    hitbox_triangle* Triangle = &PinHitbox->Triangle;
+    //r32 SideLength = 1;
+    //Triangle->Base = SideLength;
+    //Triangle->CenterPoint = 0.5; // [0 (All the way to the left), 1 (all the way to the right)] 
+    //Triangle->Height = SideLength * Sin(Pi32/3.f);
+
+    push_buffer_header* ConnectorHeader = PushNewEntry(RenderGroup, render_buffer_entry_type::ELECTRICAL_CONNECTOR);
+    entry_type_electrical_connector* ConnectorBody = GetBody(ConnectorHeader, entry_type_electrical_connector);
+    ConnectorBody->Position.X = PinHitbox->Position.X;
+    ConnectorBody->Position.Y = PinHitbox->Position.Y;
+    ConnectorBody->Color = V3(1,0.5,0.5);
+    ConnectorBody->Scale = V2(0.2,0.2);
+    ConnectorBody->Rotation = Triangle->Rotation;
+
+    b32 IsPinIntersecting = Intersects(PinHitbox, GlobalGameState->World->MouseSelector.WorldPos);
+    if(IsPinIntersecting)
+    {
+      ConnectorBody->Color = V3(1,1,1);
+    }
+
+    Pin = Pin->NextPin;
+  }
+}
+
+#if 0
+// Not used anymore
 void PushElectricalComponent(component_hitbox* HitBox, r32 PixelsPerUnitLength, u32 TileType, bitmap_handle TileHandle)
 {
   render_group* RenderGroup = GlobalGameState->RenderCommands->WorldGroup;
@@ -397,6 +472,7 @@ void PushElectricalComponent(component_hitbox* HitBox, r32 PixelsPerUnitLength, 
   #endif
 
 }
+#endif
 
 //  a0 < t < a1;
 //  t == a0 = 1;
@@ -505,54 +581,8 @@ void FillRenderPushBuffer(world* World)
   
   rect2f ScreenRect = ScreenRect = GetCameraScreenRect(OrthoZoom);
 
-  electrical_component* Component = World->Source;
-  #if 0
-  r32 xPos = 0;
-  while(Component)
-  {
-    switch(Component->Type)
-    {
-      case ElectricalComponentType_Source:
-      {
-        PushElectricalComponent(xPos, 0, 1, 1, Tau32/4.f, ElectricalComponentSprite_Source, SpriteSheetWidth,SpriteSheetHeight, TileHandle);
-        Component = GetComponentConnectedAtPin(Component, ElectricalPinType_Output);
-      }break;
-      case ElectricalComponentType_Ground:
-      {
-        PushElectricalComponent(xPos, 0, 1, 1, Tau32/4.f, ElectricalComponentSprite_Ground, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
-        Component = 0;
-      }break;
-      case ElectricalComponentType_Led_Red:
-      case ElectricalComponentType_Led_Green:
-      case ElectricalComponentType_Led_Blue:
-      {
-        u32 LedState = 0;
-        if(Component->DynamicState.Volt < 2.5f)
-        {
-          LedState = ElectricalComponentSprite_LedRedOff;
-        }
-        else
-        {
-          LedState = ElectricalComponentSprite_LedRedOn;
-        }
-        PushElectricalComponent(xPos, 0, 1, 1,  Tau32/4.f, ElectricalComponentSprite_WireBlack, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
-        PushElectricalComponent(xPos, 0, 1, 1, -Tau32/4.f, ElectricalComponentSprite_WireBlack, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
-        PushElectricalComponent(xPos, 0, 1, 1,  Tau32/4.f, LedState, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
-        Component = GetComponentConnectedAtPin(Component, ElectricalPinType_Negative);
-      }break;
-      case ElectricalComponentType_Resistor:
-      {
-        PushElectricalComponent(xPos, 0, 1, 1, Tau32/4.f, ElectricalComponentSprite_Resistor, SpriteSheetWidth, SpriteSheetHeight, TileHandle);
-        Component = GetComponentConnectedAtPin(Component, ElectricalPinType_B);
-      }break;
-      case ElectricalComponentType_Wire:
-      {
-      }break;
-    }
-    xPos++;
-  }
-  #endif
 
+#if 0
   r32 MinY = ScreenRect.Y + RenderGroup->CameraPosition.Y;
   r32 MaxY = MinY + ScreenRect.H;
   r32 MinY_Tiles = Floor(MinY);
@@ -615,6 +645,21 @@ void FillRenderPushBuffer(world* World)
     }
     
   }
+
+#else
+  mouse_selector* MouseSelector = &GlobalGameState->World->MouseSelector;
+  {
+    filtered_entity_iterator EntityIterator = GetComponentsOfType(EM, COMPONENT_FLAG_ELECTRICAL | COMPONENT_FLAG_HITBOX);
+    while(Next(&EntityIterator))
+    {
+      component_electrical* ElectricalComponent = GetElectricalComponent(&EntityIterator);
+      component_hitbox* Hitbox = GetHitboxComponent(&EntityIterator);
+
+      PushElectricalComponent_2(EM, ElectricalComponent, Hitbox);
+    } 
+  }
+
+#endif
 #if 1
     char StringBuffer[1024] = {};
     mouse_input* Mouse = &GlobalGameState->Input->Mouse;

@@ -238,7 +238,7 @@ internal bptr GetComponent(entity_manager* EM, entity* Entity, u32 ComponentFlag
   component_head* Head = ComponentMap->Component;
   Assert(Head->Type == ComponentFlag);
 
-  bptr Result = AdvanceByType(Head, component_head);
+  bptr Result =  AdvanceByType(Head, component_head);
   return Result;
 }
 
@@ -321,6 +321,15 @@ bptr GetComponent(entity_manager* EM, entity_id* EntityID, u32 ComponentFlag)
   entity* Entity = GetEntityFromID(EM, EntityID);
   Assert(Entity); // If this is 0 it probably means that the Entity has been removed from the entity_manager at some point
   bptr Result = GetComponent(EM, Entity, ComponentFlag);
+  return Result;
+}
+
+b32 HasComponents(entity_manager* EM, entity_id* EntityID, u32 ComponentFlags)
+{
+  Assert( ComponentFlags != 0 );
+  entity* Entity = GetEntityFromID(EM, EntityID);
+  Assert(Entity);
+  b32 Result = (Entity->ComponentFlags & ComponentFlags) == ComponentFlags;
   return Result;
 }
 
@@ -416,18 +425,16 @@ u32 GetEntityCountHoldingTypes(entity_manager* EM, bitmask32 ComponentFlags)
   return Result;
 }
 
-//TODO: Return value instead??
-entity_id* GetEntityIDFromComponent( bptr Component )
+entity_id GetEntityIDFromComponent( bptr Component )
 {
   component_head* Base = (component_head*) RetreatByType(Component, component_head);
-  return &Base->Entity->ID;
+  return Base->Entity->ID;
 }
 
-//TODO: Return value instead??
-entity_id* GetEntityID( filtered_entity_iterator* Iterator )
+entity_id GetEntityID( filtered_entity_iterator* Iterator )
 {
   Assert(Iterator->CurrentEntity);
-  entity_id* Result = &Iterator->CurrentEntity->ID;
+  entity_id Result = Iterator->CurrentEntity->ID;
   return Result;
 }
 
