@@ -53,7 +53,7 @@ entity_id CreateElectricalComponent(entity_manager* EM, ElectricalComponentType 
       // Radial position of pin
       r32 RadialAngle = 0;
       world_coordinate RadialPosition = GetPositionOfConnectorPin(ElectricalComponentRadius, RadialAngle);
-      position_node* RadialPositionNode = CreatePositionNode(RadialPosition, 0);
+      position_node* RadialPositionNode = CreatePositionNode(RadialPosition, RadialAngle);
       InsertPositionNode(PositionComponent, PositionComponent->FirstChild, RadialPositionNode);
 
       position_node* ConnectorPinPosition = CreatePositionNode({}, Pi32/6);
@@ -64,72 +64,105 @@ entity_id CreateElectricalComponent(entity_manager* EM, ElectricalComponentType 
 
       ConnectPinToElectricalComponent(ElectricalComponent, Pin);
     }break;
+    case ElectricalComponentType::Resistor:
+    {
+      entity_id ConnectorPinA = NewEntity(EM, COMPONENT_FLAG_CONNECTOR_PIN);
+      component_connector_pin* PinA = GetConnectorPinComponent(&ConnectorPinA);
+      PinA->Type = ElectricalPinType::InputOutput;
+
+      r32 RadialAngleA = 0;
+      world_coordinate RadialPositionA = GetPositionOfConnectorPin(ElectricalComponentRadius, RadialAngleA);
+      position_node* RadialPositionNodeA = CreatePositionNode(RadialPositionA, RadialAngleA);
+      InsertPositionNode(PositionComponent, PositionComponent->FirstChild, RadialPositionNodeA);
+
+      position_node* ConnectorPinPositionA = CreatePositionNode({}, Pi32/6);
+      InsertPositionNode(PositionComponent, RadialPositionNodeA, ConnectorPinPositionA);
+
+      component_hitbox* PinHitbox = GetHitboxComponent(&ConnectorPinA);
+      InitiateTriangleHitboxComponent(PinHitbox, ConnectorPinPositionA, TriangleBase, TriangleHeight, TriangleCenterPoint);
+
+      ConnectPinToElectricalComponent(ElectricalComponent, PinA);
+
+
+      entity_id ConnectorPinB = NewEntity(EM, COMPONENT_FLAG_CONNECTOR_PIN);
+      component_connector_pin* PinB = GetConnectorPinComponent(&ConnectorPinB);
+      PinB->Type = ElectricalPinType::InputOutput;
+
+      r32 RadialAngleB = Pi32;
+      world_coordinate RadialPositionB = GetPositionOfConnectorPin(ElectricalComponentRadius, RadialAngleB);
+      position_node* RadialPositionNodeB = CreatePositionNode(RadialPositionB, RadialAngleB);
+      InsertPositionNode(PositionComponent, PositionComponent->FirstChild, RadialPositionNodeB);
+
+      position_node* ConnectorPinPositionB = CreatePositionNode({}, -Pi32/6);
+      InsertPositionNode(PositionComponent, RadialPositionNodeB, ConnectorPinPositionB);
+
+      component_hitbox* PinHitboxB = GetHitboxComponent(&ConnectorPinB);
+      InitiateTriangleHitboxComponent(PinHitboxB, ConnectorPinPositionB, TriangleBase, TriangleHeight, TriangleCenterPoint);
+
+      ConnectPinToElectricalComponent(ElectricalComponent, PinB);
+    }break;
+    case ElectricalComponentType::Diode:
+    {
+
+      entity_id AnodePin = NewEntity(EM, COMPONENT_FLAG_CONNECTOR_PIN);
+      component_connector_pin* Anode = GetConnectorPinComponent(&AnodePin);
+      Anode->Type = ElectricalPinType::Input;
+
+      r32 AnodeRadialAngle = 0;
+      world_coordinate AnodeRadialPosition = GetPositionOfConnectorPin(ElectricalComponentRadius, AnodeRadialAngle);
+      position_node* AnodeRadialPositionNode = CreatePositionNode(AnodeRadialPosition, AnodeRadialAngle);
+      InsertPositionNode(PositionComponent, PositionComponent->FirstChild, AnodeRadialPositionNode);
+
+      position_node* AnodeConnectorPinPosition = CreatePositionNode({}, Pi32/6);
+      InsertPositionNode(PositionComponent, AnodeRadialPositionNode, AnodeConnectorPinPosition);
+
+      component_hitbox* PinHitbox = GetHitboxComponent(&AnodePin);
+      InitiateTriangleHitboxComponent(PinHitbox, AnodeConnectorPinPosition, TriangleBase, TriangleHeight, TriangleCenterPoint);
+
+      ConnectPinToElectricalComponent(ElectricalComponent, Anode);
+
+
+      entity_id ConnectorPinCathode = NewEntity(EM, COMPONENT_FLAG_CONNECTOR_PIN);
+      component_connector_pin* PinCathode = GetConnectorPinComponent(&ConnectorPinCathode);
+      PinCathode->Type = ElectricalPinType::Output;
+
+      r32 RadialAngleCathode = Pi32;
+      world_coordinate RadialPositionCathode = GetPositionOfConnectorPin(ElectricalComponentRadius, RadialAngleCathode);
+      position_node* RadialPositionNodeCathode = CreatePositionNode(RadialPositionCathode, RadialAngleCathode);
+      InsertPositionNode(PositionComponent, PositionComponent->FirstChild, RadialPositionNodeCathode);
+
+      position_node* ConnectorPinPositionCathode = CreatePositionNode({}, -Pi32/6);
+      InsertPositionNode(PositionComponent, RadialPositionNodeCathode, ConnectorPinPositionCathode);
+
+      component_hitbox* PinHitboxCathode = GetHitboxComponent(&ConnectorPinCathode);
+      InitiateTriangleHitboxComponent(PinHitboxCathode, ConnectorPinPositionCathode, TriangleBase, TriangleHeight, TriangleCenterPoint);
+
+      ConnectPinToElectricalComponent(ElectricalComponent, PinCathode);
+
+    }break;
+    case ElectricalComponentType::Ground:
+    {
+      entity_id ConnectorPin = NewEntity(EM, COMPONENT_FLAG_CONNECTOR_PIN);
+      component_connector_pin* Pin = GetConnectorPinComponent(&ConnectorPin);
+      Pin->Type = ElectricalPinType::Sink;
+
+      // Radial position of pin
+      r32 RadialAngle = Pi32;
+      world_coordinate RadialPosition = GetPositionOfConnectorPin(ElectricalComponentRadius, RadialAngle);
+      position_node* RadialPositionNode = CreatePositionNode(RadialPosition, RadialAngle);
+      InsertPositionNode(PositionComponent, PositionComponent->FirstChild, RadialPositionNode);
+
+      position_node* ConnectorPinPosition = CreatePositionNode({}, -Pi32/6);
+      InsertPositionNode(PositionComponent, RadialPositionNode, ConnectorPinPosition);
+
+      component_hitbox* PinHitbox = GetHitboxComponent(&ConnectorPin);
+      InitiateTriangleHitboxComponent(PinHitbox, ConnectorPinPosition, TriangleBase, TriangleHeight, TriangleCenterPoint);
+
+      ConnectPinToElectricalComponent(ElectricalComponent, Pin);
+    }break;
   }
 #if 0
-  else if(Pushed(Keyboard->Key_R))
-  {
-    entity_id ConnectorPinA = NewEntity(EM, COMPONENT_FLAG_CONNECTOR_PIN);
-    component_connector_pin* PinA = GetConnectorPinComponent(&ConnectorPinA);
-    PinA->Type = ElectricalPinType::InputOutput;
-    PinA->Component = Component;
-
-    r32 Angle = Pi32;
-    component_hitbox* PinHitbox = GetHitboxComponent(&ConnectorPinA);
-    hitbox_rectangle* Rectangle = &PinHitbox->Rectangle;
-    CreateRectanglePinHitbox(PinA->Type, Rectangle, Angle);
-
-    PinHitbox->Position.X = ElectricalComponentHitbox->Position.X + ConnectorRadius * Cos(Angle);
-    PinHitbox->Position.Y = ElectricalComponentHitbox->Position.Y + ConnectorRadius * Sin(Angle);
-
-
-    entity_id ConnectorPinB = NewEntity(EM, COMPONENT_FLAG_CONNECTOR_PIN);
-    component_connector_pin* PinB = GetConnectorPinComponent(&ConnectorPinB);
-    PinB->Type = ElectricalPinType::InputOutput;
-    PinB->Component = Component;
-
-    Angle = 0;
-    PinHitbox = GetHitboxComponent(&ConnectorPinB);
-    Rectangle = &PinHitbox->Rectangle;
-    CreateRectanglePinHitbox(PinB->Type, Rectangle, Angle);
-
-    PinHitbox->Position.X = ElectricalComponentHitbox->Position.X + ConnectorRadius * Cos(Angle);
-    PinHitbox->Position.Y = ElectricalComponentHitbox->Position.Y + ConnectorRadius * Sin(Angle);
-
-    PinA->NextPin = PinB;
-    Component->Type = ElectricalComponentType_Resistor;
-    Component->FirstPin = PinA;
-  }
-  else if(Pushed(Keyboard->Key_L))
-  {
-
-    entity_id ConnectorPinAnode = NewEntity(EM, COMPONENT_FLAG_CONNECTOR_PIN);
-    component_connector_pin* Anode = GetConnectorPinComponent(&ConnectorPinAnode);
-    Anode->Type = ElectricalPinType::Positive;
-    Anode->Component = Component;
-    Component->FirstPin = Anode;
-
-    r32 Angle = Pi32;
-    component_hitbox* PinHitbox = GetHitboxComponent(&ConnectorPinAnode);
-    *PinHitbox = CreateTrianglePinHitbox(Pin->Type, Angle);
-    SetPositionOfConnectorPin(ElectricalComponentHitbox->Position, ConnectorRadius, Angle, PinHitbox);
-
-    entity_id ConnectorPinCathode = NewEntity(EM, COMPONENT_FLAG_CONNECTOR_PIN);
-    component_connector_pin* Cathode = GetConnectorPinComponent(&ConnectorPinCathode);
-    Cathode->Type = ElectricalPinType::Negative;
-    Cathode->Component = Component;
-
-    Angle = 0;
-    PinHitbox = GetHitboxComponent(&ConnectorPinCathode);
-    *PinHitbox = CreateTrianglePinHitbox(Pin->Type, Angle);
-    SetPositionOfConnectorPin(ElectricalComponentHitbox->Position, ConnectorRadius, Angle, PinHitbox);
-
-    PinHitbox->Position.X = ElectricalComponentHitbox->Position.X + ConnectorRadius * Cos(Angle);
-    PinHitbox->Position.Y = ElectricalComponentHitbox->Position.Y + ConnectorRadius * Sin(Angle);
-
-    Anode->NextPin = Cathode;
-    Component->Type = ElectricalComponentType_Diode;
-    Component->FirstPin = Anode;
-  }
+  
   if(Pushed(Keyboard->Key_G))
   {
     entity_id ConnectorPin = NewEntity(EM, COMPONENT_FLAG_CONNECTOR_PIN);

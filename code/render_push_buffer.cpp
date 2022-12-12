@@ -268,19 +268,19 @@ void PushElectricalComponent_2(entity_manager* EM, component_electrical* Electri
   {
     case ElectricalComponentType::Source:
     {
-      Body->Color = V3(1,0,0);
+      Body->Color = Normalize(V3(0.8,0.4,0.4));
     }break;
     case ElectricalComponentType::Ground:
     {
-      Body->Color = V3(1,1,0);
+      Body->Color = Normalize(V3(1,1,0));
     }break;
     case ElectricalComponentType::Diode:
     {
-      Body->Color = V3(0,1,1);
+      Body->Color = Normalize(V3(0,1,1));
     }break;
     case ElectricalComponentType::Resistor:
     {
-      Body->Color = V3(0,1,0);
+      Body->Color = Normalize(V3(0.4,1,0.4));
     }break;
     case ElectricalComponentType::Wire:
     {
@@ -290,7 +290,7 @@ void PushElectricalComponent_2(entity_manager* EM, component_electrical* Electri
   b32 IsIntersecting = Intersects(Hitbox, GlobalGameState->World->MouseSelector.WorldPos);
   if(IsIntersecting)
   {
-    Body->Color = V3(1,1,1);
+    Body->Color = Body->Color * 2;
   }
 
   component_connector_pin* Pin = ElectricalComponent->FirstPin;
@@ -307,14 +307,14 @@ void PushElectricalComponent_2(entity_manager* EM, component_electrical* Electri
     entry_type_electrical_connector* ConnectorBody = GetBody(ConnectorHeader, entry_type_electrical_connector);
     ConnectorBody->Position.X = PinHitbox->Position->AbsolutePosition.X;
     ConnectorBody->Position.Y = PinHitbox->Position->AbsolutePosition.Y;
-    ConnectorBody->Color = V3(1,0.5,0.5);
+    ConnectorBody->Color = Normalize(V3(0.1,0.8,0.5));
     ConnectorBody->Scale = V2(0.2,0.2);
     ConnectorBody->Rotation = PinHitbox->Position->AbsoluteRotation;
 
     b32 IsPinIntersecting = Intersects(PinHitbox, GlobalGameState->World->MouseSelector.WorldPos);
     if(IsPinIntersecting)
     {
-      ConnectorBody->Color = V3(0,1,1);
+      ConnectorBody->Color = ConnectorBody->Color * 2;
     }
 
     Pin = Pin->NextPin;

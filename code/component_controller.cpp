@@ -184,6 +184,16 @@ internal void UpdatePinHitboxPosition(r32 R, r32 Angle, component_hitbox* PinHit
   r32 X = R * Cos(Angle);
   r32 Y = R * Sin(Angle);
   SetRelativePosition(PinHitbox->Position->Parent, V3(X, Y, 0), Angle);
+
+  world_coordinate r = PinHitbox->Position->Parent->Parent->RelativePosition;
+  r32 rr = PinHitbox->Position->Parent->Parent->RelativeRotation;
+  Platform.DEBUGPrint("Root %f %f, %f\n", r.X, r.Y, rr);
+  world_coordinate a = PinHitbox->Position->Parent->RelativePosition;
+  r32 ar = PinHitbox->Position->Parent->RelativeRotation;
+  Platform.DEBUGPrint("Radial %f %f, %f\n", a.X, a.Y, ar);
+  world_coordinate h = PinHitbox->Position->RelativePosition;
+  r32 hr = PinHitbox->Position->RelativeRotation;
+  Platform.DEBUGPrint("Hitbox %f %f, %f\n", h.X, h.Y, hr);
 }
 
 internal r32 GetAngleOfMouseRelativeElectricalComponent(world_coordinate MousePosWorldSpace, entity_id ElectricalComponentID)
@@ -318,7 +328,6 @@ void ControllerSystemUpdate( world* World )
 
       // Update position of a selected electrical component
       SetRelativePosition(SelectedHitbox->Position, MousePosWorldSpace, 0);
-      UpdateAbsolutePosition(GlobalGameState->TransientArena, SelectedHitbox->Position);
 
       // Left Mouse:
       if(Pushed(MouseSelector->LeftButton))
@@ -345,8 +354,9 @@ void ControllerSystemUpdate( world* World )
             r32 SelectedComponentAbsoluteRotation = GetAbsoluteRotation(SelectedHitbox->Position);
 
             SetRelativePosition(ClosestComponentHitbox->Position, SelectedComponentAbsolutePosition, SelectedComponentAbsoluteRotation);
-            SetRelativePosition(SelectedHitbox->Position, ClosestComponentAbsolutePosition, ClosestComponentAbsoluteRotation);
-            
+            UpdateAbsolutePosition(GlobalGameState->TransientArena, ClosestComponentHitbox->Position);
+
+            SetRelativePosition(SelectedHitbox->Position, ClosestComponentAbsolutePosition, ClosestComponentAbsoluteRotation);            
             MouseSelector->HotSelection = ClosestComponent;
           }
         }
@@ -358,6 +368,8 @@ void ControllerSystemUpdate( world* World )
           ElectricalComponentHitbox->Position->AbsolutePosition = MousePosWorldSpace;
           MouseSelector->HotSelection = {};
         }
+        
+        UpdateAbsolutePosition(GlobalGameState->TransientArena, SelectedHitbox->Position);
       }
       // Delete Electrical component
       else if(Pushed(MouseSelector->RightButton))
@@ -371,8 +383,6 @@ void ControllerSystemUpdate( world* World )
         // Delete the one youre holding and create a new one
         DeleteElectricalEntity(EM, MouseSelector->HotSelection);
         MouseSelector->HotSelection = CreateElectricalComponent(EM, EComponentType, MousePosWorldSpace);
-      }else{
-
       }
     }
     // Holding a connector pin
@@ -384,7 +394,6 @@ void ControllerSystemUpdate( world* World )
 
       // Update position of a selected connector pin relative Electrical component center
       UpdatePinHitboxPosition(SelectedEntityID, MousePosWorldSpace);
-      UpdateAbsolutePosition(GlobalGameState->TransientArena, SelectedHitbox->Position);
 
       // Holding  Connector Pin in the mouse and clicking left Mouse
       if(Pushed(MouseSelector->LeftButton))
@@ -398,6 +407,8 @@ void ControllerSystemUpdate( world* World )
         // Place it 
         MouseSelector->HotSelection = {};
       }
+
+      UpdateAbsolutePosition(GlobalGameState->TransientArena, SelectedHitbox->Position);
     }
   }
   // Cursor is not holding an electrical component but is hovering over one

@@ -111,7 +111,7 @@ internal inline void UpdateAbsolutePositionFromParent(position_node* Node, world
   if(Node->AbsoluteRotation > Pi32)
   {
     Node->AbsoluteRotation -= Tau32; 
-  }else if(Node->AbsoluteRotation < Pi32)
+  }else if(Node->AbsoluteRotation < -Pi32)
   {
     Node->AbsoluteRotation += Tau32; 
   }
@@ -120,6 +120,11 @@ internal inline void UpdateAbsolutePositionFromParent(position_node* Node, world
 // Note untested with several siblings
 void UpdateAbsolutePosition(memory_arena* Arena, component_position* Position)
 {
+  if(!Position->Dirty)
+  {
+    return;
+  }
+
   temporary_memory TempMem = BeginTemporaryMemory(Arena);
   node_queue NodeQueue = {};
   NodeQueue.Nodes = PushArray(Arena, Position->NodeCount, position_node*);
@@ -180,7 +185,6 @@ void PositionSystemUpdate(world* World)
     {
       UpdateAbsolutePosition(TransientArena, Position);  
     }
-    
   }
 }
 
