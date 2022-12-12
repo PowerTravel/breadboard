@@ -114,10 +114,10 @@ DEBUGGetState()
         Text->Color = TextColor;
 
         size_attribute* SizeAttr = (size_attribute*) PushAttribute(GlobalGameState->MenuInterface, ButtonNode, ATTRIBUTE_SIZE);
-        SizeAttr->Width = ContainerSizeT(menu_size_type::ABSOLUTE, ButtonSize.W);
-        SizeAttr->Height = ContainerSizeT(menu_size_type::ABSOLUTE, ButtonSize.H);
-        SizeAttr->LeftOffset = ContainerSizeT(menu_size_type::RELATIVE, 0);
-        SizeAttr->TopOffset = ContainerSizeT(menu_size_type::RELATIVE, 0);
+        SizeAttr->Width = ContainerSizeT(menu_size_type::ABSOLUTE_, ButtonSize.W);
+        SizeAttr->Height = ContainerSizeT(menu_size_type::ABSOLUTE_, ButtonSize.H);
+        SizeAttr->LeftOffset = ContainerSizeT(menu_size_type::RELATIVE_, 0);
+        SizeAttr->TopOffset = ContainerSizeT(menu_size_type::RELATIVE_, 0);
         SizeAttr->XAlignment = menu_region_alignment::CENTER;
         SizeAttr->YAlignment = menu_region_alignment::CENTER;
 
@@ -147,10 +147,10 @@ DEBUGGetState()
         Text->Color = TextColor;
 
         size_attribute* SizeAttr = (size_attribute*) PushAttribute(GlobalGameState->MenuInterface, RecompileButton, ATTRIBUTE_SIZE);
-        SizeAttr->Width = ContainerSizeT(menu_size_type::ABSOLUTE, ButtonSize.W);
-        SizeAttr->Height = ContainerSizeT(menu_size_type::RELATIVE, 1);
-        SizeAttr->LeftOffset = ContainerSizeT(menu_size_type::RELATIVE, 0);
-        SizeAttr->TopOffset = ContainerSizeT(menu_size_type::RELATIVE, 0);
+        SizeAttr->Width = ContainerSizeT(menu_size_type::ABSOLUTE_, ButtonSize.W);
+        SizeAttr->Height = ContainerSizeT(menu_size_type::RELATIVE_, 1);
+        SizeAttr->LeftOffset = ContainerSizeT(menu_size_type::RELATIVE_, 0);
+        SizeAttr->TopOffset = ContainerSizeT(menu_size_type::RELATIVE_, 0);
         SizeAttr->XAlignment = menu_region_alignment::CENTER;
         SizeAttr->YAlignment = menu_region_alignment::CENTER;
 

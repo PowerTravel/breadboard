@@ -8,7 +8,7 @@
 #include "assets.h"
 #include "breadboard_entity_components.h"
 #include "menu_interface.h"
-#include "breadboard_components.h"
+#include "containers/chunk_list.h"
 
 #define MAX_ELECTRICAL_IO 32
 #define PIXELS_PER_UNIT_LENGTH 128
@@ -36,6 +36,9 @@ struct world
   
   tile_map TileMap;
   mouse_selector MouseSelector;
+
+  // Holds position nodes for the component_position
+  chunk_list PositionNodes;
 };
 
 typedef void(*func_ptr_void)(void);

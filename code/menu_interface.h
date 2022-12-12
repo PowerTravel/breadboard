@@ -241,8 +241,8 @@ struct menu_event_handle_attribtue
 
 enum class menu_size_type
 {
-  RELATIVE,
-  ABSOLUTE
+  RELATIVE_,
+  ABSOLUTE_,
 };
 
 struct container_size_t

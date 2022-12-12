@@ -269,10 +269,10 @@ MENU_UPDATE_CHILD_REGIONS( UpdateGridChildRegions )
         r32 CellWidth = ParentRegion.W/Col;
         r32 CellHeight = ParentRegion.H/Row;
         size_attribute* Size = (size_attribute*) GetAttributePointer(Child, ATTRIBUTE_SIZE);
-        if(Size->Width.Type == menu_size_type::ABSOLUTE)
+        if(Size->Width.Type == menu_size_type::ABSOLUTE_)
         {
           CellWidth = Size->Width.Value;
-        }else if(Size->Height.Type == menu_size_type::ABSOLUTE)
+        }else if(Size->Height.Type == menu_size_type::ABSOLUTE_)
         {
           CellHeight = Size->Height.Value;
         }

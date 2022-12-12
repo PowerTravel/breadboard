@@ -120,14 +120,17 @@ global_variable r32 debug_angle = 0;
 #include "render_push_buffer.cpp"
 #include "entity_components_backend.cpp"
 #include "breadboard_entity_components.cpp"
-#include "system_controller.cpp"
-#include "system_camera.cpp"
-#include "system_sprite_animation.cpp"
+
 #include "assets.cpp"
 #include "asset_loading.cpp"
 #include "menu_interface.cpp"
 #include "breadboard_tile.cpp"
 #include "containers/chunk_list.cpp"
+#include "component_breadboard_components.cpp"
+#include "component_camera.cpp"
+#include "component_controller.cpp"
+#include "component_hitbox.cpp"
+#include "component_position.cpp"
 #include "containers/chunk_list_unit_tests.h"
 #include "entity_components_backend_unit_tests.h"
 
@@ -173,6 +176,7 @@ GameOutputSound(game_sound_output_buffer* SoundBuffer, int ToneHz)
 world* CreateWorld( )
 {
   world* World = PushStruct(GlobalGameState->PersistentArena, world);
+  World->PositionNodes = NewChunkList(GlobalGameState->PersistentArena, sizeof(position_node), 128);
   InitializeTileMap( &World->TileMap );
   return World;
 }
@@ -238,7 +242,6 @@ void InitiateGame(game_memory* Memory, game_render_commands* RenderCommands, gam
   Controller->Controller = GetController(Input, 0);
   Controller->Keyboard = &Input->Keyboard;
   Controller->Mouse = &Input->Mouse;
-  Controller->Type = ControllerType_FlyingCamera;
 
   Memory->GameState = GlobalGameState;
   RenderCommands->AssetManager = GlobalGameState->AssetManager;
@@ -334,7 +337,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
   entity_manager* EM = GlobalGameState->EntityManager;
   ControllerSystemUpdate(World);
   CameraSystemUpdate(World);
-  SpriteAnimationSystemUpdate(World);
+  PositionSystemUpdate(World);
 
   FillRenderPushBuffer(World);
 

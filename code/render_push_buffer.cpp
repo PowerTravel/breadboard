@@ -1,7 +1,9 @@
 #include "render_push_buffer.h"
 #include "component_camera.h"
+#include "component_position.h"
+#include "component_hitbox.h"
 #include "breadboard_tile.h"
-#include "breadboard_components.h"
+#include "component_breadboard_components.h"
 #include "random.h"
 
 // TODO: Move to settings
@@ -259,28 +261,28 @@ void PushElectricalComponent_2(entity_manager* EM, component_electrical* Electri
   push_buffer_header* Header = PushNewEntry(RenderGroup, render_buffer_entry_type::ELECTRICAL_COMPONENT);
   entry_type_electrical_component* Body = GetBody(Header, entry_type_electrical_component);
   
-  Body->Position.X = Hitbox->Position.X; 
-  Body->Position.Y = Hitbox->Position.Y; 
+  Body->Position.X = Hitbox->Position->AbsolutePosition.X; 
+  Body->Position.Y = Hitbox->Position->AbsolutePosition.Y; 
 
   switch(ElectricalComponent->Type)
   {
-    case ElectricalComponentType_Source:
+    case ElectricalComponentType::Source:
     {
       Body->Color = V3(1,0,0);
     }break;
-    case ElectricalComponentType_Ground:
+    case ElectricalComponentType::Ground:
     {
       Body->Color = V3(1,1,0);
     }break;
-    case ElectricalComponentType_Diode:
+    case ElectricalComponentType::Diode:
     {
       Body->Color = V3(0,1,1);
     }break;
-    case ElectricalComponentType_Resistor:
+    case ElectricalComponentType::Resistor:
     {
       Body->Color = V3(0,1,0);
     }break;
-    case ElectricalComponentType_Wire:
+    case ElectricalComponentType::Wire:
     {
     }break;
   }
@@ -300,23 +302,19 @@ void PushElectricalComponent_2(entity_manager* EM, component_electrical* Electri
     component_connector_pin* PinConnector = GetConnectorPinComponent(&PinID);
     component_hitbox* PinHitbox = GetHitboxComponent(&PinID);
     hitbox_triangle* Triangle = &PinHitbox->Triangle;
-    //r32 SideLength = 1;
-    //Triangle->Base = SideLength;
-    //Triangle->CenterPoint = 0.5; // [0 (All the way to the left), 1 (all the way to the right)] 
-    //Triangle->Height = SideLength * Sin(Pi32/3.f);
 
     push_buffer_header* ConnectorHeader = PushNewEntry(RenderGroup, render_buffer_entry_type::ELECTRICAL_CONNECTOR);
     entry_type_electrical_connector* ConnectorBody = GetBody(ConnectorHeader, entry_type_electrical_connector);
-    ConnectorBody->Position.X = PinHitbox->Position.X;
-    ConnectorBody->Position.Y = PinHitbox->Position.Y;
+    ConnectorBody->Position.X = PinHitbox->Position->AbsolutePosition.X;
+    ConnectorBody->Position.Y = PinHitbox->Position->AbsolutePosition.Y;
     ConnectorBody->Color = V3(1,0.5,0.5);
     ConnectorBody->Scale = V2(0.2,0.2);
-    ConnectorBody->Rotation = Triangle->Rotation;
+    ConnectorBody->Rotation = PinHitbox->Position->AbsoluteRotation;
 
     b32 IsPinIntersecting = Intersects(PinHitbox, GlobalGameState->World->MouseSelector.WorldPos);
     if(IsPinIntersecting)
     {
-      ConnectorBody->Color = V3(1,1,1);
+      ConnectorBody->Color = V3(0,1,1);
     }
 
     Pin = Pin->NextPin;

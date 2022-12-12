@@ -583,17 +583,17 @@ void FreeMenuTree(menu_interface* Interface, menu_tree* MenuToFree)
 rect2f GetSizedParentRegion(size_attribute* SizeAttr, rect2f BaseRegion)
 {
   rect2f Result = {};
-  if(SizeAttr->Width.Type == menu_size_type::RELATIVE)
+  if(SizeAttr->Width.Type == menu_size_type::RELATIVE_)
   {
     Result.W = SizeAttr->Width.Value * BaseRegion.W;
-  }else if(SizeAttr->Width.Type == menu_size_type::ABSOLUTE){
+  }else if(SizeAttr->Width.Type == menu_size_type::ABSOLUTE_){
     Result.W = SizeAttr->Width.Value;  
   }
 
-  if(SizeAttr->Height.Type == menu_size_type::RELATIVE)
+  if(SizeAttr->Height.Type == menu_size_type::RELATIVE_)
   {
     Result.H = SizeAttr->Height.Value * BaseRegion.H;
-  }else if(SizeAttr->Height.Type == menu_size_type::ABSOLUTE){
+  }else if(SizeAttr->Height.Type == menu_size_type::ABSOLUTE_){
     Result.H = SizeAttr->Height.Value;
   }
   
@@ -629,17 +629,17 @@ rect2f GetSizedParentRegion(size_attribute* SizeAttr, rect2f BaseRegion)
     }break;
   }
 
-  if(SizeAttr->LeftOffset.Type == menu_size_type::RELATIVE)
+  if(SizeAttr->LeftOffset.Type == menu_size_type::RELATIVE_)
   {
     Result.X += SizeAttr->LeftOffset.Value * BaseRegion.W;
-  }else if(SizeAttr->LeftOffset.Type == menu_size_type::ABSOLUTE){
+  }else if(SizeAttr->LeftOffset.Type == menu_size_type::ABSOLUTE_){
     Result.X += SizeAttr->LeftOffset.Value;
   }
 
-  if(SizeAttr->TopOffset.Type == menu_size_type::RELATIVE)
+  if(SizeAttr->TopOffset.Type == menu_size_type::RELATIVE_)
   {
     Result.Y -= SizeAttr->TopOffset.Value * BaseRegion.H;
-  }else if(SizeAttr->TopOffset.Type == menu_size_type::ABSOLUTE){
+  }else if(SizeAttr->TopOffset.Type == menu_size_type::ABSOLUTE_){
     Result.Y -= SizeAttr->TopOffset.Value;
   }
   
@@ -1831,10 +1831,10 @@ container_node* CreateTabWindow(menu_interface* Interface)
   Grid->Stack = true;
 
   size_attribute* SizeAttr = (size_attribute*) PushAttribute(Interface, TabbedHeader, ATTRIBUTE_SIZE);
-  SizeAttr->Width = ContainerSizeT(menu_size_type::RELATIVE, 0.7);
-  SizeAttr->Height = ContainerSizeT(menu_size_type::RELATIVE, 1);
-  SizeAttr->LeftOffset = ContainerSizeT(menu_size_type::ABSOLUTE, 0);
-  SizeAttr->TopOffset = ContainerSizeT(menu_size_type::ABSOLUTE, 0);
+  SizeAttr->Width = ContainerSizeT(menu_size_type::RELATIVE_, 0.7);
+  SizeAttr->Height = ContainerSizeT(menu_size_type::RELATIVE_, 1);
+  SizeAttr->LeftOffset = ContainerSizeT(menu_size_type::ABSOLUTE_, 0);
+  SizeAttr->TopOffset = ContainerSizeT(menu_size_type::ABSOLUTE_, 0);
   SizeAttr->XAlignment = menu_region_alignment::LEFT;
   SizeAttr->YAlignment = menu_region_alignment::CENTER;
   
@@ -2371,10 +2371,10 @@ menu_tree* RegisterMenu(menu_interface* Interface, const c8* Name)
   ColorAttr->Color = V4(0.3,0,0.3,1);
 
   size_attribute* SizeAttr = (size_attribute*) PushAttribute(Interface, NewMenu, ATTRIBUTE_SIZE);
-  SizeAttr->Width = ContainerSizeT(menu_size_type::ABSOLUTE, TextWidth + 0.05f);
-  SizeAttr->Height = ContainerSizeT(menu_size_type::ABSOLUTE, FontHeight);
-  SizeAttr->LeftOffset = ContainerSizeT(menu_size_type::ABSOLUTE, 0);
-  SizeAttr->TopOffset = ContainerSizeT(menu_size_type::ABSOLUTE, 0);
+  SizeAttr->Width = ContainerSizeT(menu_size_type::ABSOLUTE_, TextWidth + 0.05f);
+  SizeAttr->Height = ContainerSizeT(menu_size_type::ABSOLUTE_, FontHeight);
+  SizeAttr->LeftOffset = ContainerSizeT(menu_size_type::ABSOLUTE_, 0);
+  SizeAttr->TopOffset = ContainerSizeT(menu_size_type::ABSOLUTE_, 0);
   SizeAttr->XAlignment = menu_region_alignment::CENTER;
   SizeAttr->YAlignment = menu_region_alignment::CENTER;
   
@@ -2448,10 +2448,10 @@ internal container_node* CreateTab(menu_interface* Interface, container_node* Pl
   rect2f TextSize = GetTextSize(0, 0, PluginNode->Title, MenuText->FontSize);
   TextSize.W += 0.02;
   size_attribute* SizeAttr = (size_attribute*) PushAttribute(Interface, Tab, ATTRIBUTE_SIZE);
-  SizeAttr->Width = ContainerSizeT(menu_size_type::ABSOLUTE, TextSize.W);
-  SizeAttr->Height = ContainerSizeT(menu_size_type::RELATIVE, 1);
-  SizeAttr->LeftOffset = ContainerSizeT(menu_size_type::ABSOLUTE, 0);
-  SizeAttr->TopOffset = ContainerSizeT(menu_size_type::ABSOLUTE, 0);
+  SizeAttr->Width = ContainerSizeT(menu_size_type::ABSOLUTE_, TextSize.W);
+  SizeAttr->Height = ContainerSizeT(menu_size_type::RELATIVE_, 1);
+  SizeAttr->LeftOffset = ContainerSizeT(menu_size_type::ABSOLUTE_, 0);
+  SizeAttr->TopOffset = ContainerSizeT(menu_size_type::ABSOLUTE_, 0);
   SizeAttr->XAlignment = menu_region_alignment::LEFT;
   SizeAttr->YAlignment = menu_region_alignment::CENTER;
 
