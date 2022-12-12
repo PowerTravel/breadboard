@@ -306,38 +306,26 @@ void ControllerSystemUpdate( world* World )
   if(IsValid(&MouseSelector->HotSelection))
   {
     entity_id * SelectedEntityID = &MouseSelector->HotSelection;
+    component_hitbox* SelectedHitbox = GetHitboxComponent(SelectedEntityID);
 
-    // Actions:
-    //  - Swap it with what's beneath (left mouse, occupied underneath, swaps with closest component as measured from rotation point)  
-    //  - Place it on empty spot      (left mouse, empty underneath)
-    //  - Turn into another           (S, R, L, G)
-    // Update the position:
+    // Holding an electrical component
+    if(HasComponents(EM, SelectedEntityID, COMPONENT_FLAG_ELECTRICAL))
     {
-      component_hitbox* SelectedHitbox = GetHitboxComponent(SelectedEntityID);
-      if(HasComponents(EM, SelectedEntityID, COMPONENT_FLAG_ELECTRICAL))
-      {
-        // Update position of a selected electrical component
-        SetRelativePosition(SelectedHitbox->Position, MousePosWorldSpace, 0);
-      }
-      else if(HasComponents(EM, SelectedEntityID, COMPONENT_FLAG_CONNECTOR_PIN))
-      {
-        // Update position of a selected connector pin relative Electrical component center
-        UpdatePinHitboxPosition(SelectedEntityID, MousePosWorldSpace);
-      }
+      // Actions:
+      //  - Swap it with what's beneath (left mouse, occupied underneath, swaps with closest component as measured from rotation point)  
+      //  - Place it on empty spot      (left mouse, empty underneath)
+      //  - Turn into another           (S, R, L, G)
 
+      // Update position of a selected electrical component
+      SetRelativePosition(SelectedHitbox->Position, MousePosWorldSpace, 0);
       UpdateAbsolutePosition(GlobalGameState->TransientArena, SelectedHitbox->Position);
-    }
 
-    // Left Mouse:
-    if(Pushed(MouseSelector->LeftButton))
-    {
-      // Holding something in the mouse and clicking left Mouse while Mousing over a component
-      if(HotSelectionList.Count)
+      // Left Mouse:
+      if(Pushed(MouseSelector->LeftButton))
       {
-        // Selected component is an Electrical Component
-        if(HasComponents(EM, SelectedEntityID, COMPONENT_FLAG_ELECTRICAL))
+        // Holding Electrical component in the mouse and clicking left Mouse while Mousing over a component
+        if(HotSelectionList.Count)
         {
-          component_hitbox* SelectedHitbox = GetHitboxComponent(SelectedEntityID);
           world_coordinate SelectedPosition = GetAbsolutePosition(SelectedHitbox->Position);
           entity_id ClosestComponent = GetClosestComponentOfType(EM, &HotSelectionList, SelectedPosition, COMPONENT_FLAG_ELECTRICAL);
 
@@ -362,46 +350,53 @@ void ControllerSystemUpdate( world* World )
             MouseSelector->HotSelection = ClosestComponent;
           }
         }
-        // Selected component is a connector pin
-        else if(HasComponents(EM, SelectedEntityID, COMPONENT_FLAG_CONNECTOR_PIN))
+        // Holding  Electrical component in the mouse and clicking left Mouse while NOT Mousing over a component
+        else
         {
-          UpdatePinHitboxPosition(SelectedEntityID, MousePosWorldSpace);
-          MouseSelector->HotSelection = {};
-        }
-      // Holding something in the mouse and clicking left Mouse while NOT Mousing over a component
-      }else{
-        // Place        
-        if(HasComponents(EM, SelectedEntityID, COMPONENT_FLAG_ELECTRICAL))
-        {
+          // Place the electrical component
           component_hitbox* ElectricalComponentHitbox = GetHitboxComponent(SelectedEntityID);
           ElectricalComponentHitbox->Position->AbsolutePosition = MousePosWorldSpace;
           MouseSelector->HotSelection = {};
         }
-        else if(HasComponents(EM, SelectedEntityID, COMPONENT_FLAG_CONNECTOR_PIN))
-        {
-          UpdatePinHitboxPosition(SelectedEntityID, MousePosWorldSpace);
-          MouseSelector->HotSelection = {};
-        }
       }
-    }
-    // Delete Electrical component
-    else if(Pushed(MouseSelector->RightButton))
-    {
-      if(HasComponents(EM, SelectedEntityID, COMPONENT_FLAG_ELECTRICAL))
+      // Delete Electrical component
+      else if(Pushed(MouseSelector->RightButton))
       {
         DeleteElectricalEntity(EM, MouseSelector->HotSelection);
         MouseSelector->HotSelection = {};
-      }else if(HasComponents(EM, SelectedEntityID, COMPONENT_FLAG_CONNECTOR_PIN)){
-        MouseSelector->HotSelection = {};
       }
-    }
-    // Turn into another  
-    else if(EComponentType != ElectricalComponentType::None)
-    {
-      if(HasComponents(EM, SelectedEntityID, COMPONENT_FLAG_ELECTRICAL))
+      // Holding a electrical component and pushing a button to create a new electrical component
+      else if(EComponentType != ElectricalComponentType::None)
       {
+        // Delete the one youre holding and create a new one
         DeleteElectricalEntity(EM, MouseSelector->HotSelection);
         MouseSelector->HotSelection = CreateElectricalComponent(EM, EComponentType, MousePosWorldSpace);
+      }else{
+
+      }
+    }
+    // Holding a connector pin
+    else if(HasComponents(EM, SelectedEntityID, COMPONENT_FLAG_CONNECTOR_PIN))
+    {
+      // Actions:
+      // - Relocate the pin relative to the electrical component
+      // Future: Join pins togeather with wire
+
+      // Update position of a selected connector pin relative Electrical component center
+      UpdatePinHitboxPosition(SelectedEntityID, MousePosWorldSpace);
+      UpdateAbsolutePosition(GlobalGameState->TransientArena, SelectedHitbox->Position);
+
+      // Holding  Connector Pin in the mouse and clicking left Mouse
+      if(Pushed(MouseSelector->LeftButton))
+      {
+        // Place it
+        MouseSelector->HotSelection = {};
+      }
+      // Holding  Connector Pin in the mouse and clicking Right Mouse
+      else if(Pushed(MouseSelector->RightButton))
+      {
+        // Place it 
+        MouseSelector->HotSelection = {};
       }
     }
   }
@@ -412,7 +407,7 @@ void ControllerSystemUpdate( world* World )
     //  - Create a new electrical component (S, R, L, G)
     //  - Pick it up  (left mouse)
 
-    //  Create a new electrical component
+    //  Create a new electrical component (S, R, L, G)
     if(EComponentType != ElectricalComponentType::None)
     {
       MouseSelector->HotSelection = CreateElectricalComponent(EM, EComponentType, MouseSelector->WorldPos);  
@@ -422,13 +417,14 @@ void ControllerSystemUpdate( world* World )
     {
       MouseSelector->HotSelection = GetClosestComponent(&HotSelectionList, MousePosWorldSpace);
     }
-
-  }else{
-    // Cursor is not holding an electrical component and is not is hovering over one
+  }
+  // Cursor is not holding an electrical component and is not is hovering over one
+  else
+  {
     // Actions:
     //  - Create a new electrical component (S, R, L, G)
 
-    // (S, R, L, G)
+    //  Create a new electrical component (S, R, L, G)
     if(EComponentType != ElectricalComponentType::None)
     {
       //  - Create a new electrical component
