@@ -7,6 +7,8 @@
 //       + Extrahera interface till en egen mapp där olika "logiska"-element får sin egen fil. En fil för radio-button, en för scroll window etc etc
 //       + ListWidget behöver en scrollfunktion
 
+#include "containers/linked_memory.h"
+
 enum class container_type
 {
   None,
@@ -108,12 +110,6 @@ struct menu_functions
 
 menu_functions GetMenuFunction(container_type Type);
 
-struct memory_link
-{
-  u32 Size;
-  memory_link* Next;
-  memory_link* Previous;
-};
 
 struct menu_attribute_header
 {
@@ -339,11 +335,12 @@ struct menu_interface
   menu_tree* MenuBar;
   menu_tree MenuSentinel;
 
-  u32 ActiveMemory;
-  u32 MaxMemSize;
-  u8* MemoryBase;
-  u8* Memory;
-  memory_link Sentinel;
+  linked_memory LinkedMemory;
+  //u32 ActiveMemory;
+  //u32 MaxMemSize;
+  //u8* MemoryBase;
+  //u8* Memory;
+  //memory_link Sentinel;
 
   v2 MousePos;
   v2 PreviousMousePos;

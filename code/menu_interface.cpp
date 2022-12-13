@@ -215,172 +215,22 @@ u8* GetAttributePointer(container_node* Node, container_attribute Attri)
   return Result;
 }
 
-#define DEBUG_PRINT_FRAGMENTED_MEMORY_ALLOCATION 0
-#define DEBUG_PRINT_MENU_MEMORY_ALLOCATION 0
-
-#ifdef HANDMADE_SLOW
-
-void __CheckMemoryListIntegrity(menu_interface* Interface)
-{
-  memory_link* IntegrityLink = Interface->Sentinel.Next;
-  u32 ListCount = 0;
-  while(IntegrityLink != &Interface->Sentinel)
-  {
-    Assert(IntegrityLink == IntegrityLink->Next->Previous);
-    Assert(IntegrityLink == IntegrityLink->Previous->Next);
-    IntegrityLink = IntegrityLink->Next;
-    ListCount++;
-  }
-}
-#define CheckMemoryListIntegrity(Interface) __CheckMemoryListIntegrity(Interface)
-#elif 
-#define CheckMemoryListIntegrity(Interface)
-#endif
-
-
-// TODO (Add option to align by a certain byte?)
-internal void* PushSize(menu_interface* Interface, u32 RequestedSize)
-{
-  #if DEBUG_PRINT_MENU_MEMORY_ALLOCATION
-  {
-    u32 RegionUsed = (u32)(Interface->Memory - Interface->MemoryBase);
-    u32 TotSize = (u32) Interface->MaxMemSize;
-    r32 Percentage = RegionUsed / (r32) TotSize;
-    u32 ActiveMemory = Interface->ActiveMemory;
-    r32 Fragmentation = ActiveMemory/(r32)RegionUsed;
-    Platform.DEBUGPrint("--==<< Pre Memory Insert >>==--\n");
-    Platform.DEBUGPrint(" - Tot Mem Used   : %2.3f  (%d/%d)\n", Percentage, RegionUsed, TotSize );
-    Platform.DEBUGPrint(" - Fragmentation  : %2.3f  (%d/%d)\n", Fragmentation, ActiveMemory, RegionUsed );
-  }
-  #endif
-  memory_link* NewLink = 0;
-  u32 ActualSize = RequestedSize + sizeof(memory_link);
-  // Get memory from the middle if we have continous space that is big enough
-  u32 RegionUsed = (u32)(Interface->Memory - Interface->MemoryBase);
-  r32 MemoryFragmentation = Interface->ActiveMemory/(r32)RegionUsed;
-  b32 MemoryTooFragmented = MemoryFragmentation < 0.8;
-  if( MemoryTooFragmented || RegionUsed == Interface->MaxMemSize )
-  {
-    #if DEBUG_PRINT_FRAGMENTED_MEMORY_ALLOCATION
-    u32 Slot = 0;
-    u32 SlotSpace = 0;
-    u32 SlotSize = 0;
-    #endif
-
-    memory_link* CurrentLink = Interface->Sentinel.Next;
-    while( CurrentLink->Next != &Interface->Sentinel)
-    {
-      midx Base = (midx) CurrentLink + CurrentLink->Size;
-      midx NextAddress = (midx)  CurrentLink->Next;
-      Assert(Base <= NextAddress);
-
-      midx OpenSpace = NextAddress - Base;
-
-      if(OpenSpace >= ActualSize)
-      {
-        NewLink = (memory_link*) Base;
-        NewLink->Size = ActualSize;
-        ListInsertAfter(CurrentLink, NewLink);
-        Assert(CurrentLink < CurrentLink->Next);
-        Assert(NewLink < NewLink->Next);
-        Assert(CurrentLink->Next == NewLink);
-
-        Assert(((u8*)NewLink - (u8*)CurrentLink) == CurrentLink->Size);
-        Assert(((u8*)NewLink->Next - (u8*)NewLink) >= ActualSize);
-        #if DEBUG_PRINT_FRAGMENTED_MEMORY_ALLOCATION
-        SlotSpace = (u32) Slot;
-        SlotSize  = (u32) OpenSpace;
-        #endif
-
-        break;
-      }
-      #if DEBUG_PRINT_FRAGMENTED_MEMORY_ALLOCATION
-      Slot++;
-      #endif
-      CurrentLink =  CurrentLink->Next;
-    }
-
-    #if DEBUG_PRINT_FRAGMENTED_MEMORY_ALLOCATION
-    {
-      u32 SlotCount = 0;
-      memory_link* CurrentLink2 = Interface->Sentinel.Next;
-
-      while( CurrentLink2->Next != &Interface->Sentinel)
-      {
-        SlotCount++;
-        CurrentLink2 = CurrentLink2->Next;
-      }
-      
-      Platform.DEBUGPrint("--==<< Middle Inset >>==--\n");
-      Platform.DEBUGPrint(" - Slot: [%d,%d]\n", SlotSpace, SlotCount);
-      Platform.DEBUGPrint(" - Size: [%d,%d]\n", ActualSize, SlotSize);
-    }
-    #endif
-  }
-
-  // Otherwise push it to the end
-  if(!NewLink)
-  {
-    Assert(RegionUsed+ActualSize < Interface->MaxMemSize);
-    #if DEBUG_PRINT_FRAGMENTED_MEMORY_ALLOCATION
-    Platform.DEBUGPrint("--==<< Post Inset >>==--\n");
-    Platform.DEBUGPrint(" - Memory Left  : %d\n", Interface->MaxMemSize - (u32)RegionUsed + ActualSize);
-    Platform.DEBUGPrint(" - Size: %d\n\n", ActualSize);
-    #endif
-    NewLink = (memory_link*) Interface->Memory;
-    NewLink->Size = ActualSize;
-    Interface->Memory += ActualSize;
-    ListInsertBefore( &Interface->Sentinel, NewLink );
-  }
-  
-  Interface->ActiveMemory += ActualSize;
-  Assert(NewLink);
-  void* Result = (void*)(((u8*)NewLink)+sizeof(memory_link));
-  utils::ZeroSize(RequestedSize, Result);
-
-  #if DEBUG_PRINT_MENU_MEMORY_ALLOCATION
-  {
-    u32 RegionUsed2 = (u32)(Interface->Memory - Interface->MemoryBase);
-    u32 TotSize = (u32) Interface->MaxMemSize;
-    r32 Percentage = RegionUsed2 / (r32) TotSize;
-    u32 ActiveMemory = Interface->ActiveMemory;
-    r32 Fragmentation = ActiveMemory/(r32)RegionUsed2;
-    
-    Platform.DEBUGPrint("--==<< Post Memory Insert >>==--\n");
-    Platform.DEBUGPrint(" - Tot Mem Used   : %2.3f  (%d/%d)\n", Percentage, RegionUsed2 , TotSize );
-    Platform.DEBUGPrint(" - Fragmentation  : %2.3f  (%d/%d)\n", Fragmentation, ActiveMemory, RegionUsed2 );
-    
-  }
-  #endif
-  return Result;
-}
 
 container_node* NewContainer(menu_interface* Interface, container_type Type)
 {
-  CheckMemoryListIntegrity(Interface);
+  CheckMemoryListIntegrity(&Interface->LinkedMemory);
 
   u32 BaseNodeSize    = sizeof(container_node) + sizeof(memory_link);
   u32 NodePayloadSize = GetContainerPayloadSize(Type);
   u32 ContainerSize = (BaseNodeSize + NodePayloadSize);
  
-  container_node* Result = (container_node*) PushSize(Interface, ContainerSize);
+  container_node* Result = (container_node*) PushSize(&Interface->LinkedMemory, ContainerSize);
   Result->Type = Type;
   Result->Functions = GetMenuFunction(Type);
   
-  CheckMemoryListIntegrity(Interface);
+  CheckMemoryListIntegrity(&Interface->LinkedMemory);
 
   return Result;
-}
-
-#define GetMemoryLinkFromPayload( Payload ) (memory_link*) (((u8*) (Payload)) - sizeof(memory_link))
-
-internal void FreeMemory(menu_interface* Interface, void * Payload)
-{
-  memory_link* MemoryLink = GetMemoryLinkFromPayload(Payload);
-  MemoryLink->Previous->Next = MemoryLink->Next;
-  MemoryLink->Next->Previous = MemoryLink->Previous;
-  Interface->ActiveMemory -= MemoryLink->Size;
-  CheckMemoryListIntegrity(Interface);
 }
 
 internal void
@@ -391,7 +241,7 @@ DeleteAllAttributes(menu_interface* Interface, container_node* Node)
   {
     menu_attribute_header* Attribute = Node->FirstAttribute;
     Node->FirstAttribute = Node->FirstAttribute->Next;
-    FreeMemory(Interface, (void*) Attribute);
+    FreeMemory(&Interface->LinkedMemory, (void*) Attribute);
   }
   Node->Attributes = ATTRIBUTE_NONE;
 }
@@ -410,7 +260,7 @@ DeleteAttribute(menu_interface* Interface, container_node* Node, container_attri
   menu_attribute_header* AttributeToRemove = *AttributePtr;
   *AttributePtr = AttributeToRemove->Next;
 
-  FreeMemory(Interface, (void*) AttributeToRemove);
+  FreeMemory(&Interface->LinkedMemory, (void*) AttributeToRemove);
   Node->Attributes =Node->Attributes - (u32)AttributeType;
 }
 
@@ -430,16 +280,16 @@ internal void CancelAllUpdateFunctions(menu_interface* Interface, container_node
 void ClearMenuEvents( menu_interface* Interface, container_node* Node);
 void DeleteContainer( menu_interface* Interface, container_node* Node)
 {
-  CheckMemoryListIntegrity(Interface);
+  CheckMemoryListIntegrity(&Interface->LinkedMemory);
   CancelAllUpdateFunctions(Interface, Node );
   ClearMenuEvents(Interface, Node);
   DeleteAllAttributes(Interface, Node);
-  FreeMemory(Interface, (void*) Node);
+  FreeMemory(&Interface->LinkedMemory, (void*) Node);
 }
 
 menu_tree* NewMenuTree(menu_interface* Interface)
 {
-  menu_tree* Result = (menu_tree*) PushSize(Interface, sizeof(menu_tree));
+  menu_tree* Result = (menu_tree*) PushSize(&Interface->LinkedMemory, sizeof(menu_tree));
   Result->LosingFocus = DeclareFunction(menu_losing_focus, DefaultLosingFocus);
   Result->GainingFocus = DeclareFunction(menu_losing_focus, DefaultGainingFocus);
   ListInsertBefore(&Interface->MenuSentinel, Result);
@@ -575,7 +425,7 @@ void FreeMenuTree(menu_interface* Interface, menu_tree* MenuToFree)
   ListRemove( MenuToFree );
   container_node* Root = MenuToFree->Root;
 
-  FreeMemory(Interface, (void*)MenuToFree);
+  FreeMemory(&Interface->LinkedMemory, (void*)MenuToFree);
 
   DeleteMenuSubTree(Interface, Root);
 }
@@ -1108,7 +958,7 @@ void * PushAttribute(menu_interface* Interface, container_node* Node, container_
   }
 
   u32 TotalSize = sizeof(menu_attribute_header) + GetAttributeSize(AttributeType);
-  menu_attribute_header* Attr =  (menu_attribute_header*) PushSize(Interface, TotalSize);
+  menu_attribute_header* Attr =  (menu_attribute_header*) PushSize(&Interface->LinkedMemory, TotalSize);
   Attr->Type = AttributeType;
   *HeaderPtr = Attr;
   void* Result = (void*)(((u8*)Attr) + sizeof(menu_attribute_header));
@@ -2251,18 +2101,12 @@ container_node* CreateSplitWindow( menu_interface* Interface, b32 Vertical, r32 
 menu_interface* CreateMenuInterface(memory_arena* Arena, midx MaxMemSize)
 {
   menu_interface* Interface = PushStruct(Arena, menu_interface);
-  Interface->ActiveMemory = 0;
-  Interface->MaxMemSize = (u32) MaxMemSize;
-  Interface->MemoryBase = (u8*) PushSize(Arena, Interface->MaxMemSize);
-  Interface->Memory = Interface->MemoryBase;
+  InitiateLinkedMemory(Arena, &Interface->LinkedMemory, MaxMemSize);
   Interface->BorderSize = 0.007;
   Interface->HeaderSize = 0.02;
-  Interface->MinSize = 0.2f;
-
-  ListInitiate(&Interface->Sentinel);
+  Interface->MinSize = 0.2f; 
   ListInitiate(&Interface->MenuSentinel);
   ListInitiate(&Interface->EventSentinel);
- 
   return Interface;
 }
 
