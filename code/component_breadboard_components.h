@@ -55,17 +55,59 @@ enum LEDColor
   LED_COLOR_BLUE
 };
 
-struct electric_dynamic_state
+struct circuit_edge_spline
 {
-  u32 Volt;
-  u32 Current;
-  u32 Temperature;
+  world_coordinate Point;
+  v2 InputCurvature;
+  v2 OutputCurvature;
+  circuit_edge_spline* Next;
 };
 
-struct electric_static_state
+struct circuit_node_header;
+
+struct circuit_edge
 {
-  u32 Resistance;
+  circuit_node_header* A;  // The Index this edge is located in Node A's circuit edge list is its Connection ID
+  circuit_node_header* B;  // The Index this edge is located in Node B's circuit edge list is its Connection ID
+  circuit_edge_spline* Points; // Where does the wire pass through in the world
 };
+
+struct circuit_node_header
+{
+  ElectricalComponentType Type; // The type of electric component
+  u32 BodySize;                 // Size of body in bytes
+  u32 TotalEdgeCount;           // The order of the edges dictates its function, defined by the type.
+  circuit_edge* Edges;          // Edges connecting to other nodes
+};
+
+struct electrical_circuit_memory
+{
+  chunk_list Nodes;
+  chunk_list Edges;
+  chunk_list Splines;
+};
+
+struct electrical_circuit
+{
+  u32 SourceNodeCount;
+  circuit_node_header* SourceNodes;
+  linked_memory Nodes;
+  chunk_list Edges;
+  chunk_list Splines;
+};
+
+electrical_circuit NewElectricalCircuit(memory_arena* Arena)
+{
+  u32 NodeChunkSize = 128;
+  u32 EdgeChunkSize = 2*NodeChunkSize;
+  u32 SplineChunkSize = 4*NodeChunkSize;
+  electrical_circuit Result = {};
+  //u32 MaxLinkedMemorySize = 
+//  InitiateLinkedMemory(Arena, &Result.Nodes, sizeof(circuit_node_header), NodeChunkSize);
+  Result.Edges   = NewChunkList(Arena, sizeof(circuit_edge), EdgeChunkSize);
+  Result.Splines = NewChunkList(Arena, sizeof(circuit_edge_spline), SplineChunkSize);
+  return Result;
+}
 
 struct component_electrical;
 
