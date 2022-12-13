@@ -1,4 +1,17 @@
 
+// TODO: Decide upon a render design.
+// Use asset manager or no?
+// Simplify adding programs and shaders.
+// Pass a render state?
+// Expose buffers? (Make the caller responsible for sending data and textures to gpu?)
+// Make shaders part of an asset to be passed with a render object?
+// Render passes.
+// Maybe keep it simple and disorganized for now till later and you know better what the requirements are.
+
+// Could have some functions for sending geometry and shaders to the gpu and get a handle back which if you supply with some 
+// data will make sure the buffers are set up, and the rendering is done correctly.
+
+
 #include "render_push_buffer.h"
 #include "math/affine_transformations.h"
 #include "bitmap.h"
@@ -260,8 +273,6 @@ void main()
 #endif
 
 #if COLORIZE
-// TODO: Have a uniform color key as well?
-// TODO: Could have a header section where we define a color-mixing function we use.
   fragColor = fragColor * VertexColor;
 #endif
 
@@ -349,11 +360,7 @@ opengl_program OpenGLCircle2D()
   char VertexShaderCode[] = R"FOO(
 uniform mat4 ViewMat;        // View Matrix - Transforms points from WorldSpace to ScreenSpace.
 uniform mat4 ProjectionMat;  // Projection Matrix - Transforms points from ScreenSpace to UnitQube.
-//layout (location = 0)  in vec3 v;
-//layout (location = 1)  in vec3 vn;
-//layout (location = 2)  in vec3 vt;
 layout (location = 0)  in vec2 v;
-layout (location = 1)  in vec2 value;
 layout (location = 3)  in vec2 Position;
 layout (location = 4)  in vec2 Scale;
 layout (location = 5)  in vec4 Color;
@@ -1268,7 +1275,8 @@ void DrawRenderGroup(open_gl* OpenGL, render_group* RenderGroup, game_asset_mana
         Quad2DColorCount            += ((Entry->Type == render_buffer_entry_type::QUAD_2D_COLOR)        ? 1 : 0);
         Quad2DCountSpecial          += ((Entry->Type == render_buffer_entry_type::QUAD_2D_SPECIAL)      ? 1 : 0);
         ElectricalComponentCount    += ((Entry->Type == render_buffer_entry_type::ELECTRICAL_COMPONENT) ? 1 : 0);
-        TriangleCount              += ((Entry->Type == render_buffer_entry_type::ELECTRICAL_CONNECTOR) ? 1 : 0);
+        TriangleCount               += ((Entry->Type == render_buffer_entry_type::ELECTRICAL_CONNECTOR_TRIANGLE) ? 1 : 0);
+        Quad2DColorCount            += ((Entry->Type == render_buffer_entry_type::ELECTRICAL_CONNECTOR_SQUARE) ? 1 : 0);
         if(Entry->Type == render_buffer_entry_type::NEW_LEVEL)
         {
           BreakEntry = Entry;
@@ -1301,6 +1309,7 @@ void DrawRenderGroup(open_gl* OpenGL, render_group* RenderGroup, game_asset_mana
         u8* Body = Head + sizeof(push_buffer_header);
         switch(Entry->Type)
         {
+          // A quad with a 3D-texture. 3D-texture meaning a fixed size texture, think it's 512 x 512 or something.
           case render_buffer_entry_type::TEXT:
           case render_buffer_entry_type::QUAD_2D:
           {
@@ -1316,6 +1325,7 @@ void DrawRenderGroup(open_gl* OpenGL, render_group* RenderGroup, game_asset_mana
             Quad2dData->Rotation     = Quad->Rotation;
             Quad2dData->RotationCenterOffset = Quad->RotationCenterOffset;
           }break;
+           // A quad with a special texture. Special meaning it is not part of a 3D-texture of fixed size but a arbitrary sized texture
           case render_buffer_entry_type::QUAD_2D_SPECIAL:
           {
             entry_type_2d_quad* Quad = (entry_type_2d_quad*) Body;
@@ -1330,12 +1340,13 @@ void DrawRenderGroup(open_gl* OpenGL, render_group* RenderGroup, game_asset_mana
             Quad2dData->Rotation     = Quad->Rotation;
             Quad2dData->RotationCenterOffset = Quad->RotationCenterOffset;
           }break;
+          // A quad with a No texture, just solid color
           case render_buffer_entry_type::QUAD_2D_COLOR:
           {
             entry_type_2d_quad* Quad = (entry_type_2d_quad*) Body; 
             quad_2d_data* Quad2dData = &Quad2DColorBuffer[Quad2DBufferColorInstanceIndex++];
             Quad2dData->QuadRect     = Quad->QuadRect;
-            Quad2dData->Color        = Quad->Colour;
+            Quad2dData->Color        = Quad->Colour; // For some reason quads with color opacity < 0.5 ish won't render !?
             Quad2dData->Rotation     = Quad->Rotation;
             Quad2dData->RotationCenterOffset = Quad->RotationCenterOffset;
           }break;
@@ -1348,14 +1359,23 @@ void DrawRenderGroup(open_gl* OpenGL, render_group* RenderGroup, game_asset_mana
             Circle2DData->Scale        = V2(1,1);
             Circle2DData->Thickness    = 0.1;
           }break;
-          case render_buffer_entry_type::ELECTRICAL_CONNECTOR:
+          case render_buffer_entry_type::ELECTRICAL_CONNECTOR_TRIANGLE:
           {
-            entry_type_electrical_connector* Connector = (entry_type_electrical_connector*) Body; 
+            entry_type_electrical_connector_triangle* Connector = (entry_type_electrical_connector_triangle*) Body; 
             triangle_2d_data* ConnectorData = &Triangle2DBuffer[ConnectorBufferIndex++];
             ConnectorData->Position     = Connector->Position;
             ConnectorData->Color        = V4(Connector->Color,1);
             ConnectorData->Scale        = Connector->Scale;
             ConnectorData->Rotation     = Connector->Rotation;
+          }break;
+          case render_buffer_entry_type::ELECTRICAL_CONNECTOR_SQUARE:
+          {
+            entry_type_2d_quad* Quad = (entry_type_2d_quad*) Body; 
+            quad_2d_data* Quad2dData = &Quad2DColorBuffer[Quad2DBufferColorInstanceIndex++];
+            Quad2dData->QuadRect     = Quad->QuadRect;
+            Quad2dData->Color        = Quad->Colour;
+            Quad2dData->Rotation     = Quad->Rotation;
+            Quad2dData->RotationCenterOffset = Quad->RotationCenterOffset;
           }break;
         }
       }
@@ -1452,11 +1472,9 @@ void OpenGLRenderGroupToOutput(game_render_commands* Commands)
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   
   glEnable(GL_BLEND);
-  glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   // No need to clearh the depth buffer if we disable depth test
-  glDisable(GL_DEPTH_TEST);
   // glEnable(GL_DEPTH_TEST);
   // glDepthFunc(GL_LESS);
 

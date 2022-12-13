@@ -42,6 +42,8 @@ entity_id CreateElectricalComponent(entity_manager* EM, ElectricalComponentType 
   const r32 TriangleHeight = TriangleBase * Sin(Pi32/3.f);
   const r32 TriangleCenterPoint = 0.5;
 
+  const r32 RectangleSide = 0.2;
+
   switch (EComponentType)
   {
     case ElectricalComponentType::Source:
@@ -75,11 +77,11 @@ entity_id CreateElectricalComponent(entity_manager* EM, ElectricalComponentType 
       position_node* RadialPositionNodeA = CreatePositionNode(RadialPositionA, RadialAngleA);
       InsertPositionNode(PositionComponent, PositionComponent->FirstChild, RadialPositionNodeA);
 
-      position_node* ConnectorPinPositionA = CreatePositionNode({}, Pi32/6);
+      position_node* ConnectorPinPositionA = CreatePositionNode({}, 0);
       InsertPositionNode(PositionComponent, RadialPositionNodeA, ConnectorPinPositionA);
 
       component_hitbox* PinHitbox = GetHitboxComponent(&ConnectorPinA);
-      InitiateTriangleHitboxComponent(PinHitbox, ConnectorPinPositionA, TriangleBase, TriangleHeight, TriangleCenterPoint);
+      InitiateRectangleHitboxComponent(PinHitbox, ConnectorPinPositionA, RectangleSide, RectangleSide);
 
       ConnectPinToElectricalComponent(ElectricalComponent, PinA);
 
@@ -93,11 +95,11 @@ entity_id CreateElectricalComponent(entity_manager* EM, ElectricalComponentType 
       position_node* RadialPositionNodeB = CreatePositionNode(RadialPositionB, RadialAngleB);
       InsertPositionNode(PositionComponent, PositionComponent->FirstChild, RadialPositionNodeB);
 
-      position_node* ConnectorPinPositionB = CreatePositionNode({}, -Pi32/6);
+      position_node* ConnectorPinPositionB = CreatePositionNode({}, 0);
       InsertPositionNode(PositionComponent, RadialPositionNodeB, ConnectorPinPositionB);
 
       component_hitbox* PinHitboxB = GetHitboxComponent(&ConnectorPinB);
-      InitiateTriangleHitboxComponent(PinHitboxB, ConnectorPinPositionB, TriangleBase, TriangleHeight, TriangleCenterPoint);
+      InitiateRectangleHitboxComponent(PinHitboxB, ConnectorPinPositionB, RectangleSide, RectangleSide);
 
       ConnectPinToElectricalComponent(ElectricalComponent, PinB);
     }break;

@@ -50,5 +50,6 @@ struct component_hitbox
 };
 
 void InitiateTriangleHitboxComponent(component_hitbox* Hitbox, position_node* PositionNode, r32 Base, r32 Height, r32 CenterPoint);
+void InitiateRectangleHitboxComponent(component_hitbox* Hitbox, position_node* PositionNode, r32 Width, r32 Height);
 void InitiateCircleHitboxComponent(component_hitbox* Hitbox, position_node* PositionNode, r32 Radius);
 bool Intersects(component_hitbox* HitboxComponent, world_coordinate IntersectionPoint);

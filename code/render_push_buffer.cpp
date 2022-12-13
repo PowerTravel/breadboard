@@ -30,7 +30,9 @@ u32 RenderTypeToBodySize(render_buffer_entry_type Type)
     case render_buffer_entry_type::QUAD_2D_SPECIAL: return sizeof(entry_type_2d_quad); 
     case render_buffer_entry_type::QUAD_2D_COLOR: return sizeof(entry_type_2d_quad);
     case render_buffer_entry_type::ELECTRICAL_COMPONENT: return sizeof(entry_type_electrical_component);
-    case render_buffer_entry_type::ELECTRICAL_CONNECTOR: return sizeof(entry_type_electrical_connector);
+    case render_buffer_entry_type::ELECTRICAL_CONNECTOR_TRIANGLE: return sizeof(entry_type_electrical_connector_triangle);
+    case render_buffer_entry_type::ELECTRICAL_CONNECTOR_SQUARE: return sizeof(entry_type_2d_quad);
+    
   }
   Assert(0);
   return 0;
@@ -302,19 +304,58 @@ void PushElectricalComponent_2(entity_manager* EM, component_electrical* Electri
     component_connector_pin* PinConnector = GetConnectorPinComponent(&PinID);
     component_hitbox* PinHitbox = GetHitboxComponent(&PinID);
     hitbox_triangle* Triangle = &PinHitbox->Triangle;
-
-    push_buffer_header* ConnectorHeader = PushNewEntry(RenderGroup, render_buffer_entry_type::ELECTRICAL_CONNECTOR);
-    entry_type_electrical_connector* ConnectorBody = GetBody(ConnectorHeader, entry_type_electrical_connector);
-    ConnectorBody->Position.X = PinHitbox->Position->AbsolutePosition.X;
-    ConnectorBody->Position.Y = PinHitbox->Position->AbsolutePosition.Y;
-    ConnectorBody->Color = Normalize(V3(0.1,0.8,0.5));
-    ConnectorBody->Scale = V2(0.2,0.2);
-    ConnectorBody->Rotation = PinHitbox->Position->AbsoluteRotation;
-
     b32 IsPinIntersecting = Intersects(PinHitbox, GlobalGameState->World->MouseSelector.WorldPos);
-    if(IsPinIntersecting)
+
+    r32 Scale = 0.2;
+    switch(PinConnector->Type)
     {
-      ConnectorBody->Color = ConnectorBody->Color * 2;
+      // Triangles
+      case ElectricalPinType::Positive:
+      case ElectricalPinType::Negative:
+      case ElectricalPinType::Output:
+      case ElectricalPinType::Input:
+      case ElectricalPinType::Source:
+      case ElectricalPinType::Sink:
+      {
+        // TODO: Need someway to take a hitbox_triangle with width, height and base-point and create a skew and scalee matrix which can transform
+        //    a like-sided triangle with points:
+        //    {V2(-0.5f,  -0.866025/3.f), V2(-0.5f, -0.5f)}, // 4 Equilateral Triangle
+        //    {V2( 0.5f,  -0.866025/3.f), V2(-0.5f,  0.5f)}, // 5 Equilateral Triangle
+        //    {V2( 0.0f, 2*0.866025/3.f), V2(-0.5f,  0.5f)}, // 6 Equilateral Triangle
+        //  To the input triangle. ATM only like-sided triangles which can be scaled are supported. And the scaling is hard-coded.
+        push_buffer_header* ConnectorHeader = PushNewEntry(RenderGroup, render_buffer_entry_type::ELECTRICAL_CONNECTOR_TRIANGLE);
+        entry_type_electrical_connector_triangle* ConnectorBody = GetBody(ConnectorHeader, entry_type_electrical_connector_triangle);
+        ConnectorBody->Position = V2(GetAbsolutePosition(PinHitbox->Position));
+        ConnectorBody->Color = Normalize(V3(0.1,0.8,0.5));
+        ConnectorBody->Scale = V2(Scale,Scale);
+        ConnectorBody->Rotation = GetAbsoluteRotation(PinHitbox->Position);
+
+        if(IsPinIntersecting)
+        {
+          ConnectorBody->Color = ConnectorBody->Color * 2;
+        }
+      }break;
+      // Squares
+      case ElectricalPinType::InputOutput:
+      case ElectricalPinType::A:
+      case ElectricalPinType::B:
+      {
+        push_buffer_header* ConnectorHeader = PushNewEntry(RenderGroup, render_buffer_entry_type::ELECTRICAL_CONNECTOR_SQUARE);
+        entry_type_2d_quad* ConnectorBody = GetBody(ConnectorHeader, entry_type_2d_quad);
+        world_coordinate Position = GetAbsolutePosition(PinHitbox->Position);
+        
+        ConnectorBody->QuadRect = Rect2f(Position.X, Position.Y, Scale, Scale);
+        ConnectorBody->UVRect   = {};
+        ConnectorBody->Rotation = GetAbsoluteRotation(PinHitbox->Position);
+        ConnectorBody->RotationCenterOffset = {};
+        ConnectorBody->Colour = V4(Normalize(V3(0.1,0.8,0.5)),1);
+        ConnectorBody->BitmapHandle = {};
+
+        if(IsPinIntersecting)
+        {
+          ConnectorBody->Colour = ConnectorBody->Colour * 2;
+        }
+      }break;
     }
 
     Pin = Pin->NextPin;

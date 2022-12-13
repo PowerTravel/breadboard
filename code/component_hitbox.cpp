@@ -7,6 +7,14 @@ void InitiateCircleHitboxComponent(component_hitbox* Hitbox, position_node* Posi
   Hitbox->Circle.Radius = Radius;
 }
 
+void InitiateRectangleHitboxComponent(component_hitbox* Hitbox, position_node* PositionNode, r32 Width, r32 Height)
+{
+  Hitbox->Type = HitboxType::RECTANGLE;
+  Hitbox->Position = PositionNode;
+  Hitbox->Rectangle.Width = Width;
+  Hitbox->Rectangle.Height = Height;
+}
+
 void InitiateTriangleHitboxComponent(component_hitbox* Hitbox, position_node* PositionNode, r32 Base, r32 Height, r32 CenterPoint)
 {
   Hitbox->Type = HitboxType::TRIANGLE;
