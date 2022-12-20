@@ -135,6 +135,7 @@ global_variable r32 debug_angle = 0;
 #include "containers/chunk_list_unit_tests.h"
 #include "entity_components_backend_unit_tests.h"
 #include "containers/red_black_tree.h"
+#include "containers/red_black_tree_unit_tests.h"
 
 #include "debug.h"
 
