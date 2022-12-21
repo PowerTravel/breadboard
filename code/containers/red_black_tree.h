@@ -871,12 +871,197 @@ void RecolorTreeAfterDelete(red_black_tree* Tree, binary_search_tree_delete_resu
       }break;
     }
   }
-
 }
 
-bool RedBlackTreeDelete(red_black_tree* Tree, int Key)
+red_black_tree_node* RedBlackTreeDelete(red_black_tree* Tree, int Key)
 {
   binary_search_tree_delete_result BSTDelete = BinarySearchTreeDelete(Tree, Key);
   RecolorTreeAfterDelete(Tree, BSTDelete);
-  return true;
+  return BSTDelete.DeletedNode;
+}
+
+
+// Tree:
+//       1 
+//      / \    
+//     /   \
+//    /     \
+//   2       3
+//  / \     / \
+// 4   5   6   7
+
+// PreOrder : 1, 2, 4, 5, 3, 6, 7
+// PostOrder: 4, 5, 2, 6, 7, 3, 1
+// InOrder  : 4, 2, 5, 1, 6, 3, 7
+
+// From root, leading to left-most leaf first, followed by branch leading to the second left leaf and so on untill all leafs are visited
+size_t InOrderGetStackMemorySize(red_black_tree* Tree)
+{
+  size_t Result = Tree->NodeCount * sizeof(red_black_tree_node*);
+  return Result;
+}
+
+int Push(int StackSize, red_black_tree_node** NodeStack, red_black_tree_node* Node)
+{
+  if(!Node)
+  {
+    return StackSize;
+  }
+  red_black_tree_node** NodeSpace = NodeStack + StackSize;
+  *NodeSpace = Node;
+  return StackSize+1;
+}
+
+int Pop(int StackSize, red_black_tree_node** NodeStack, red_black_tree_node** NodeResult)
+{
+  red_black_tree_node** NodePos = NodeStack+StackSize;
+  RedBlackTreeAssert(StackSize > 0);
+  RedBlackTreeAssert(NodeStack[StackSize-1]);
+  *NodeResult = NodeStack[StackSize-1];
+  NodeStack[StackSize-1] = NULL;
+  return StackSize-1;
+}
+
+// Stack Memory must be large enough to hold at least Tree->NodeCount number of nodes
+void PreOrderTraverse(red_black_tree* Tree, void* StackMemory, void* CustomData, void (*NodeFunction) (red_black_tree_node const * Node, void* CustomData))
+{
+  red_black_tree_node** NodeStack = (red_black_tree_node**) StackMemory;
+  int StackCount = Push(0, NodeStack, Tree->Root);
+
+  while(StackCount)
+  {
+    red_black_tree_node* Current = 0;
+    StackCount = Pop(StackCount, NodeStack, &Current);
+    RedBlackTreeAssert(Current);
+
+    #if 1
+    NodeFunction(Current, CustomData);
+    #else
+    Platform.DEBUGPrint("%d %s, ", Current->Key, Current->Color == node_color::RED ? "R" : "B");
+    #endif
+
+    StackCount = Push(StackCount, NodeStack, Current->Right);
+    StackCount = Push(StackCount, NodeStack, Current->Left);
+
+  }
+}
+
+// From Left most leaf : L R N
+// https://www.geeksforgeeks.org/post-order-traversal-of-binary-tree-in-on-using-o1-space/
+void PostOrderTraverse(red_black_tree* Tree, void* CustomData, void (*NodeFunction)  (red_black_tree_node const * Node, void* CustomData) )
+{
+  if(!Tree->Root)
+  {
+    return;
+  }
+
+  red_black_tree_node DummyNode = {};
+  red_black_tree_node* Current = &DummyNode;
+  red_black_tree_node* Pre = NULL;
+  red_black_tree_node* Prev = NULL;
+  red_black_tree_node* Succ = NULL;
+  red_black_tree_node* Temp = NULL;
+
+  Current->Left = Tree->Root;
+  while(Current)
+  {
+
+    if(Current->Left == NULL)
+    {
+      Current = Current->Right;
+    }
+    else
+    {
+      Pre = Current->Left;
+
+      while(Pre->Right && 
+            Pre->Right != Current)
+      {
+        Pre = Pre->Right;
+      }
+
+      if(Pre->Right == NULL)
+      {
+        Pre->Right = Current;
+        Current = Current->Left;
+      }
+      else
+      {
+        Pre->Right = NULL;
+        Succ = Current;
+        Current = Current->Left;
+        Prev = NULL;
+
+        while(Current != NULL)
+        {
+          Temp = Current->Right;
+          Current->Right = Prev;
+          Prev = Current;
+          Current = Temp;
+        }
+
+        while(Prev != NULL)
+        {
+          #if 1
+          NodeFunction(Prev, CustomData);
+          #else
+          Platform.DEBUGPrint("%d%s, ", Prev->Key, Prev->Color == node_color::RED ? "R" : "B");
+          #endif
+
+          Temp = Prev->Right;
+          Prev->Right = Current;
+          Current = Prev;
+          Prev = Temp;
+        }
+
+        Current = Succ;
+        Current = Current->Right;
+      }
+    }
+  }
+}
+
+// From Left most leaf : L N R
+// https://www.geeksforgeeks.org/inorder-tree-traversal-without-recursion-and-without-stack/
+void InOrderTraverse(red_black_tree* Tree, void* CustomData, void (*NodeFunction)  (red_black_tree_node const * Node, void* CustomData) )
+{
+  if(!Tree->Root)
+  {
+    return;
+  }
+
+  red_black_tree_node* Current = Tree->Root;
+
+  while(Current)
+  {
+    if(!Current->Left)
+    {
+      #if 1
+      NodeFunction(Current, CustomData);
+      #else
+      Platform.DEBUGPrint("%d%s, ", Current->Key, Current->Color == node_color::RED ? "R" : "B");
+      #endif
+      Current = Current->Right;
+    }else{
+      red_black_tree_node* Pre = Current->Left;
+      while(Pre->Right != NULL && Pre->Right != Current)
+      {
+        Pre = Pre->Right;
+      }
+
+      if(!Pre->Right)
+      {
+        Pre->Right = Current;
+        Current = Current->Left;
+      }else{
+        Pre->Right = NULL;
+        #if 1
+        NodeFunction(Current, CustomData);
+        #else
+        Platform.DEBUGPrint("%d%s,", Current->Key, Current->Color == node_color::RED ? "R" : "B");
+        #endif
+        Current = Current->Right;
+      }
+    }
+  }
 }

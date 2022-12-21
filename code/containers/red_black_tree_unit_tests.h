@@ -1082,6 +1082,163 @@ void TestDeletionCaseSixTwoRedChildren()
   AssertTree(&Tree, 4, ArrayCount(State_1), State_1);
 }
 
+void BigTest()
+{
+  int Data[] = {72,66,91,57,58,80,24,59, 3,78,
+                49,46,14,23, 8,34,63,97,60,65,
+                51, 6,36,56,55,32,85,42,95,96,
+                 9,76,37,17,43,82,93,16,11,53,
+                88,22,40,21,54,27,26,25,33,61, 
+                 2,67,31,47,87,18,39,79,00,86,
+                10,74,38,83, 5,44,69,73,64,70,
+                45,89,35,19,92,62,15,28,81,50,
+                12,75,98,41,90, 7,94,52,84,99,
+                48,13,20,29,71,68, 4,77, 1,30};
+  red_black_tree_node_data Datum[128] = {};
+  red_black_tree_node Nodes[128] = {};
+  for (int Index = 0; Index < ArrayCount(Data); ++Index)
+  {
+    Datum[Index] = NewRedBlackTreeNodeData((void*)&Data[Index]);
+    Nodes[Index] = NewRedBlackTreeNode(Data[Index], &Datum[Index]);
+  }
+}
+
+void PrintFunction(red_black_tree_node const * Node, void* CustomData)
+{
+  Platform.DEBUGPrint("%d %s, ", Node->Key, Node->Color == node_color::RED ? "R" : "B");
+}
+
+struct node_assert_data_element
+{
+  int Key;
+  node_color Color;
+  int DataCount;
+  int* Data;
+};
+
+node_assert_data_element CreateAssertElement(int Key, node_color Color, int DataCount, int* Data)
+{
+  node_assert_data_element Result = {};
+  Result.Key = Key;
+  Result.Color = Color;
+  Result.DataCount = DataCount;
+  Result.Data =  Data;
+  return Result;
+}
+
+struct node_assert_data
+{
+  int Index;
+  int ElementCount;
+  node_assert_data_element* Elements;
+};
+
+void TraverseAssertFunction(red_black_tree_node const * Node, void* CustomData)
+{
+  node_assert_data* GroundTruth = (node_assert_data*) CustomData;
+
+  RedBlackTreeAssert(GroundTruth->Index < GroundTruth->ElementCount);
+  node_assert_data_element* NodeTruth = GroundTruth->Elements + GroundTruth->Index;
+  GroundTruth->Index++;
+  RedBlackTreeAssert(NodeTruth->Key == Node->Key);
+  RedBlackTreeAssert(NodeTruth->Color == Node->Color);
+  red_black_tree_node_data const * NodeData = Node->Data;
+
+  int GroundTruthIndex = 0;
+  while(NodeData)
+  {
+    int NodeDataValue = *((int*) NodeData->Data);
+    int GroundTruthValue = NodeTruth->Data[GroundTruthIndex];
+    RedBlackTreeAssert(GroundTruthIndex < NodeTruth->DataCount);
+    GroundTruthIndex++;
+    RedBlackTreeAssert(GroundTruthValue == NodeDataValue);
+    NodeData = NodeData->Next;
+  }
+  RedBlackTreeAssert(GroundTruthIndex == NodeTruth->DataCount);
+}
+
+void TestTraverse()
+{
+  
+/*
+ *              --==Final Tree structure==--
+ *
+ *              _____________21B___________    
+ *             /                           \
+ *       ___12B___                       ___32B___   
+ *      /         \                     /         \
+ *    3B           14B               25R           38B
+ *   /  \         /   \             /   \         /   \
+ *  1R   5R    13R     15R       23B     28B   37R     40R
+ *                              /
+ *                           22R
+ */
+
+  int InsertionKeys[] =      { 3, 21, 32, 15, 12, 13, 14,  1,  5, 37, 25, 40, 38, 28, 23, 22};
+  
+  red_black_tree_node_data Datum[16] = {};
+  red_black_tree_node Nodes[16] = {};
+  for (int Index = 0; Index < ArrayCount(InsertionKeys); ++Index)
+  {
+    Datum[Index] = NewRedBlackTreeNodeData( (void*)  &InsertionKeys[Index]);
+    Nodes[Index] = NewRedBlackTreeNode(InsertionKeys[Index], &Datum[Index]);
+  }
+
+  // Testing Adding root
+  red_black_tree Tree = NewRedBlackTree(); 
+  for (int Index = 0; Index < ArrayCount(InsertionKeys); ++Index)
+  {
+    RedBlackTreeInsert(&Tree, &Nodes[Index]);  
+  }
+
+  // --==Post Order Traversal (L N R) ==--
+  // 1 R, 5 R, 3 B, 13 R, 15 R, 14 B, 12 B, 22 R, 23 B, 28 B, 25 R, 37 R, 40 R, 38 B, 32 B, 21 B, 
+  int PostOrderData[] =  { 1,  5,  3, 13, 15, 14, 12, 22, 23, 28, 25, 37, 40, 38, 32, 21};
+  int PostOrderColor[] = { 0,  0,  1,  0,  0,  1,  1,  0,  1,  1,  0,  0,  0,  1,  1,  1};
+  node_assert_data_element PostOrderElements[16] = {};
+  
+  // --==Pre Order Traversal (L R N) ==--
+  // 21 B, 12 B, 3 B, 1 R, 5 R, 14 B, 13 R, 15 R, 32 B, 25 R, 23 B, 22 R, 28 B, 38 B, 37 R, 40 R, 
+  int PreOrderData[] =  { 21, 12,  3,  1, 5, 14, 13, 15, 32, 25, 23, 22, 28, 38, 37, 40};
+  int PreOrderColor[] = {  1,  1,  1,  0, 0,  1,  0,  0,  1,  0,  1,  0,  1,  1,  0,  0};
+  node_assert_data_element PreOrderElements[16] = {};
+
+  // --==In Order Traversal L R N==--
+  // 1 R, 3 B, 5 R, 12 B, 13 R, 14 B, 15 R, 21 B, 22 R, 23 B, 25 R, 28 B, 32 B, 37 R, 38 B, 40 R, 
+  int InOrderData[] =  { 1,  3,  5, 12, 13, 14, 15, 21, 22, 23, 25, 28, 32, 37, 38, 40};
+  int InOrderColor[] = { 0,  1,  0,  1,  0,  1,  0,  1,  0,  1,  0,  1,  1,  0,  1,  0};
+  node_assert_data_element InOrderElements[16] = {};
+
+  for (int Index = 0; Index < ArrayCount(PostOrderData); ++Index)
+  {
+    PostOrderElements[Index] = CreateAssertElement(PostOrderData[Index], PostOrderColor[Index] == 0 ? node_color::RED : node_color::BLACK, 1, &PostOrderData[Index]);
+    PreOrderElements[Index]  = CreateAssertElement(PreOrderData[Index],  PreOrderColor[Index]  == 0 ? node_color::RED : node_color::BLACK, 1, &PreOrderData[Index]);
+    InOrderElements[Index]   = CreateAssertElement(InOrderData[Index],   InOrderColor[Index]   == 0 ? node_color::RED : node_color::BLACK, 1, &InOrderData[Index]);
+  }
+
+  node_assert_data PostOrderGroundTruth = {};
+  PostOrderGroundTruth.Index = 0;
+  PostOrderGroundTruth.ElementCount = 16;
+  PostOrderGroundTruth.Elements = PostOrderElements;
+  PostOrderTraverse(&Tree, (void*) &PostOrderGroundTruth, TraverseAssertFunction);
+
+  node_assert_data PreOrderGroundTruth = {};
+  PreOrderGroundTruth.Index = 0;
+  PreOrderGroundTruth.ElementCount = 16;
+  PreOrderGroundTruth.Elements = PreOrderElements;
+  temporary_memory TempMem = BeginTemporaryMemory(GlobalGameState->TransientArena);
+  midx MemorySize = InOrderGetStackMemorySize(&Tree);
+  void* TraverseStack = PushSize(GlobalGameState->TransientArena, MemorySize);
+  PreOrderTraverse(&Tree, TraverseStack, (void*) &PreOrderGroundTruth, TraverseAssertFunction);
+  EndTemporaryMemory(TempMem);
+
+  node_assert_data InOrderGroundTruth = {};
+  InOrderGroundTruth.Index = 0;
+  InOrderGroundTruth.ElementCount = 16;
+  InOrderGroundTruth.Elements = InOrderElements;
+  InOrderTraverse(&Tree, (void*) &InOrderGroundTruth, TraverseAssertFunction);
+}
+
 void RedBlackTreeUnitTest()
 {
   TestInsertion();
@@ -1106,9 +1263,7 @@ void RedBlackTreeUnitTest()
 
   TestDeletionSiblingIsBlackTwoRedChildren_RR();
 
-  //RedBlackTreeDelete(&Tree, 21);  // Case with 2 nodes
-  //RedBlackTreeDelete(&Tree, 15);  // Case with 2 nodes but replacement tree has a sub tree
-  //RedBlackTreeDelete(&Tree, 3);   // Case with 0 nodes
-  //RedBlackTreeDelete(&Tree, 12);  // Case with 1 nodes
-
+  //BigTest();
+  TestTraverse();
 }
+
