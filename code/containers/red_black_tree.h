@@ -443,45 +443,7 @@ red_black_tree_node* RemoveNodeWithOnlyLeftChildFromTree(red_black_tree_node* No
   Node->Left = 0;
   return ReplacementNode;
 }
-#if 0
-void ReplaceNode(red_black_tree* Tree, red_black_tree_node* NodeToBeReplaced, red_black_tree_node* NodeToReplace)
-{
-  // Make sure the NodeToReplace is not connected to anything
-  RedBlackTreeAssert(!NodeToReplace->Parent);
-  RedBlackTreeAssert(!NodeToReplace->Left);
-  RedBlackTreeAssert(!NodeToReplace->Right);
 
-  if(!NodeToBeReplaced->Parent)
-  {
-    Tree->Root = NodeToReplace;
-  }else{
-    if(NodeToBeReplaced->Parent->Left == NodeToBeReplaced)
-    {
-      NodeToBeReplaced->Parent->Left = NodeToReplace;
-    }else 
-    {
-      RedBlackTreeAssert(NodeToBeReplaced->Parent->Right == NodeToBeReplaced);
-      NodeToBeReplaced->Parent->Right = NodeToReplace;
-    }
-  }
-  NodeToReplace->Parent = NodeToBeReplaced->Parent;
-  NodeToBeReplaced->Parent = 0;
-  
-  NodeToReplace->Left = NodeToBeReplaced->Left;
-  if(NodeToReplace->Left)
-  {
-    NodeToReplace->Left->Parent = NodeToReplace;
-  }
-  NodeToBeReplaced->Left = 0;
-
-  NodeToReplace->Right = NodeToBeReplaced->Right;
-  if(NodeToReplace->Right)
-  {
-    NodeToReplace->Right->Parent = NodeToReplace;
-  }
-  NodeToBeReplaced->Right = 0;
-}
-#endif
 struct binary_search_tree_delete_result
 {
   // The BinarySearchTreeDelete operation navigates to the node with the key to be removed,
@@ -878,6 +840,14 @@ red_black_tree_node* RedBlackTreeDelete(red_black_tree* Tree, int Key)
 {
   binary_search_tree_delete_result BSTDelete = BinarySearchTreeDelete(Tree, Key);
   RecolorTreeAfterDelete(Tree, BSTDelete);
+  if(BSTDelete.DeletedNode)
+  {
+    BSTDelete.DeletedNode->Data = BSTDelete.ReturnData;
+    BSTDelete.DeletedNode->Key = Key;
+    BSTDelete.DeletedNode->Left = 0;
+    BSTDelete.DeletedNode->Right = 0;
+    BSTDelete.DeletedNode->Parent = 0;
+  }
   return BSTDelete.DeletedNode;
 }
 

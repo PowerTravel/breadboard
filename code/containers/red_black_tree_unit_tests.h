@@ -1148,9 +1148,9 @@ node_assert_data CreateGroundTruth(int ArrayCount, node_assert_data_element* Ele
   }
   return GroundTruth;
 }
+
 void BigTest()
 {
-
   // Big Insertion
 
   int InsertionKeys[] = {
@@ -1244,10 +1244,15 @@ void BigTest()
   int DeletionSequence_8_5[]    = {48,  5, 98, 57, 21};
   int DeletionSequence_Final[]  = {89, 53, 54, 82, 64};
 
+
+  red_black_tree_node* DeletedNodes_0[10] = {};
   for (int Index = 0; Index < ArrayCount(DeletionSequence_0); ++Index)
   {
-    RedBlackTreeDelete(&Tree, DeletionSequence_0[Index]);
+    DeletedNodes_0[Index] = RedBlackTreeDelete(&Tree, DeletionSequence_0[Index]);
+    AssertNodeData(DeletedNodes_0[Index]->Data, 1, &DeletionSequence_0[Index]);
   }
+
+
 
   // DeleteState 3
   int PostOrderColorDelete_0[] = {0, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1};
@@ -1256,10 +1261,11 @@ void BigTest()
   node_assert_data PostOrderGroundTruthDelete_0 = CreateGroundTruth(ArrayCount(PostOrderElementsDelete_0), PostOrderElementsDelete_0, PostOrderColorDelete_0, PostOrderDataDelete_0);
   PostOrderTraverse(&Tree, (void*) &PostOrderGroundTruthDelete_0, TraverseAssertFunction);  
 
-
+  red_black_tree_node* DeletedNodes_1[10] = {};
   for (int Index = 0; Index < ArrayCount(DeletionSequence_1); ++Index)
   {
-    RedBlackTreeDelete(&Tree, DeletionSequence_1[Index]);
+    DeletedNodes_1[Index] = RedBlackTreeDelete(&Tree, DeletionSequence_1[Index]);
+    AssertNodeData(DeletedNodes_1[Index]->Data, 1, &DeletionSequence_1[Index]);
   }
 
   int PostOrderColorDelete_1[] = {0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1};
@@ -1268,9 +1274,11 @@ void BigTest()
   node_assert_data PostOrderGroundTruthDelete_1 = CreateGroundTruth(ArrayCount(PostOrderElementsDelete_1), PostOrderElementsDelete_1, PostOrderColorDelete_1, PostOrderDataDelete_1);
   PostOrderTraverse(&Tree, (void*) &PostOrderGroundTruthDelete_1, TraverseAssertFunction);  
 
+  red_black_tree_node* DeletedNodes_2[10] = {};
   for (int Index = 0; Index < ArrayCount(DeletionSequence_2); ++Index)
   {
-    RedBlackTreeDelete(&Tree, DeletionSequence_2[Index]);
+    DeletedNodes_2[Index] = RedBlackTreeDelete(&Tree, DeletionSequence_2[Index]);
+    AssertNodeData(DeletedNodes_2[Index]->Data, 1, &DeletionSequence_2[Index]);
   }
 
 
@@ -1280,9 +1288,11 @@ void BigTest()
   node_assert_data PostOrderGroundTruthDelete_2 = CreateGroundTruth(ArrayCount(PostOrderElementsDelete_2), PostOrderElementsDelete_2, PostOrderColorDelete_2, PostOrderDataDelete_2);
   PostOrderTraverse(&Tree, (void*) &PostOrderGroundTruthDelete_2, TraverseAssertFunction);  
 
+  red_black_tree_node* DeletedNodes_3[10] = {};
   for (int Index = 0; Index < ArrayCount(DeletionSequence_3); ++Index)
   {
-    RedBlackTreeDelete(&Tree, DeletionSequence_3[Index]);
+    DeletedNodes_3[Index] = RedBlackTreeDelete(&Tree, DeletionSequence_3[Index]);
+    AssertNodeData(DeletedNodes_3[Index]->Data, 1, &DeletionSequence_3[Index]);
   }
    
   int PostOrderColorDelete_3[] = {1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1};
@@ -1291,20 +1301,23 @@ void BigTest()
   node_assert_data PostOrderGroundTruthDelete_3 = CreateGroundTruth(ArrayCount(PostOrderElementsDelete_3), PostOrderElementsDelete_3, PostOrderColorDelete_3, PostOrderDataDelete_3);
   PostOrderTraverse(&Tree, (void*) &PostOrderGroundTruthDelete_3, TraverseAssertFunction);  
 
+  red_black_tree_node* DeletedNodes_4[10] = {};
   for (int Index = 0; Index < ArrayCount(DeletionSequence_4); ++Index)
   {
-    RedBlackTreeDelete(&Tree, DeletionSequence_4[Index]);
+    DeletedNodes_4[Index] = RedBlackTreeDelete(&Tree, DeletionSequence_4[Index]);
+    AssertNodeData(DeletedNodes_4[Index]->Data, 1, &DeletionSequence_4[Index]);
   }
-
   int PostOrderColorDelete_4[] = {1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1};
   int PostOrderDataDelete_4[] =  {1, 5, 4,12, 7, 6,18,15,21,19,25,31,27,23,13,37,40,39,46,48,47,41,51,54,53,57,55,49,36,60,64,61,67,69,68,73,77,72,66,82,86,89,88,85,92,98,95,90,80,58};
   node_assert_data_element PostOrderElementsDelete_4[50] = {};
   node_assert_data PostOrderGroundTruthDelete_4 = CreateGroundTruth(ArrayCount(PostOrderElementsDelete_4), PostOrderElementsDelete_4, PostOrderColorDelete_4, PostOrderDataDelete_4);
   PostOrderTraverse(&Tree, (void*) &PostOrderGroundTruthDelete_4, TraverseAssertFunction);  
 
+  red_black_tree_node* DeletedNodes_5[10] = {};
   for (int Index = 0; Index < ArrayCount(DeletionSequence_5); ++Index)
   {
-    RedBlackTreeDelete(&Tree, DeletionSequence_5[Index]);
+    DeletedNodes_5[Index] = RedBlackTreeDelete(&Tree, DeletionSequence_5[Index]);
+    AssertNodeData(DeletedNodes_5[Index]->Data, 1, &DeletionSequence_5[Index]);
   }
 
   int PostOrderColorDelete_5[] = {1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1};
@@ -1313,9 +1326,11 @@ void BigTest()
   node_assert_data PostOrderGroundTruthDelete_5 = CreateGroundTruth(ArrayCount(PostOrderElementsDelete_5), PostOrderElementsDelete_5, PostOrderColorDelete_5, PostOrderDataDelete_5);
   PostOrderTraverse(&Tree, (void*) &PostOrderGroundTruthDelete_5, TraverseAssertFunction);  
 
+  red_black_tree_node* DeletedNodes_6[10] = {};
   for (int Index = 0; Index < ArrayCount(DeletionSequence_6); ++Index)
   {
-    RedBlackTreeDelete(&Tree, DeletionSequence_6[Index]);
+    DeletedNodes_6[Index] = RedBlackTreeDelete(&Tree, DeletionSequence_6[Index]);
+    AssertNodeData(DeletedNodes_6[Index]->Data, 1, &DeletionSequence_6[Index]);
   }
   
   int PostOrderColorDelete_6[] = {0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1};
@@ -1324,9 +1339,11 @@ void BigTest()
   node_assert_data PostOrderGroundTruthDelete_6 = CreateGroundTruth(ArrayCount(PostOrderElementsDelete_6), PostOrderElementsDelete_6, PostOrderColorDelete_6, PostOrderDataDelete_6);
   PostOrderTraverse(&Tree, (void*) &PostOrderGroundTruthDelete_6, TraverseAssertFunction);  
 
+  red_black_tree_node* DeletedNodes_7[10] = {};
   for (int Index = 0; Index < ArrayCount(DeletionSequence_7); ++Index)
   {
-    RedBlackTreeDelete(&Tree, DeletionSequence_7[Index]);
+    DeletedNodes_7[Index] = RedBlackTreeDelete(&Tree, DeletionSequence_7[Index]);
+    AssertNodeData(DeletedNodes_7[Index]->Data, 1, &DeletionSequence_7[Index]);
   }
   
   int PostOrderColorDelete_7[] = {1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1};
@@ -1335,9 +1352,11 @@ void BigTest()
   node_assert_data PostOrderGroundTruthDelete_7 = CreateGroundTruth(ArrayCount(PostOrderElementsDelete_7), PostOrderElementsDelete_7, PostOrderColorDelete_7, PostOrderDataDelete_7);
   PostOrderTraverse(&Tree, (void*) &PostOrderGroundTruthDelete_7, TraverseAssertFunction);  
 
+  red_black_tree_node* DeletedNodes_7_5[5] = {};
   for (int Index = 0; Index < ArrayCount(DeletionSequence_7_5); ++Index)
   {
-    RedBlackTreeDelete(&Tree, DeletionSequence_7_5[Index]);
+    DeletedNodes_7_5[Index] = RedBlackTreeDelete(&Tree, DeletionSequence_7_5[Index]);
+    AssertNodeData(DeletedNodes_7_5[Index]->Data, 1, &DeletionSequence_7_5[Index]);
   }
 
   int PostOrderColorDelete_7_5[] = {1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1};
@@ -1346,9 +1365,11 @@ void BigTest()
   node_assert_data PostOrderGroundTruthDelete_7_5 = CreateGroundTruth(ArrayCount(PostOrderElementsDelete_7_5), PostOrderElementsDelete_7_5, PostOrderColorDelete_7_5, PostOrderDataDelete_7_5);
   PostOrderTraverse(&Tree, (void*) &PostOrderGroundTruthDelete_7_5, TraverseAssertFunction);  
 
+  red_black_tree_node* DeletedNodes_8[5] = {};
   for (int Index = 0; Index < ArrayCount(DeletionSequence_8); ++Index)
   {
-    RedBlackTreeDelete(&Tree, DeletionSequence_8[Index]);
+    DeletedNodes_8[Index] = RedBlackTreeDelete(&Tree, DeletionSequence_8[Index]);
+    AssertNodeData(DeletedNodes_8[Index]->Data, 1, &DeletionSequence_8[Index]);
   }
 
   int PostOrderColorDelete_8[] = {1, 1, 1, 0, 1, 0, 1, 1, 1, 1};
@@ -1357,9 +1378,11 @@ void BigTest()
   node_assert_data PostOrderGroundTruthDelete_8 = CreateGroundTruth(ArrayCount(PostOrderElementsDelete_8), PostOrderElementsDelete_8, PostOrderColorDelete_8, PostOrderDataDelete_8);
   PostOrderTraverse(&Tree, (void*) &PostOrderGroundTruthDelete_8, TraverseAssertFunction);  
 
+  red_black_tree_node* DeletedNodes_8_5[5] = {};
   for (int Index = 0; Index < ArrayCount(DeletionSequence_8_5); ++Index)
   {
-    RedBlackTreeDelete(&Tree, DeletionSequence_8_5[Index]);
+    DeletedNodes_8_5[Index] = RedBlackTreeDelete(&Tree, DeletionSequence_8_5[Index]);
+    AssertNodeData(DeletedNodes_8_5[Index]->Data, 1, &DeletionSequence_8_5[Index]);
   }
 
   int PostOrderColorDelete_8_5[] = { 1, 1, 1, 0, 1};
@@ -1384,10 +1407,11 @@ void BigTest()
     {64,-1,-1,-1},
     {-1,-1,-1,-1},
   };
-  // {89, 53, 54, 82, 64};
+
   for (int Index = 0; Index < ArrayCount(DeletionSequence_Final); ++Index)
   {
-    RedBlackTreeDelete(&Tree, DeletionSequence_Final[Index]);
+    red_black_tree_node* DeletedNodes_Final = RedBlackTreeDelete(&Tree, DeletionSequence_Final[Index]);
+    AssertNodeData(DeletedNodes_Final->Data, 1, &DeletionSequence_Final[Index]);
     node_assert_data_element PostOrderElementsDelete_Final[4] = {};
     node_assert_data PostOrderGroundTruthDelete_Final = 
       CreateGroundTruth(ArrayCount(DeletionSequence_Final) - Index - 1, PostOrderElementsDelete_Final, PostOrderColorDelete_Final[Index], PostOrderDataDelete_Final[Index]);
@@ -1478,6 +1502,138 @@ void TestTraverse()
   InOrderTraverse(&Tree, (void*) &InOrderGroundTruth, TraverseAssertFunction);
 }
 
+
+struct data_assert_struct
+{
+  int UniqueKeyCount;
+  int* UniqueKeys;
+  int* ValueCount;
+  int** Values;
+};
+
+void DataAssertFunction(red_black_tree_node const * Node, void* CustomData)
+{
+  data_assert_struct* DataAssert = (data_assert_struct*) CustomData;
+
+  int KeyIndex = 0;
+  while(Node->Key != DataAssert->UniqueKeys[KeyIndex])
+  {
+    KeyIndex++;
+    RedBlackTreeAssert(KeyIndex < DataAssert->UniqueKeyCount);
+  }
+
+  int* Values = DataAssert->Values[KeyIndex];
+  int ValueCount = DataAssert->ValueCount[KeyIndex];
+  AssertNodeData(Node->Data, ValueCount, Values);
+}
+
+// Verifies that the node pointer is no longer in the tree, IE, it has been removed
+void NodeRemovedAssertFunction(red_black_tree_node const * Node, void* CustomData)
+{
+  red_black_tree_node* CurrentDeletedNode = (red_black_tree_node*) CustomData;
+  RedBlackTreeAssert(CurrentDeletedNode != Node);
+}
+
+
+void TestInsertingSeveralOfSameKey()
+{
+/*
+ *              --==Final Tree structure==--
+ *
+ *              _____________21B___________    
+ *             /                           \
+ *       ___12B___                       ___32B___   
+ *      /         \                     /         \
+ *    3B           14B               25R           38B
+ *   /  \         /   \             /   \         /   \
+ *  1R   5R    13R     15R       23B     28B   37R     40R
+ *                              /
+ *                           22R
+ */
+  //  Data Value          0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+  int InsertionKeys[] = { 3, 21, 32, 15, 12, 13, 14,  1,  5, 37, 25, 40, 38, 28, 23, 22,
+  //  Data Value                 16          17          18      19          20      21
+                                 32,         13,          5,     25,         28,     22,
+  //  Data Value                 22          23                  24
+                                 32,         13,                 25,
+  //  Data Value                 25                              26
+                                 32,                             25,
+  //  Data Value                                                 27
+                                                                 25};
+
+  int InsertionKeysUnique[] = { 3, 21, 32, 15, 12, 13, 14,  1,  5, 37, 25, 40, 38, 28, 23, 22};
+
+  int InsertionDataGroundTruthValues[16*5] = 
+  {
+// Key       3                21                32                15
+       0,-1,-1,-1,-1,    1,-1,-1,-1,-1,   25,22,16, 2,-1,    3,-1,-1,-1,-1,
+// Key      12                13                14                 1
+       4,-1,-1,-1,-1,   23,17, 5,-1,-1,    6,-1,-1,-1,-1,    7,-1,-1,-1,-1,
+// Key        5               37                25                40
+       18, 8,-1,-1,-1,   9,-1,-1,-1,-1,   27,26,24,19,10,   11,-1,-1,-1,-1,
+// Key       38               28                23                22
+       12,-1,-1,-1,-1,  20,13,-1,-1,-1,   14,-1,-1,-1,-1,   21,15,-1,-1,-1
+  };
+  int* InsertionDataGroundTruth[16] = {};
+  for (int Index = 0; Index < 16; ++Index)
+  {
+    InsertionDataGroundTruth[Index] = InsertionDataGroundTruthValues + 5*Index;
+  }
+
+  int InsertionValueCountGroundTruth[16] = 
+  {
+// Key 3 21 32 15 12 13 14  1  5 37 25 40 38 28 23 22
+       1, 1, 4, 1, 1, 3, 1, 1, 2, 1, 5, 1, 1, 2, 1, 2
+  };
+
+  data_assert_struct DataAssert = {};
+  DataAssert.UniqueKeyCount = ArrayCount(InsertionKeysUnique);
+  DataAssert.UniqueKeys = InsertionKeysUnique;
+  DataAssert.ValueCount = InsertionValueCountGroundTruth;
+  DataAssert.Values  = InsertionDataGroundTruth;
+
+
+  int InsertionData[28] = {};
+  red_black_tree_node_data Datum[28] = {};
+  red_black_tree_node Nodes[28] = {};
+  for (int Index = 0; Index < ArrayCount(InsertionKeys); ++Index)
+  {
+    InsertionData[Index] = Index;
+    Datum[Index] = NewRedBlackTreeNodeData( (void*)  &InsertionData[Index]);
+    Nodes[Index] = NewRedBlackTreeNode(InsertionKeys[Index], &Datum[Index]);
+  }
+
+  red_black_tree Tree = NewRedBlackTree();
+  for (int Index = 0; Index < ArrayCount(InsertionKeys); ++Index)
+  {
+    bool NewNodeAdded = RedBlackTreeInsert(&Tree, &Nodes[Index]);
+    if(Index < 16)
+    {
+      // Node was inserted
+      RedBlackTreeAssert(NewNodeAdded);
+    }else{
+      // Node was not inserted, only data
+      RedBlackTreeAssert(!NewNodeAdded);
+    } 
+  }
+
+  // Test deleting a value that does not exist in the tree
+  int NodeCount = Tree.NodeCount;
+  red_black_tree_node* NullNode = RedBlackTreeDelete(&Tree, 100);
+  RedBlackTreeAssert(!NullNode && Tree.NodeCount == NodeCount);
+
+
+  // Delete nodes that exist and verify it has been removed and that the data returned is what we expect
+  for (int Index = 0; Index < ArrayCount(InsertionKeysUnique); ++Index)
+  {
+    red_black_tree_node* DeletedNode = RedBlackTreeDelete(&Tree, InsertionKeysUnique[Index]);
+    InOrderTraverse(&Tree, (void*) DeletedNode, NodeRemovedAssertFunction);
+    InOrderTraverse(&Tree, (void*) &DataAssert, DataAssertFunction);
+  }
+
+  RedBlackTreeAssert(Tree.NodeCount == 0);
+}
+
 void RedBlackTreeUnitTest()
 {
   TestInsertion();
@@ -1503,5 +1659,6 @@ void RedBlackTreeUnitTest()
   TestDeletionSiblingIsBlackTwoRedChildren_RR();
 
   TestTraverse();
+  TestInsertingSeveralOfSameKey();
   BigTest();
 }
