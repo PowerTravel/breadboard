@@ -136,6 +136,8 @@ global_variable r32 debug_angle = 0;
 #include "entity_components_backend_unit_tests.h"
 #include "containers/red_black_tree.h"
 #include "containers/red_black_tree_unit_tests.h"
+#include "containers/rb_tree.h"
+#include "containers/rb_tree_unit_tests.h"
 
 #include "debug.h"
 
@@ -268,6 +270,7 @@ void InitiateGame(game_memory* Memory, game_render_commands* RenderCommands, gam
   chunk_list_tests::RunUnitTests(GlobalGameState->TransientArena);
   entity_components_backend_tests::RunUnitTests(GlobalGameState->TransientArena);
   RedBlackTreeUnitTest();
+  RunRBTreeUnitTests(GlobalGameState->TransientArena);
 }
 
 #include "function_pointer_pool.h"
