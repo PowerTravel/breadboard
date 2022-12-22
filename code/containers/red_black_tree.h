@@ -49,6 +49,25 @@ struct red_black_tree
   red_black_tree_node* Root;
 };
 
+// Interface Function:
+red_black_tree NewRedBlackTree();
+red_black_tree_node_data NewRedBlackTreeNodeData(void* Data);
+red_black_tree_node NewRedBlackTreeNode(int Key, red_black_tree_node_data* Data);
+
+// Don't call InOrderTraverse or PostOrderTraverse in NodeFunction. They modify the tree structure while traversing
+void InOrderTraverse(red_black_tree* Tree, void* CustomData, void (*NodeFunction)  (red_black_tree_node const * Node, void* CustomData) );
+void PostOrderTraverse(red_black_tree* Tree, void* CustomData, void (*NodeFunction)  (red_black_tree_node const * Node, void* CustomData) );
+
+// From root, leading to left-most leaf first, followed by branch leading to the second left leaf and so on untill all leafs are visited
+size_t PreOrderGetStackMemorySize(red_black_tree* Tree);
+// PreOrderTraverse can be called within node function
+void PreOrderTraverse(red_black_tree* Tree, void* StackMemory, void* CustomData, void (*NodeFunction) (red_black_tree_node const * Node, void* CustomData));
+
+// Returns true if a new node was inserted. False if not. It has however added the
+bool RedBlackTreeInsert(red_black_tree* Tree, red_black_tree_node* NewNode);
+red_black_tree_node* RedBlackTreeDelete(red_black_tree* Tree, int Key);
+red_black_tree_node* RedBlackTreeFind(red_black_tree* Tree, int Key);
+
 
 red_black_tree NewRedBlackTree()
 {
@@ -851,6 +870,24 @@ red_black_tree_node* RedBlackTreeDelete(red_black_tree* Tree, int Key)
   return BSTDelete.DeletedNode;
 }
 
+red_black_tree_node* RedBlackTreeFind(red_black_tree* Tree, int Key)
+{
+  red_black_tree_node* Node = Tree->Root;
+  while(Node)
+  {
+    if(Key > Node->Key)
+    {
+      Node = Node->Right;
+    }else if (Key < Node->Key)
+    {
+      Node = Node->Left;
+    }else{
+      break;
+    }
+  }
+  return Node;
+}
+
 
 // Tree:
 //       1 
@@ -866,7 +903,7 @@ red_black_tree_node* RedBlackTreeDelete(red_black_tree* Tree, int Key)
 // InOrder  : 4, 2, 5, 1, 6, 3, 7
 
 // From root, leading to left-most leaf first, followed by branch leading to the second left leaf and so on untill all leafs are visited
-size_t InOrderGetStackMemorySize(red_black_tree* Tree)
+size_t PreOrderGetStackMemorySize(red_black_tree* Tree)
 {
   size_t Result = Tree->NodeCount * sizeof(red_black_tree_node*);
   return Result;

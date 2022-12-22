@@ -1490,7 +1490,7 @@ void TestTraverse()
   PreOrderGroundTruth.ElementCount = 16;
   PreOrderGroundTruth.Elements = PreOrderElements;
   temporary_memory TempMem = BeginTemporaryMemory(GlobalGameState->TransientArena);
-  midx MemorySize = InOrderGetStackMemorySize(&Tree);
+  midx MemorySize = PreOrderGetStackMemorySize(&Tree);
   void* TraverseStack = PushSize(GlobalGameState->TransientArena, MemorySize);
   PreOrderTraverse(&Tree, TraverseStack, (void*) &PreOrderGroundTruth, TraverseAssertFunction);
   EndTemporaryMemory(TempMem);
@@ -1621,6 +1621,15 @@ void TestInsertingSeveralOfSameKey()
   int NodeCount = Tree.NodeCount;
   red_black_tree_node* NullNode = RedBlackTreeDelete(&Tree, 100);
   RedBlackTreeAssert(!NullNode && Tree.NodeCount == NodeCount);
+
+  // Test finding a node that does not exist
+  NullNode = RedBlackTreeFind(&Tree, 8);
+  RedBlackTreeAssert(!NullNode);
+
+  // Test finding a value that exists
+  red_black_tree_node* NotNUllNode = RedBlackTreeFind(&Tree, 25);
+  RedBlackTreeAssert(NotNUllNode);
+  AssertNodeData(NotNUllNode->Data, 5, InsertionDataGroundTruth[10]);
 
 
   // Delete nodes that exist and verify it has been removed and that the data returned is what we expect
