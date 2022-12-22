@@ -306,6 +306,7 @@ void RecolorTreeAfterInsert(red_black_tree* Tree, red_black_tree_node* Node)
       Family.Parent->Color = node_color::BLACK;
       Family.Uncle->Color  = node_color::BLACK;
       Family.GrandParent->Color = node_color::RED;
+      Node = Node->Parent ? Node->Parent->Parent : 0;
     }else{
       switch(Family.Case)
       {
@@ -332,8 +333,8 @@ void RecolorTreeAfterInsert(red_black_tree* Tree, red_black_tree_node* Node)
           ColorSwap(Family.Parent, Family.GrandParent);
         }break;
       }
+      Node = 0;
     }
-    Node = Node->Parent ? Node->Parent->Parent : 0;
   }
 
   // Tree root is always black
