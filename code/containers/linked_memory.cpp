@@ -1,160 +1,329 @@
 #include "containers/linked_memory.h"
 #include "memory.h"
+#include "utility_macros.h"
 
 extern platform_api Platform;
 
-#if HANDMADE_SLOW
-void __CheckMemoryListIntegrity(linked_memory* LinkedMemory)
+
+linked_memory NewLinkedMemory(memory_arena* Arena, midx ChunkMemSize, u32 ExpectedAllocationCount)
 {
-  memory_link* IntegrityLink = LinkedMemory->Sentinel.Next;
-  u32 ListCount = 0;
-  while(IntegrityLink != &LinkedMemory->Sentinel)
+  linked_memory LinkedMemory = {};
+  LinkedMemory.Arena = Arena;
+  LinkedMemory.ChunkSize = ChunkMemSize;
+
+  u32 MemoryChunkCount = 16; // Should be on order 1, but has small foot print so lets take 16.
+  LinkedMemory.MemoryChunks = NewChunkList(Arena, sizeof(linked_memory_chunk), MemoryChunkCount);
+  LinkedMemory.MemoryLinkNodes = NewChunkList(Arena, sizeof(red_black_tree_node), ExpectedAllocationCount);
+  LinkedMemory.MemoryLinkNodeData = NewChunkList(Arena, sizeof(red_black_tree_node_data), ExpectedAllocationCount);
+  LinkedMemory.MemoryLinks = NewChunkList(Arena, sizeof(memory_link), ExpectedAllocationCount);
+  LinkedMemory.MemoryLinkTree = NewRedBlackTree();
+
+  // Allocate first memory chunk
+  u32 IndexOfChunk = 0;
+  linked_memory_chunk* Chunk = (linked_memory_chunk*) GetNewBlock(LinkedMemory.Arena, &LinkedMemory.MemoryChunks, &IndexOfChunk);
+  Chunk->MemoryBase = (bptr) PushSize(LinkedMemory.Arena, ChunkMemSize);
+  ListInitiate(&Chunk->Sentinel);
+
+  // Create a new memory_link repressenting free space
+  memory_link* Link = (memory_link*) GetNewBlock(LinkedMemory.Arena, &LinkedMemory.MemoryLinks);
+  Link->Allocated = false;
+  Link->ChunkIndex = IndexOfChunk;
+  Link->Size = ChunkMemSize;
+  Link->Memory = Chunk->MemoryBase;
+  ListInsertAfter(&Chunk->Sentinel, Link);
+
+  // Attach the link to a node_data struct
+  red_black_tree_node_data* NodeData = (red_black_tree_node_data*) GetNewBlock(LinkedMemory.Arena, &LinkedMemory.MemoryLinkNodeData);
+  *NodeData = NewRedBlackTreeNodeData(Link);
+
+  // Attach the node_data to a node struct
+  red_black_tree_node* Node = (red_black_tree_node*) GetNewBlock(LinkedMemory.Arena, &LinkedMemory.MemoryLinkNodes);
+  *Node = NewRedBlackTreeNode(Link->Size, NodeData);
+
+  // Insert the link repressenting free space into the tree
+  RedBlackTreeInsert(&LinkedMemory.MemoryLinkTree, Node);
+
+  return LinkedMemory;
+}
+
+internal red_black_tree_node* FindNodeWithFreeSpace(linked_memory* LinkedMemory, midx Size)
+{
+  red_black_tree* Tree = &LinkedMemory->MemoryLinkTree;
+  Assert(RedBlackTreeNodeCount(Tree) > 0);
+
+  red_black_tree_node* Node = Tree->Root;
+  while(Node)
   {
-    Assert(IntegrityLink == IntegrityLink->Next->Previous);
-    Assert(IntegrityLink == IntegrityLink->Previous->Next);
-    IntegrityLink = IntegrityLink->Next;
-    ListCount++;
+    // Node is not big enough to hold our size, 
+    if(Size > Node->Key)
+    {
+      // move to larger node
+      if(Node->Right)
+      {
+        Node = Node->Right;
+      }else{
+        // No node big enough was found
+        Node = NULL;
+        break;
+      }
+    }
+    // Node is big enough to hold our size, See if there is a smaller node which can also hold our size
+    else if(Size < Node->Key)
+    {
+      // There is no smaller node
+      if(!Node->Left)
+      {
+        // Choose this one
+        break;
+      }else{
+        // Left node is not big enough
+        if(Size > Node->Left->Key)
+        {
+          // Choose this one
+          break;
+        }else{
+          Assert(Size <= Node->Left->Key);
+          Node = Node->Left;
+        }
+      }
+    }else{
+      break;
+    }
   }
+
+  if(!Node)
+  {
+    // There is no continous space chunk left in any chunk to hold the required memory. We allocate a new chunk.
+    u32 IndexOfChunk = 0;
+    linked_memory_chunk* Chunk = (linked_memory_chunk*) GetNewBlock(LinkedMemory->Arena, &LinkedMemory->MemoryChunks, &IndexOfChunk);
+    Chunk->MemoryBase = (bptr) PushSize(LinkedMemory->Arena, LinkedMemory->ChunkSize);
+    ListInitiate(&Chunk->Sentinel);
+
+    // Create a new memory_link repressenting free space
+    memory_link* Link = (memory_link*) GetNewBlock(LinkedMemory->Arena, &LinkedMemory->MemoryLinks);
+    Link->Allocated = false;
+    Link->ChunkIndex = IndexOfChunk;
+    Link->Size = LinkedMemory->ChunkSize;
+    Link->Memory = Chunk->MemoryBase;
+    ListInsertAfter(&Chunk->Sentinel, Link);
+
+    // Attach the link to a node_data struct
+    red_black_tree_node_data* NodeData = (red_black_tree_node_data*) GetNewBlock(LinkedMemory->Arena, &LinkedMemory->MemoryLinkNodeData);
+    *NodeData = NewRedBlackTreeNodeData(Link);
+
+    // Attach the node_data to a node struct
+    Node = (red_black_tree_node*) GetNewBlock(LinkedMemory->Arena, &LinkedMemory->MemoryLinkNodes);
+    *Node = NewRedBlackTreeNode(Link->Size, NodeData);
+
+    // Insert the link repressenting free space into the tree
+    RedBlackTreeInsert(&LinkedMemory->MemoryLinkTree, Node);
+  }
+
+  return Node;
+}
+
+void* Allocate(linked_memory* LinkedMemory, midx Size)
+{
+  // For now we only allow allocations smaller than chunksize. This can be handled by allocating a new chunk which is big enough.
+  // But linked_memory should not be used in such a manner. We should know the approx space we require beforehand when creating the Linked Memory.
+  // But this can be fixed later if a case arrives where we truly don't know how big the chunk should be.
+  Assert(Size < LinkedMemory->ChunkSize);
+
+  red_black_tree_node* Node = FindNodeWithFreeSpace(LinkedMemory, Size);
+  Assert(Node); // Node should exist in tree
+
+  red_black_tree_node_data* NodeData = Node->Data;
+  memory_link* Link = (memory_link*) NodeData->Data;
+  Assert(Link->Next && Link->Previous);
+
+  Assert(Size <= Link->Size);
+  midx Key = Link->Size;
+  midx FreeSpaceLeft = Link->Size - Size;
+  Link->Size = Size;
+  Link->Allocated = true;
+
+  // Remove the Link from the tree, but keep the memory_link in the chunks link-list
+  red_black_tree_node_data* Data = Node->Data;
+  RedBlackTreeRemoveSingleDataFromDataList(&LinkedMemory->MemoryLinkTree, &Node->Data, (void*) Link);
+  FreeBlock(&LinkedMemory->MemoryLinkNodeData, (bptr) Data);
+  Data = 0;
+
+  if(!Node->Data)
+  {
+    // Node is now empty. Remove from tree.
+    RedBlackTreeDelete(&LinkedMemory->MemoryLinkTree, Node->Key);
+    FreeBlock(&LinkedMemory->MemoryLinkNodes, (bptr) Node);
+    Node = 0;
+  }
+
+  // If there is space left we create a new memory_link repressenting free space left after the allocated space
+  if(FreeSpaceLeft > 0)
+  {
+    memory_link* NewLink = (memory_link*) GetNewBlock(LinkedMemory->Arena, &LinkedMemory->MemoryLinks);
+    NewLink->Allocated = false;
+    NewLink->ChunkIndex = Link->ChunkIndex;
+    NewLink->Size = FreeSpaceLeft;
+    NewLink->Memory = Link->Memory + Size;
+    ListInsertAfter(Link, NewLink);
+
+    // Attach the link to a node_data struct
+    red_black_tree_node_data* NewNodeData = (red_black_tree_node_data*) GetNewBlock(LinkedMemory->Arena, &LinkedMemory->MemoryLinkNodeData);
+    *NewNodeData = NewRedBlackTreeNodeData(NewLink);
+
+    // Attach the node_data to a node struct
+    red_black_tree_node* NewNode = (red_black_tree_node*) GetNewBlock(LinkedMemory->Arena, &LinkedMemory->MemoryLinkNodes);
+    *NewNode = NewRedBlackTreeNode(NewLink->Size, NewNodeData);
+
+    // Insert the link repressenting free space into the tree
+    b32 WasInserted = RedBlackTreeInsert(&LinkedMemory->MemoryLinkTree, NewNode);
+    if(!WasInserted)
+    {
+      // NodeData was inserted into an already existing node. So we free the node we just allocated.
+      FreeBlock(&LinkedMemory->MemoryLinkNodes, (bptr) NewNode);
+    }
+  }
+
+  return Link->Memory;
+}
+
+
+#if 0
+linked_memory_chunk* NewLinkedMemoryChunk(linked_memory* LinkedMemory)
+{
+  linked_memory_chunk* LinkedMemoryChunk = PushStruct(LinkedMemory->Arena, linked_memory_chunk);
+
+  LinkedMemoryChunk->MaxMemSize = (u32) LinkedMemory->ChunkSize;
+  LinkedMemoryChunk->MemoryBase = (u8*) PushSize(LinkedMemory->Arena, LinkedMemory->ChunkSize);
+  LinkedMemoryChunk->ChunkIndex = LinkedMemory->ChunkCount++;
+
+  ListInsertBefore(&LinkedMemory->Sentinel, LinkedMemoryChunk);
+
+  memory_link* FirstLink = (memory_link*) LinkedMemoryChunk->MemoryBase;
+  LinkedMemoryChunk->LargestFreeSlot = LinkedMemoryChunk->MaxMemSize - sizeof(memory_link);
+  FirstLink->Size = 0;
+  FirstLink->ChunkIndex = LinkedMemoryChunk->ChunkIndex;
+  FirstLink->FreeSizeAfter = LinkedMemoryChunk->LargestFreeSlot;
+
+  // Need to verify if this is a okay ammount of memory needed for the tree
+  // Depends on the number of allocations we make.
+  u32 NodeAndDataCount = 128; 
+  LinkedMemoryChunk->MemoryLinkTree = NewRBTree(LinkedMemory->Arena, NodeAndDataCount, NodeAndDataCount);
+  Insert(&LinkedMemoryChunk->MemoryLinkTree, FirstLink->FreeSizeAfter, FirstLink);
+
+  return LinkedMemoryChunk;
+}
+
+linked_memory_chunk* GetMemoryChunk(linked_memory* LinkedMemory, midx Size)
+{
+  midx ActualSize = Size + sizeof(memory_link);
+  Assert(ActualSize <= LinkedMemory->ChunkSize);
+
+  linked_memory_chunk* Chunk = LinkedMemory->Sentinel.Next;
+  while(Chunk != &LinkedMemory->Sentinel)
+  {
+    if(Chunk->LargestFreeSlot < ActualSize)
+    {
+      break;
+    }
+  }
+
+  if(Chunk == &LinkedMemory->Sentinel)
+  {
+    Chunk = NewLinkedMemoryChunk(LinkedMemory);
+  }
+
+  return Chunk;
+}
+
+void* GetMemoryFromChunk(linked_memory* LinkedMemory, linked_memory_chunk* MemoryChunk, midx Size)
+{
+  red_black_tree* Tree = &MemoryChunk->MemoryLinkTree.Tree;
+  Assert(NodeCount(&MemoryChunk->MemoryLinkTree) > 0);
+  red_black_tree_node* Node = Tree->Root;
+  midx ActualSize = Size + sizeof(memory_link);
+  while(Node)
+  {
+    // Node is not big enough to hold our size, 
+    if(ActualSize > Node->Key)
+    {
+      // move to larger node
+      Assert(Node->Right);
+      Node = Node->Right;
+    }
+    // Node is big enough to hold our size, See if there is a smaller node which can also hold our size
+    else if(ActualSize < Node->Key)
+    {
+      // There is no smaller node
+      if(!Node->Left)
+      {
+        // Choose this one
+        break;
+      }else{
+        // Left node is not big enough
+        if(ActualSize > Node->Left->Key)
+        {
+          // Choose this one
+          break;
+        }else{
+          Assert(ActualSize <= Node->Left->Key);
+          Node = Node->Left;
+        }
+      }
+    }else{
+      break;
+    }
+  }
+
+  // We are guaranteed to have a node large enough;
+  Assert(Node);
+
+  red_black_tree_node_data* Data = Node->Data;
+  memory_link* Link = (memory_link*) Node->Data;
+  Delete(&MemoryChunk->MemoryLinkTree, Node, (void*)Link);
+
+  Assert(Link->Size == 0);
+  Assert(Link->ChunkIndex == MemoryChunk->ChunkIndex);
+  Link->Size = Size;
+
+  Assert(ActualSize < Link->FreeSizeAfter);
+  midx NewFreeSizeAfter = Link->FreeSizeAfter - ActualSize;
+  Link->FreeSizeAfter = 0;
+  memory_link* NewLink = (memory_link*) ((bptr) Link + ActualSize);
+  Assert(NewLink->Size == 0);
+  Assert(NewLink->ChunkIndex == 0);
+  Assert(NewLink->FreeSizeAfter == 0);
+  NewLink->ChunkIndex = MemoryChunk->ChunkIndex;
+  NewLink->FreeSizeAfter = NewFreeSizeAfter;
+  Assert(NewLink == (memory_link*) ((bptr) Link + Size) );
+  Insert(&MemoryChunk->MemoryLinkTree, NewLink->FreeSizeAfter, NewLink);
+
+  void* Memory = AdvanceByType(Link, memory_link);
+  return Memory;
 }
 #endif
 
-void InitiateLinkedMemory(memory_arena* Arena, linked_memory* LinkedMemory, midx MaxMemSize)
-{
-  Assert(!LinkedMemory->Sentinel.Next);
-  Assert(!LinkedMemory->Sentinel.Previous);
-  *LinkedMemory = {};
-  LinkedMemory->ActiveMemory = 0;
-  LinkedMemory->MaxMemSize = (u32) MaxMemSize;
-  LinkedMemory->MemoryBase = (u8*) PushSize(Arena, LinkedMemory->MaxMemSize);
-  LinkedMemory->Memory = LinkedMemory->MemoryBase;
-
-  ListInitiate(&LinkedMemory->Sentinel);
-}
-
-// TODO (Add option to align by a certain byte?)
-void* PushSize(linked_memory* LinkedMemory, u32 RequestedSize)
-{
-  #if DEBUG_PRINT_MENU_MEMORY_ALLOCATION
-  {
-    u32 RegionUsed = (u32)(LinkedMemory->Memory - LinkedMemory->MemoryBase);
-    u32 TotSize = (u32) LinkedMemory->MaxMemSize;
-    r32 Percentage = RegionUsed / (r32) TotSize;
-    u32 ActiveMemory = LinkedMemory->ActiveMemory;
-    r32 Fragmentation = ActiveMemory/(r32)RegionUsed;
-    Platform.DEBUGPrint("--==<< Pre Memory Insert >>==--\n");
-    Platform.DEBUGPrint(" - Tot Mem Used   : %2.3f  (%d/%d)\n", Percentage, RegionUsed, TotSize );
-    Platform.DEBUGPrint(" - Fragmentation  : %2.3f  (%d/%d)\n", Fragmentation, ActiveMemory, RegionUsed );
-  }
-  #endif
-  memory_link* NewLink = 0;
-  u32 ActualSize = RequestedSize + sizeof(memory_link);
-  // Get memory from the middle if we have continous space that is big enough
-  u32 RegionUsed = (u32)(LinkedMemory->Memory - LinkedMemory->MemoryBase);
-  r32 MemoryFragmentation = LinkedMemory->ActiveMemory/(r32)RegionUsed;
-  b32 MemoryTooFragmented = MemoryFragmentation < 0.8;
-  if( MemoryTooFragmented || RegionUsed == LinkedMemory->MaxMemSize )
-  {
-    #if DEBUG_PRINT_FRAGMENTED_MEMORY_ALLOCATION
-    u32 Slot = 0;
-    u32 SlotSpace = 0;
-    u32 SlotSize = 0;
-    #endif
-
-    memory_link* CurrentLink = LinkedMemory->Sentinel.Next;
-    while( CurrentLink->Next != &LinkedMemory->Sentinel)
-    {
-      midx Base = (midx) CurrentLink + CurrentLink->Size;
-      midx NextAddress = (midx)  CurrentLink->Next;
-      Assert(Base <= NextAddress);
-
-      midx OpenSpace = NextAddress - Base;
-
-      if(OpenSpace >= ActualSize)
-      {
-        NewLink = (memory_link*) Base;
-        NewLink->Size = ActualSize;
-        ListInsertAfter(CurrentLink, NewLink);
-        Assert(CurrentLink < CurrentLink->Next);
-        Assert(NewLink < NewLink->Next);
-        Assert(CurrentLink->Next == NewLink);
-
-        Assert(((u8*)NewLink - (u8*)CurrentLink) == CurrentLink->Size);
-        Assert(((u8*)NewLink->Next - (u8*)NewLink) >= ActualSize);
-        #if DEBUG_PRINT_FRAGMENTED_MEMORY_ALLOCATION
-        SlotSpace = (u32) Slot;
-        SlotSize  = (u32) OpenSpace;
-        #endif
-
-        break;
-      }
-      #if DEBUG_PRINT_FRAGMENTED_MEMORY_ALLOCATION
-      Slot++;
-      #endif
-      CurrentLink =  CurrentLink->Next;
-    }
-
-    #if DEBUG_PRINT_FRAGMENTED_MEMORY_ALLOCATION
-    {
-      u32 SlotCount = 0;
-      memory_link* CurrentLink2 = LinkedMemory->Sentinel.Next;
-
-      while( CurrentLink2->Next != &LinkedMemory->Sentinel)
-      {
-        SlotCount++;
-        CurrentLink2 = CurrentLink2->Next;
-      }
-      
-      Platform.DEBUGPrint("--==<< Middle Inset >>==--\n");
-      Platform.DEBUGPrint(" - Slot: [%d,%d]\n", SlotSpace, SlotCount);
-      Platform.DEBUGPrint(" - Size: [%d,%d]\n", ActualSize, SlotSize);
-    }
-    #endif
-  }
-
-  // Otherwise push it to the end
-  if(!NewLink)
-  {
-    // At the moment we don't allow the linked memory to grow further than originally allocated
-    Assert(RegionUsed+ActualSize < LinkedMemory->MaxMemSize);
-    #if DEBUG_PRINT_FRAGMENTED_MEMORY_ALLOCATION
-    Platform.DEBUGPrint("--==<< Post Inset >>==--\n");
-    Platform.DEBUGPrint(" - Memory Left  : %d\n", LinkedMemory->MaxMemSize - (u32)RegionUsed + ActualSize);
-    Platform.DEBUGPrint(" - Size: %d\n\n", ActualSize);
-    #endif
-
-    NewLink = (memory_link*) LinkedMemory->Memory;
-    NewLink->Size = ActualSize;
-    LinkedMemory->Memory += ActualSize;
-    ListInsertBefore( &LinkedMemory->Sentinel, NewLink );
-  }
-  
-  LinkedMemory->ActiveMemory += ActualSize;
-  Assert(NewLink);
-  void* Result = (void*)(((u8*)NewLink)+sizeof(memory_link));
-  utils::ZeroSize(RequestedSize, Result);
-
-  #if DEBUG_PRINT_MENU_MEMORY_ALLOCATION
-  {
-    u32 RegionUsed2 = (u32)(LinkedMemory->Memory - LinkedMemory->MemoryBase);
-    u32 TotSize = (u32) LinkedMemory->MaxMemSize;
-    r32 Percentage = RegionUsed2 / (r32) TotSize;
-    u32 ActiveMemory = LinkedMemory->ActiveMemory;
-    r32 Fragmentation = ActiveMemory/(r32)RegionUsed2;
-    
-    Platform.DEBUGPrint("--==<< Post Memory Insert >>==--\n");
-    Platform.DEBUGPrint(" - Tot Mem Used   : %2.3f  (%d/%d)\n", Percentage, RegionUsed2 , TotSize );
-    Platform.DEBUGPrint(" - Fragmentation  : %2.3f  (%d/%d)\n", Fragmentation, ActiveMemory, RegionUsed2 );
-    
-  }
-  #endif
-  return Result;
-}
-
 void FreeMemory(linked_memory* LinkedMemory, void * Payload)
 {
-  memory_link* MemoryLink = GetMemoryLinkFromPayload(Payload);
-  MemoryLink->Previous->Next = MemoryLink->Next;
-  MemoryLink->Next->Previous = MemoryLink->Previous;
-  LinkedMemory->ActiveMemory -= MemoryLink->Size;
-  CheckMemoryListIntegrity(LinkedMemory);
+  #if 0
+  memory_link* MemoryLink = (memory_link*) RetreatByType(Payload, memory_link);
+  Assert(MemoryLink->ChunkIndex < LinkedMemory->ChunkCount);
+
+  linked_memory_chunk* Chunk = LinkedMemory->Sentinel.Next;
+
+  while(Chunk->ChunkIndex != MemoryLink->ChunkIndex)
+  {
+    Assert(Chunk != &LinkedMemory->Sentinel);
+    Chunk = Chunk->Next;
+  }
+
+  memory_link* LinkToRemove = (memory_link*) AdvanceBytePointer(MemoryLink, sizeof(memory_link) + MemoryLink->Size);
+  if(LinkToRemove->FreeSizeAfter > 0)
+  {
+    Delete(&Chunk->MemoryLinkTree, LinkToRemove->FreeSizeAfter, (void*) LinkToRemove);
+  }
+
+  MemoryLink->FreeSizeAfter += MemoryLink->Size;
+  MemoryLink->Size = 0;
+  Insert(&Chunk->MemoryLinkTree, MemoryLink->FreeSizeAfter, MemoryLink);
+  #endif
 }

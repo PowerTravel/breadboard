@@ -2,6 +2,7 @@
 #include "string.h"
 
 
+
 internal u32
 GetContainerPayloadSize(container_type Type)
 {
@@ -218,17 +219,13 @@ u8* GetAttributePointer(container_node* Node, container_attribute Attri)
 
 container_node* NewContainer(menu_interface* Interface, container_type Type)
 {
-  CheckMemoryListIntegrity(&Interface->LinkedMemory);
-
   u32 BaseNodeSize    = sizeof(container_node) + sizeof(memory_link);
   u32 NodePayloadSize = GetContainerPayloadSize(Type);
-  u32 ContainerSize = (BaseNodeSize + NodePayloadSize);
+  midx ContainerSize = (BaseNodeSize + NodePayloadSize);
  
-  container_node* Result = (container_node*) PushSize(&Interface->LinkedMemory, ContainerSize);
+  container_node* Result = (container_node*) Allocate(&Interface->LinkedMemory, ContainerSize);
   Result->Type = Type;
   Result->Functions = GetMenuFunction(Type);
-  
-  CheckMemoryListIntegrity(&Interface->LinkedMemory);
 
   return Result;
 }
@@ -280,7 +277,6 @@ internal void CancelAllUpdateFunctions(menu_interface* Interface, container_node
 void ClearMenuEvents( menu_interface* Interface, container_node* Node);
 void DeleteContainer( menu_interface* Interface, container_node* Node)
 {
-  CheckMemoryListIntegrity(&Interface->LinkedMemory);
   CancelAllUpdateFunctions(Interface, Node );
   ClearMenuEvents(Interface, Node);
   DeleteAllAttributes(Interface, Node);
@@ -289,7 +285,7 @@ void DeleteContainer( menu_interface* Interface, container_node* Node)
 
 menu_tree* NewMenuTree(menu_interface* Interface)
 {
-  menu_tree* Result = (menu_tree*) PushSize(&Interface->LinkedMemory, sizeof(menu_tree));
+  menu_tree* Result = (menu_tree*) Allocate(&Interface->LinkedMemory, sizeof(menu_tree));
   Result->LosingFocus = DeclareFunction(menu_losing_focus, DefaultLosingFocus);
   Result->GainingFocus = DeclareFunction(menu_losing_focus, DefaultGainingFocus);
   ListInsertBefore(&Interface->MenuSentinel, Result);
@@ -958,7 +954,7 @@ void * PushAttribute(menu_interface* Interface, container_node* Node, container_
   }
 
   u32 TotalSize = sizeof(menu_attribute_header) + GetAttributeSize(AttributeType);
-  menu_attribute_header* Attr =  (menu_attribute_header*) PushSize(&Interface->LinkedMemory, TotalSize);
+  menu_attribute_header* Attr =  (menu_attribute_header*) Allocate(&Interface->LinkedMemory, TotalSize);
   Attr->Type = AttributeType;
   *HeaderPtr = Attr;
   void* Result = (void*)(((u8*)Attr) + sizeof(menu_attribute_header));
@@ -2101,7 +2097,7 @@ container_node* CreateSplitWindow( menu_interface* Interface, b32 Vertical, r32 
 menu_interface* CreateMenuInterface(memory_arena* Arena, midx MaxMemSize)
 {
   menu_interface* Interface = PushStruct(Arena, menu_interface);
-  InitiateLinkedMemory(Arena, &Interface->LinkedMemory, MaxMemSize);
+  Interface->LinkedMemory = NewLinkedMemory(Arena, MaxMemSize);
   Interface->BorderSize = 0.007;
   Interface->HeaderSize = 0.02;
   Interface->MinSize = 0.2f; 

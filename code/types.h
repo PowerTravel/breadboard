@@ -57,7 +57,7 @@ typedef double r64;
 #define Align8(Value) ((Value + 7) & ~7)
 #define Align16(Value) ((Value + 15) & ~15)
 
-#define internal		 static
+#define internal		     static
 #define local_persist    static
 #define global_variable  static
 

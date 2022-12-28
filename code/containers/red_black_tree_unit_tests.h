@@ -1420,7 +1420,7 @@ void BigTest()
 
 }
 
-void TestTraverse()
+void TestTraverse(memory_arena* Arena)
 {
   
 /*
@@ -1489,9 +1489,9 @@ void TestTraverse()
   PreOrderGroundTruth.Index = 0;
   PreOrderGroundTruth.ElementCount = 16;
   PreOrderGroundTruth.Elements = PreOrderElements;
-  temporary_memory TempMem = BeginTemporaryMemory(GlobalGameState->TransientArena);
+  temporary_memory TempMem = BeginTemporaryMemory(Arena);
   midx MemorySize = PreOrderGetStackMemorySize(&Tree);
-  void* TraverseStack = PushSize(GlobalGameState->TransientArena, MemorySize);
+  void* TraverseStack = PushSize(Arena, MemorySize);
   PreOrderTraverse(&Tree, TraverseStack, (void*) &PreOrderGroundTruth, TraverseAssertFunction);
   EndTemporaryMemory(TempMem);
 
@@ -1643,7 +1643,7 @@ void TestInsertingSeveralOfSameKey()
   RedBlackTreeAssert(Tree.NodeCount == 0);
 }
 
-void RedBlackTreeUnitTest()
+void RedBlackTreeUnitTest(memory_arena* Arena)
 {
   TestInsertion();
   
@@ -1667,7 +1667,7 @@ void RedBlackTreeUnitTest()
 
   TestDeletionSiblingIsBlackTwoRedChildren_RR();
 
-  TestTraverse();
+  TestTraverse(Arena);
   TestInsertingSeveralOfSameKey();
   BigTest();
 }

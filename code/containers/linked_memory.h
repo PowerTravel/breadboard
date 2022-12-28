@@ -1,37 +1,40 @@
 #pragma once
 
 #include "types.h"
-
-#define GetMemoryLinkFromPayload( Payload ) (memory_link*) (((u8*) (Payload)) - sizeof(memory_link))
-
-#define DEBUG_PRINT_FRAGMENTED_MEMORY_ALLOCATION 0
-#define DEBUG_PRINT_MENU_MEMORY_ALLOCATION 0
+#include "containers/red_black_tree.h"
+#include "containers/chunk_list.h"
 
 struct memory_link
 {
-  u32 Size;
-  memory_link* Next;
-  memory_link* Previous;
+  b32 Allocated; // Tells us if the link repressents allocated space or not.
+  u32 ChunkIndex;
+  // If a memory_link exists in the MemoryLinkTree. It repressents a free chunk of space.
+  //   In that case "Size" holds the ammount of available continous space and is the "Key" in the red_black_tree
+  // If a memory_link does not exist in the MemoryLinkTree. It repressents a allocated chunk of space.
+  //   In that case "Size" holds the ammount of allocated continous space
+  midx Size; 
+  bptr Memory;
+  memory_link* Next;      // Memory link pointing to the next block of memory in address space.
+  memory_link* Previous;  // Memory link pointing to the next block of memory in address space.
+};
+
+struct linked_memory_chunk
+{
+  bptr MemoryBase;
+  memory_link Sentinel;
 };
 
 struct linked_memory
 {
-  u32 ActiveMemory;
-  u32 MaxMemSize;
-  u8* MemoryBase;
-  u8* Memory;
-  memory_link Sentinel;
+  midx ChunkSize;
+  memory_arena* Arena;
+  chunk_list MemoryChunks;       // linked_memory_chunk : Holds the base of allocated memory of size "ChunkSize".
+  chunk_list MemoryLinkNodes;    // red_black_tree_node
+  chunk_list MemoryLinkNodeData; // red_black_tree_node_data
+  chunk_list MemoryLinks;        // memory_link
+  red_black_tree MemoryLinkTree; // Sorts the memory_links.
 };
 
-
-#ifdef HANDMADE_SLOW
-void __CheckMemoryListIntegrity(linked_memory* LinkedMemory);
-#define CheckMemoryListIntegrity(Interface) __CheckMemoryListIntegrity(Interface)
-#elif 
-#define CheckMemoryListIntegrity(Interface)
-#endif
-
-struct memory_arena;
-void InitiateLinkedMemory(memory_arena* Arena, linked_memory* LinkedMemory, midx MaxMemSize);
-void* PushSize(linked_memory* LinkedMemory, u32 RequestedSize);
+linked_memory NewLinkedMemory(memory_arena* Arena, midx ChunkMemSize, u32 ExpectedAllocationCount = 128);
+void* Allocate(linked_memory* LinkedMemory, midx Size);
 void FreeMemory(linked_memory* LinkedMemory, void * Payload);

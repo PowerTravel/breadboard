@@ -29,7 +29,7 @@ void DeleteRBTree(rb_tree* Tree)
   *Tree = {};
 }
 
-void Insert(rb_tree* Tree, u32 Key, void* Data)
+void Insert(rb_tree* Tree, midx Key, void* Data)
 {
   red_black_tree_node* NewNode = (red_black_tree_node*) GetNewBlock(Tree->Arena, &Tree->Nodes);
   red_black_tree_node_data* NewData = (red_black_tree_node_data*) GetNewBlock(Tree->Arena, &Tree->Data);
@@ -45,26 +45,83 @@ void Insert(rb_tree* Tree, u32 Key, void* Data)
   }
 }
 
-void Delete(rb_tree* Tree, int Key)
+u32 GetDataCount(red_black_tree_node const * Node)
 {
-  red_black_tree_node* DeletedNode = RedBlackTreeDelete(&Tree->Tree, Key);
-  if(DeletedNode)
+  red_black_tree_node_data* NodeData = Node->Data;
+  u32 Result = 0;
+  while(NodeData)
   {
-    red_black_tree_node_data* NodeData = DeletedNode->Data;
-    while(NodeData)
+    Result++;
+    NodeData = NodeData->Next;
+  }
+  return Result;
+}
+
+void DeleteSingleData(rb_tree* Tree, red_black_tree_node_data** NodeDataPtr, void* Data)
+{
+  Assert(*NodeDataPtr);
+  while(*NodeDataPtr)
+  {
+    red_black_tree_node_data* DataToDelete = *NodeDataPtr;
+    if(DataToDelete->Data == Data)
     {
-      red_black_tree_node_data* NextData = NodeData->Next;
-      FreeBlock(&Tree->Data, (bptr)NodeData);
-      NodeData = NextData;
+      *NodeDataPtr = DataToDelete->Next;
+      FreeBlock(&Tree->Data, (bptr)DataToDelete);
+      break;
     }
-    FreeBlock(&Tree->Nodes, (bptr)DeletedNode);
+    NodeDataPtr = &(*NodeDataPtr)->Next;
+  }
+}
+
+void DeleteAllData(rb_tree* Tree, red_black_tree_node* Node)
+{
+  red_black_tree_node_data* NodeData = Node->Data;
+  while(NodeData)
+  {
+    red_black_tree_node_data* NextData = NodeData->Next;
+    FreeBlock(&Tree->Data, (bptr)NodeData);
+    NodeData = NextData;
+  }
+}
+
+// Does not have unit tests
+void Delete(rb_tree* Tree, red_black_tree_node* Node, void* Data)
+{
+  Assert(GetDataCount(Node) > 0);
+
+  u32 DataCount = GetDataCount(Node);
+  DeleteSingleData(Tree, &Node->Data, Data);
+  Assert(GetDataCount(Node) == (DataCount-1));
+
+  if(DataCount == 0)
+  {
+    RedBlackTreeDelete(&Tree->Tree, Node->Key);
+    FreeBlock(&Tree->Nodes, (bptr)Node);
+  }
+}
+
+// Does not have unit tests
+void Delete(rb_tree* Tree, size_t Key, void* Data)
+{
+  red_black_tree_node* Node = RedBlackTreeFind(&Tree->Tree, Key);
+  Delete(Tree, Node, Data);
+}
+
+void Delete(rb_tree* Tree, size_t Key)
+{
+  red_black_tree_node* Node = RedBlackTreeDelete(&Tree->Tree, Key);
+  if(Node)
+  {
+    DeleteAllData(Tree, Node);
+    RedBlackTreeDelete(&Tree->Tree, Node->Key);
+    FreeBlock(&Tree->Nodes, (bptr)Node);
   }
 }
 
 // IndexCount returns the total number of data held by a node
 // DataIndex  specifies which data in the list we want to get
 // Returns pointer to the data contained in the node
-void* Find(rb_tree* Tree, int Key, u32 DataIndex = 0, u32* DataCount = 0)
+void* Find(rb_tree* Tree, size_t Key, u32 DataIndex = 0, u32* DataCount = 0)
 {
   red_black_tree_node* Node = RedBlackTreeFind(&Tree->Tree, Key);
   void* Result = 0;

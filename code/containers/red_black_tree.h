@@ -35,7 +35,7 @@ struct red_black_tree_node_data
 
 struct red_black_tree_node
 {
-  int Key;
+  size_t Key;
   node_color Color;
   red_black_tree_node_data* Data;
   red_black_tree_node* Left;
@@ -52,7 +52,7 @@ struct red_black_tree
 // Interface Function:
 red_black_tree NewRedBlackTree();
 red_black_tree_node_data NewRedBlackTreeNodeData(void* Data);
-red_black_tree_node NewRedBlackTreeNode(int Key, red_black_tree_node_data* Data);
+red_black_tree_node NewRedBlackTreeNode(size_t Key, red_black_tree_node_data* Data);
 
 // Don't call InOrderTraverse or PostOrderTraverse in NodeFunction. They modify the tree structure while traversing
 void InOrderTraverse(red_black_tree* Tree, void* CustomData, void (*NodeFunction)  (red_black_tree_node const * Node, void* CustomData) );
@@ -65,9 +65,38 @@ void PreOrderTraverse(red_black_tree* Tree, void* StackMemory, void* CustomData,
 
 // Returns true if a new node was inserted. False if not. It has however added the
 bool RedBlackTreeInsert(red_black_tree* Tree, red_black_tree_node* NewNode);
-red_black_tree_node* RedBlackTreeDelete(red_black_tree* Tree, int Key);
-red_black_tree_node* RedBlackTreeFind(red_black_tree* Tree, int Key);
+red_black_tree_node* RedBlackTreeDelete(red_black_tree* Tree, size_t Key);
+red_black_tree_node* RedBlackTreeFind(red_black_tree* Tree, size_t Key);
 
+// Since red_black_tree_node_data is a list, this function removes a red_black_tree_node_data from that list without touching any memory
+void RedBlackTreeRemoveSingleDataFromDataList(red_black_tree* Tree, red_black_tree_node_data** NodeDataPtr, void* Data);
+inline u32 RedBlackTreeNodeCount(red_black_tree* Tree);
+
+// Note: Not unit tested
+void RedBlackTreeRemoveSingleDataFromDataList(red_black_tree* Tree, red_black_tree_node_data** NodeDataPtr, void* Data)
+{
+  if(!*NodeDataPtr)
+  {
+    return;
+  }
+
+  while(*NodeDataPtr)
+  {
+    red_black_tree_node_data* DataToDelete = *NodeDataPtr;
+    if(DataToDelete->Data == Data)
+    {
+      *NodeDataPtr = DataToDelete->Next;
+      break;
+    }
+    NodeDataPtr = &(*NodeDataPtr)->Next;
+  }
+}
+
+u32 RedBlackTreeNodeCount(red_black_tree* Tree)
+{
+  u32 Result = Tree->NodeCount;
+  return Result;
+}
 
 red_black_tree NewRedBlackTree()
 {
@@ -91,7 +120,7 @@ red_black_tree_node_data NewRedBlackTreeNodeData(void* Data)
 //    Data: A initialized red_black_tree_node_data created with NewRedBlackTreeNodeData(void* Data);
 // Returns
 //    A initialized red_black_tree_node_data struct
-red_black_tree_node NewRedBlackTreeNode(int Key, red_black_tree_node_data* Data)
+red_black_tree_node NewRedBlackTreeNode(size_t Key, red_black_tree_node_data* Data)
 {
   red_black_tree_node Result = {};
   Result.Key = Key;
@@ -477,7 +506,7 @@ struct binary_search_tree_delete_result
   red_black_tree_node_data* ReturnData;
 };
 
-binary_search_tree_delete_result BinarySearchTreeDelete(red_black_tree* Tree, int Key)
+binary_search_tree_delete_result BinarySearchTreeDelete(red_black_tree* Tree, size_t Key)
 {
   binary_search_tree_delete_result Result = {};
   red_black_tree_node* Node = Tree->Root;
@@ -855,7 +884,7 @@ void RecolorTreeAfterDelete(red_black_tree* Tree, binary_search_tree_delete_resu
   }
 }
 
-red_black_tree_node* RedBlackTreeDelete(red_black_tree* Tree, int Key)
+red_black_tree_node* RedBlackTreeDelete(red_black_tree* Tree, size_t Key)
 {
   binary_search_tree_delete_result BSTDelete = BinarySearchTreeDelete(Tree, Key);
   RecolorTreeAfterDelete(Tree, BSTDelete);
@@ -870,7 +899,7 @@ red_black_tree_node* RedBlackTreeDelete(red_black_tree* Tree, int Key)
   return BSTDelete.DeletedNode;
 }
 
-red_black_tree_node* RedBlackTreeFind(red_black_tree* Tree, int Key)
+red_black_tree_node* RedBlackTreeFind(red_black_tree* Tree, size_t Key)
 {
   red_black_tree_node* Node = Tree->Root;
   while(Node)
@@ -942,11 +971,7 @@ void PreOrderTraverse(red_black_tree* Tree, void* StackMemory, void* CustomData,
     StackCount = Pop(StackCount, NodeStack, &Current);
     RedBlackTreeAssert(Current);
 
-    #if 1
     NodeFunction(Current, CustomData);
-    #else
-    Platform.DEBUGPrint("%d %s, ", Current->Key, Current->Color == node_color::RED ? "R" : "B");
-    #endif
 
     StackCount = Push(StackCount, NodeStack, Current->Right);
     StackCount = Push(StackCount, NodeStack, Current->Left);
@@ -1010,11 +1035,7 @@ void PostOrderTraverse(red_black_tree* Tree, void* CustomData, void (*NodeFuncti
 
         while(Prev != NULL)
         {
-          #if 1
           NodeFunction(Prev, CustomData);
-          #else
-          Platform.DEBUGPrint("%d%s, ", Prev->Key, Prev->Color == node_color::RED ? "R" : "B");
-          #endif
 
           Temp = Prev->Right;
           Prev->Right = Current;
@@ -1044,11 +1065,7 @@ void InOrderTraverse(red_black_tree* Tree, void* CustomData, void (*NodeFunction
   {
     if(!Current->Left)
     {
-      #if 1
       NodeFunction(Current, CustomData);
-      #else
-      Platform.DEBUGPrint("%d%s, ", Current->Key, Current->Color == node_color::RED ? "R" : "B");
-      #endif
       Current = Current->Right;
     }else{
       red_black_tree_node* Pre = Current->Left;
@@ -1063,11 +1080,7 @@ void InOrderTraverse(red_black_tree* Tree, void* CustomData, void (*NodeFunction
         Current = Current->Left;
       }else{
         Pre->Right = NULL;
-        #if 1
         NodeFunction(Current, CustomData);
-        #else
-        Platform.DEBUGPrint("%d%s,", Current->Key, Current->Color == node_color::RED ? "R" : "B");
-        #endif
         Current = Current->Right;
       }
     }
