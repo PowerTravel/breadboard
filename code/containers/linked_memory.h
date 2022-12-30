@@ -32,9 +32,16 @@ struct linked_memory
   chunk_list MemoryLinkNodes;    // red_black_tree_node
   chunk_list MemoryLinkNodeData; // red_black_tree_node_data
   chunk_list MemoryLinks;        // memory_link
-  red_black_tree MemoryLinkTree; // Sorts the memory_links.
+  red_black_tree FreeMemoryTree; // Sorts the memory_links pointing to free memory. FreeSize is Keys
+  red_black_tree AllocatedMemoryTree; // Sorts the memory_links pointing to Occupied memory. MemoryLocation are Keys
 };
 
 linked_memory NewLinkedMemory(memory_arena* Arena, midx ChunkMemSize, u32 ExpectedAllocationCount = 128);
 void* Allocate(linked_memory* LinkedMemory, midx Size);
 void FreeMemory(linked_memory* LinkedMemory, void * Payload);
+
+void _VerifyLinkedMemory(linked_memory* LinkedMemory);
+
+#if HANDMADE_SLOW
+  #define DEBUGVerifyLinkedMemory(LinkedMemory) _VerifyLinkedMemory(LinkedMemory)
+#endif

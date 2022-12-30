@@ -72,24 +72,25 @@ red_black_tree_node* RedBlackTreeFind(red_black_tree* Tree, size_t Key);
 void RedBlackTreeRemoveSingleDataFromDataList(red_black_tree* Tree, red_black_tree_node_data** NodeDataPtr, void* Data);
 inline u32 RedBlackTreeNodeCount(red_black_tree* Tree);
 
-// Note: Not unit tested
-void RedBlackTreeRemoveSingleDataFromDataList(red_black_tree* Tree, red_black_tree_node_data** NodeDataPtr, void* Data)
-{
-  if(!*NodeDataPtr)
-  {
-    return;
-  }
 
+// Note: Not unit tested
+red_black_tree_node_data* RedBlackTreePopData(red_black_tree* Tree, red_black_tree_node* Node, void* Data)
+{
+  red_black_tree_node_data** NodeDataPtr = &Node->Data;
+  red_black_tree_node_data* PoppedNodeData = NULL;
   while(*NodeDataPtr)
   {
     red_black_tree_node_data* DataToDelete = *NodeDataPtr;
     if(DataToDelete->Data == Data)
     {
+      PoppedNodeData = DataToDelete;
       *NodeDataPtr = DataToDelete->Next;
       break;
     }
     NodeDataPtr = &(*NodeDataPtr)->Next;
   }
+
+  return PoppedNodeData;
 }
 
 u32 RedBlackTreeNodeCount(red_black_tree* Tree)
@@ -1085,4 +1086,81 @@ void InOrderTraverse(red_black_tree* Tree, void* CustomData, void (*NodeFunction
       }
     }
   }
+}
+
+
+
+void VerifyRBTreeNode(int BlackNodeCount, int* MaxBlackNodeCount, bool* LeafReached, red_black_tree_node* Node)
+{
+  // Properties to verify:
+  // 1  A red node does not have a red child.
+  // 2  Every path from a given node to any of its descendant NIL nodes goes through the same number of black nodes.
+  // 3  Root node is always black
+
+  Assert(Node);
+
+  if(!Node->Parent)
+  {
+    // Verify 3
+    Assert(Node->Color == node_color::BLACK);
+  }else{
+    Assert((Node->Parent->Left == Node) || (Node->Parent->Right == Node));
+  }
+
+  node_color NodeColor = GetColor(Node);
+  if(NodeColor == node_color::RED)
+  {
+    // Verify 1
+    node_color LeftColor = GetColor(Node->Left);
+    node_color RightColor = GetColor(Node->Left);
+    Assert(LeftColor  == node_color::BLACK);
+    Assert(RightColor == node_color::BLACK);
+  }
+  else if(NodeColor == node_color::BLACK)
+  {
+    BlackNodeCount++;
+  }
+
+  if(!Node->Left && !Node->Right)
+  {
+    if(!*LeafReached)
+    {
+      *MaxBlackNodeCount = BlackNodeCount;
+      *LeafReached = true;
+    }else{
+      // Verify 2
+      Assert(*MaxBlackNodeCount == BlackNodeCount);
+    }
+  }else{
+    if(Node->Left)
+    {
+      Assert(Node->Left->Parent == Node);
+      VerifyRBTreeNode(BlackNodeCount, MaxBlackNodeCount, LeafReached, Node->Left);
+    }
+    if(Node->Right)
+    {
+      Assert(Node->Right->Parent == Node);
+      VerifyRBTreeNode(BlackNodeCount, MaxBlackNodeCount, LeafReached, Node->Right);
+    }
+  }
+
+}
+
+void RedBlackTreeVerify(red_black_tree* Tree)
+{
+  // Properties to verify:
+  //   Every node is either red or black.
+  //   All NIL nodes (figure 1) are considered black.
+  //   A red node does not have a red child.
+  //   Every path from a given node to any of its descendant NIL nodes goes through the same number of black nodes.
+  //   Root node is always black
+
+  int BlackNodeCount = 0;
+  int MaxBlackNodeCount = 0;
+  bool LeafReached = false;
+  if(Tree->Root)
+  {
+    VerifyRBTreeNode(BlackNodeCount, &MaxBlackNodeCount, &LeafReached, Tree->Root);
+  }
+
 }
