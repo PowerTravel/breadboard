@@ -64,7 +64,7 @@ size_t PreOrderGetStackMemorySize(red_black_tree* Tree);
 void PreOrderTraverse(red_black_tree* Tree, void* StackMemory, void* CustomData, void (*NodeFunction) (red_black_tree_node const * Node, void* CustomData));
 
 // Returns true if a new node was inserted. False if not. It has however added the
-bool RedBlackTreeInsert(red_black_tree* Tree, red_black_tree_node* NewNode);
+red_black_tree_node* RedBlackTreeInsert(red_black_tree* Tree, red_black_tree_node* NewNode);
 red_black_tree_node* RedBlackTreeDelete(red_black_tree* Tree, size_t Key);
 red_black_tree_node* RedBlackTreeFind(red_black_tree* Tree, size_t Key);
 
@@ -292,17 +292,18 @@ void ColorSwap(red_black_tree_node* NodeA, red_black_tree_node* NodeB)
   NodeB->Color = TmpColor;  
 }
 
-bool BinarySearchTreeInsert(red_black_tree* Tree, red_black_tree_node* NodeToInsert)
+red_black_tree_node* BinarySearchTreeInsert(red_black_tree* Tree, red_black_tree_node* NodeToInsert)
 {
   red_black_tree_node* NodeInTree = Tree->Root;
   if(!Tree->Root)
   { 
     Tree->Root = NodeToInsert;
     Tree->NodeCount++;
-    return true;
+    return NodeToInsert;
   }
 
-  while(true)
+  red_black_tree_node* InsertedNode = NULL;
+  while(!InsertedNode)
   {
     if(NodeInTree->Key > NodeToInsert->Key)
     {
@@ -316,7 +317,7 @@ bool BinarySearchTreeInsert(red_black_tree* Tree, red_black_tree_node* NodeToIns
         NodeInTree->Left = NodeToInsert;
         NodeToInsert->Parent = NodeInTree;
         Tree->NodeCount++;
-        return true;
+        InsertedNode = NodeToInsert;
       }
     }else if(NodeInTree->Key < NodeToInsert->Key){
       // NodeInTree is smaller than NodeToInsert: Navigate Right
@@ -329,19 +330,18 @@ bool BinarySearchTreeInsert(red_black_tree* Tree, red_black_tree_node* NodeToIns
         NodeInTree->Right = NodeToInsert;
         NodeToInsert->Parent = NodeInTree;
         Tree->NodeCount++;
-        return true;
+        InsertedNode = NodeToInsert;
       }
     }else{
       // NodeInTree has samke key as NodeToInsert: Add to data collection and return
       red_black_tree_node_data* Data = NodeInTree->Data;
       NodeToInsert->Data->Next = NodeInTree->Data;
       NodeInTree->Data = NodeToInsert->Data;
-      return false;
+      InsertedNode = NodeInTree;
     }
   }
 
-  // should never reach here
-  return false;
+  return InsertedNode;
 }
 
 void RecolorTreeAfterInsert(red_black_tree* Tree, red_black_tree_node* Node)
@@ -397,15 +397,15 @@ void RecolorTreeAfterInsert(red_black_tree* Tree, red_black_tree_node* Node)
 //    true if a NewNode node was added to the tree (the data was not already in the tree)
 //    false if a NewNode node was NOT added to the tree (the data was already in the tree and added to that node instead)
 //       Note: NewNode has been cleared and can thus be discarded
-bool RedBlackTreeInsert(red_black_tree* Tree, red_black_tree_node* NewNode)
+red_black_tree_node* RedBlackTreeInsert(red_black_tree* Tree, red_black_tree_node* NewNode)
 {
-  bool NodeInserted = BinarySearchTreeInsert(Tree, NewNode);
-  if(NodeInserted)
+  red_black_tree_node* InsertedNode = BinarySearchTreeInsert(Tree, NewNode);
+  if(InsertedNode == NewNode)
   {
     RecolorTreeAfterInsert(Tree, NewNode);
   }
 
-  return NodeInserted;
+  return InsertedNode;
 }
 
 struct node_delete_case

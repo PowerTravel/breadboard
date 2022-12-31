@@ -33,6 +33,9 @@ struct linked_memory
   chunk_list MemoryLinkNodeData; // red_black_tree_node_data
   chunk_list MemoryLinks;        // memory_link
   red_black_tree FreeMemoryTree; // Sorts the memory_links pointing to free memory. FreeSize is Keys
+  // Todo: This tree is used when freeing memory. Replace it with stuffing the links in the Chunks Memory base
+  //       | Allocated Link | Memory | Allocated Link | Memory |.
+  //       Then  freeing is a O(Log(free slots)) instead of a O(Log(Allocated Slots)) * O(Log(free slots))
   red_black_tree AllocatedMemoryTree; // Sorts the memory_links pointing to Occupied memory. MemoryLocation are Keys
 };
 

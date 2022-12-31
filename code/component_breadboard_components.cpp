@@ -163,28 +163,6 @@ entity_id CreateElectricalComponent(entity_manager* EM, ElectricalComponentType 
       ConnectPinToElectricalComponent(ElectricalComponent, Pin);
     }break;
   }
-#if 0
-  
-  if(Pushed(Keyboard->Key_G))
-  {
-    entity_id ConnectorPin = NewEntity(EM, COMPONENT_FLAG_CONNECTOR_PIN);
-    component_connector_pin* Pin = GetConnectorPinComponent(&ConnectorPin);
-    Pin->Type = ElectricalPinType::Sink;
-    Pin->Component = Component;
-    
-    r32 Angle = Pi32;
-    component_hitbox* PinHitbox = GetHitboxComponent(&ConnectorPin);
-    hitbox_triangle* Triangle = &PinHitbox->Triangle;
-    CreateTrianglePinHitbox(Pin->Type, Triangle, Angle);
-    SetPositionOfConnectorPin(ElectricalComponentHitbox->Position, Angle, PinHitbox);
-
-    PinHitbox->Position.X = Hitbox->Position.X + ConnectorRadius * Cos(Angle);
-    PinHitbox->Position.Y = Hitbox->Position.Y + ConnectorRadius * Sin(Angle);
-
-    Component->Type = ElectricalComponentType_Ground;
-    Component->FirstPin = Pin;
-  }
-  #endif
 
   return Result;
 }

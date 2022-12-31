@@ -1606,14 +1606,14 @@ void TestInsertingSeveralOfSameKey()
   red_black_tree Tree = NewRedBlackTree();
   for (int Index = 0; Index < ArrayCount(InsertionKeys); ++Index)
   {
-    bool NewNodeAdded = RedBlackTreeInsert(&Tree, &Nodes[Index]);
+    red_black_tree_node* NewNodeAdded = RedBlackTreeInsert(&Tree, &Nodes[Index]);
     if(Index < 16)
     {
       // Node was inserted
-      RedBlackTreeAssert(NewNodeAdded);
+      RedBlackTreeAssert(NewNodeAdded == &Nodes[Index]);
     }else{
       // Node was not inserted, only data
-      RedBlackTreeAssert(!NewNodeAdded);
+      RedBlackTreeAssert(NewNodeAdded != &Nodes[Index]);
     } 
   }
 

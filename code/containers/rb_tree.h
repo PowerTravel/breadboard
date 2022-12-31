@@ -36,8 +36,8 @@ void Insert(rb_tree* Tree, midx Key, void* Data)
   *NewData = NewRedBlackTreeNodeData(Data);
   *NewNode = NewRedBlackTreeNode(Key, NewData);
   
-  b32 NodeInserted = RedBlackTreeInsert(&Tree->Tree, NewNode);
-  if(!NodeInserted)
+  red_black_tree_node* InsertedNode = RedBlackTreeInsert(&Tree->Tree, NewNode);
+  if(InsertedNode!=NewNode)
   {
     // Free the node memory if the node was already in the tree
     // Data was added however

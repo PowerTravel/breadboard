@@ -27,7 +27,62 @@ void _VerifyLinkedMemory(linked_memory* LinkedMemory)
   RedBlackTreeVerify(&LinkedMemory->FreeMemoryTree);
 }
 
-linked_memory NewLinkedMemory(memory_arena* Arena, midx ChunkMemSize, u32 ExpectedAllocationCount)
+internal inline red_black_tree_node* GetNewNode(linked_memory* LinkedMemory, memory_link* Link, midx Key)
+{
+  red_black_tree_node_data* NodeData = (red_black_tree_node_data*) GetNewBlock(LinkedMemory->Arena, &LinkedMemory->MemoryLinkNodeData);
+  *NodeData = NewRedBlackTreeNodeData(Link);
+
+  red_black_tree_node* Node = (red_black_tree_node*) GetNewBlock(LinkedMemory->Arena, &LinkedMemory->MemoryLinkNodes);
+  *Node = NewRedBlackTreeNode(Key, NodeData);
+  return Node;
+}
+
+internal inline red_black_tree_node* PushNodeToTree(linked_memory* LinkedMemory, red_black_tree* Tree, red_black_tree_node* Node)
+{
+  // Insert the link repressenting free space into the tree
+  red_black_tree_node* InsertedNode = RedBlackTreeInsert(Tree, Node);
+
+  // If node was not inserted, it means we inserted a duplicate key, and node_data was pushed to the already
+  // inserted node. The allocated node can thus be freed.
+  if(InsertedNode != Node)
+  {
+    FreeBlock(&LinkedMemory->MemoryLinkNodes, (bptr) Node);
+  }
+
+  return InsertedNode;
+}
+
+internal memory_link* GetNewLink(linked_memory* LinkedMemory, memory_link* PreviousLink, u32 ChunkIndex, midx Size, b32 Allocated, bptr Memory)
+{
+  // Create a new memory_link repressenting free space
+  memory_link* Link = (memory_link*) GetNewBlock(LinkedMemory->Arena, &LinkedMemory->MemoryLinks);
+  Link->Allocated = Allocated;
+  Link->ChunkIndex = ChunkIndex;
+  Link->Size = Size;
+  Link->Memory = Memory;
+
+  ListInsertAfter(PreviousLink, Link);
+  return Link;
+}
+
+internal red_black_tree_node* CreateNewChunk(linked_memory* LinkedMemory)
+{
+  u32 IndexOfChunk = 0;
+  linked_memory_chunk* Chunk = (linked_memory_chunk*) GetNewBlock(LinkedMemory->Arena, &LinkedMemory->MemoryChunks, &IndexOfChunk);
+  Chunk->MemoryBase = (bptr) PushSize(LinkedMemory->Arena, LinkedMemory->ChunkSize);
+  ListInitiate(&Chunk->Sentinel);
+
+  // Create a new memory_link repressenting free space
+  memory_link* Link = GetNewLink(LinkedMemory, &Chunk->Sentinel, IndexOfChunk, LinkedMemory->ChunkSize, false, Chunk->MemoryBase);
+
+  // Attach Get new node with the attached link as data. Key is Size
+  red_black_tree_node* Node = GetNewNode(LinkedMemory, Link, Link->Size);
+  
+  red_black_tree_node* InsertedNode = PushNodeToTree(LinkedMemory, &LinkedMemory->FreeMemoryTree, Node);
+  return InsertedNode;
+}
+
+internal linked_memory NewLinkedMemory(memory_arena* Arena, midx ChunkMemSize, u32 ExpectedAllocationCount)
 {
   linked_memory LinkedMemory = {};
   LinkedMemory.Arena = Arena;
@@ -43,30 +98,8 @@ linked_memory NewLinkedMemory(memory_arena* Arena, midx ChunkMemSize, u32 Expect
   LinkedMemory.AllocatedMemoryTree = NewRedBlackTree();
 
   // Allocate first memory chunk
-  u32 IndexOfChunk = 0;
-  linked_memory_chunk* Chunk = (linked_memory_chunk*) GetNewBlock(LinkedMemory.Arena, &LinkedMemory.MemoryChunks, &IndexOfChunk);
-  Chunk->MemoryBase = (bptr) PushSize(LinkedMemory.Arena, ChunkMemSize);
-  ListInitiate(&Chunk->Sentinel);
-
-  // Create a new memory_link repressenting free space
-  memory_link* Link = (memory_link*) GetNewBlock(LinkedMemory.Arena, &LinkedMemory.MemoryLinks);
-  Link->Allocated = false;
-  Link->ChunkIndex = IndexOfChunk;
-  Link->Size = ChunkMemSize;
-  Link->Memory = Chunk->MemoryBase;
-  ListInsertAfter(&Chunk->Sentinel, Link);
-
-  // Attach the link to a node_data struct
-  red_black_tree_node_data* NodeData = (red_black_tree_node_data*) GetNewBlock(LinkedMemory.Arena, &LinkedMemory.MemoryLinkNodeData);
-  *NodeData = NewRedBlackTreeNodeData(Link);
-
-  // Attach the node_data to a node struct
-  red_black_tree_node* Node = (red_black_tree_node*) GetNewBlock(LinkedMemory.Arena, &LinkedMemory.MemoryLinkNodes);
-  *Node = NewRedBlackTreeNode(Link->Size, NodeData);
-
-  // Insert the link repressenting free space into the tree
-  RedBlackTreeInsert(&LinkedMemory.FreeMemoryTree, Node);
-
+  CreateNewChunk(&LinkedMemory);
+ 
   return LinkedMemory;
 }
 
@@ -118,32 +151,34 @@ internal red_black_tree_node* FindNodeWithFreeSpace(linked_memory* LinkedMemory,
   if(!Node)
   {
     // There is no continous space chunk left in any chunk to hold the required memory. We allocate a new chunk.
-    u32 IndexOfChunk = 0;
-    linked_memory_chunk* Chunk = (linked_memory_chunk*) GetNewBlock(LinkedMemory->Arena, &LinkedMemory->MemoryChunks, &IndexOfChunk);
-    Chunk->MemoryBase = (bptr) PushSize(LinkedMemory->Arena, LinkedMemory->ChunkSize);
-    ListInitiate(&Chunk->Sentinel);
-
-    // Create a new memory_link repressenting free space
-    memory_link* Link = (memory_link*) GetNewBlock(LinkedMemory->Arena, &LinkedMemory->MemoryLinks);
-    Link->Allocated = false;
-    Link->ChunkIndex = IndexOfChunk;
-    Link->Size = LinkedMemory->ChunkSize;
-    Link->Memory = Chunk->MemoryBase;
-    ListInsertAfter(&Chunk->Sentinel, Link);
-
-    // Attach the link to a node_data struct
-    red_black_tree_node_data* NodeData = (red_black_tree_node_data*) GetNewBlock(LinkedMemory->Arena, &LinkedMemory->MemoryLinkNodeData);
-    *NodeData = NewRedBlackTreeNodeData(Link);
-
-    // Attach the node_data to a node struct
-    Node = (red_black_tree_node*) GetNewBlock(LinkedMemory->Arena, &LinkedMemory->MemoryLinkNodes);
-    *Node = NewRedBlackTreeNode(Link->Size, NodeData);
-
-    // Insert the link repressenting free space into the tree
-    RedBlackTreeInsert(FreeTree, Node);
+    Node = CreateNewChunk(LinkedMemory);
   }
 
   return Node;
+}
+
+internal void DeleteFreeLink(linked_memory* LinkedMemory, red_black_tree* Tree, red_black_tree_node* Node, memory_link* Link)
+{
+  red_black_tree_node_data* PoppedData = RedBlackTreePopData(Tree, Node, Link);
+  Assert(PoppedData);
+  // If that was the only data, remove the node
+  if(!Node->Data)
+  {
+    Node = RedBlackTreeDelete(Tree, Link->Size);
+    FreeBlock(&LinkedMemory->MemoryLinkNodes, (bptr) Node);
+  }
+
+  FreeBlock(&LinkedMemory->MemoryLinkNodeData, (bptr) PoppedData);
+
+  ListRemove(Link);
+  FreeBlock(&LinkedMemory->MemoryLinks, (bptr) Link);
+}
+
+
+internal void DeleteFreeLink(linked_memory* LinkedMemory, red_black_tree* Tree, memory_link* Link)
+{
+  red_black_tree_node* Node = RedBlackTreeFind(Tree, Link->Size);
+  DeleteFreeLink(LinkedMemory, Tree, Node, Link); 
 }
 
 void* Allocate(linked_memory* LinkedMemory, midx Size)
@@ -174,84 +209,36 @@ void* Allocate(linked_memory* LinkedMemory, midx Size)
   //       Allocate mem7 of same size
   //       | mem1 | mem2 |      | mem4 | mem7 |
   //       Mem 7 is inserted in the slot previously held by mem 6
-  red_black_tree_node_data* NodeData = Node->Data;
-  memory_link* Link = (memory_link*) NodeData->Data;
+  memory_link* Link = (memory_link*) Node->Data->Data;
   Assert(Link->Next && Link->Previous);
-
   Assert(Size <= Link->Size);
-  midx Key = Link->Size;
+
   midx FreeSpaceLeft = Link->Size - Size;
-  Link->Size = Size;
-  Link->Allocated = true;
+  bptr Memory = Link->Memory;
+  u32 ChunkIndex = Link->ChunkIndex;
+  memory_link* PreviousLink = Link->Previous;
 
-  // Remove the Link from the tree, but keep node_data and memory_link
-  red_black_tree_node_data* PoppedData = RedBlackTreePopData(FreeTree, Node, (void*) Link);
-  Assert(NodeData == PoppedData);
-
-  if(!Node->Data)
-  {
-    // Node is now empty. Remove from FreeTree, but keep the node memory
-    Node = RedBlackTreeDelete(FreeTree, Node->Key);
-  }else{
-    // If we don't remove the node from the tree, allocate a new node for the allocated tree
-    Node = (red_black_tree_node*) GetNewBlock(LinkedMemory->Arena, &LinkedMemory->MemoryLinkNodes);
-  }
+  DeleteFreeLink(LinkedMemory, FreeTree, Node, Link);
 
   // Push The allocated Node to the allocated tree
-  *NodeData = NewRedBlackTreeNodeData(Link);
-  *Node = NewRedBlackTreeNode( (size_t) Link->Memory, NodeData);
-  b32 WasInserted = RedBlackTreeInsert(AllocatedTree, Node);
-  Assert(WasInserted);
+  memory_link* NewAllocatedLink = GetNewLink(LinkedMemory, PreviousLink, ChunkIndex, Size, true, Memory);
+  red_black_tree_node* NewAllocatedNode = GetNewNode(LinkedMemory, NewAllocatedLink, (size_t) NewAllocatedLink->Memory);
+  PushNodeToTree(LinkedMemory, AllocatedTree, NewAllocatedNode);
 
   // If there is space left we create a new memory_link repressenting free space left after the allocated space
   if(FreeSpaceLeft > 0)
   {
-    memory_link* NewLink = (memory_link*) GetNewBlock(LinkedMemory->Arena, &LinkedMemory->MemoryLinks);
-    NewLink->Allocated = false;
-    NewLink->ChunkIndex = Link->ChunkIndex;
-    NewLink->Size = FreeSpaceLeft;
-    NewLink->Memory = Link->Memory + Size;
-    ListInsertAfter(Link, NewLink);
-
-    // Attach the link to a node_data struct
-    red_black_tree_node_data* NewNodeData = (red_black_tree_node_data*) GetNewBlock(LinkedMemory->Arena, &LinkedMemory->MemoryLinkNodeData);
-    *NewNodeData = NewRedBlackTreeNodeData(NewLink);
-
-    // Attach the node_data to a node struct
-    red_black_tree_node* NewNode = (red_black_tree_node*) GetNewBlock(LinkedMemory->Arena, &LinkedMemory->MemoryLinkNodes);
-    *NewNode = NewRedBlackTreeNode(NewLink->Size, NewNodeData);
-
-    // Insert the link repressenting free space into the tree
-    WasInserted = RedBlackTreeInsert(FreeTree, NewNode);
-    if(!WasInserted)
-    {
-      // NodeData was inserted into an already existing node. So we free the node we just allocated.
-      FreeBlock(&LinkedMemory->MemoryLinkNodes, (bptr) NewNode);
-    }
+    bptr FreeMemory = Link->Memory + Size;
+    memory_link* NewFreeLink = GetNewLink(LinkedMemory, NewAllocatedLink, ChunkIndex, FreeSpaceLeft, false, FreeMemory);
+    red_black_tree_node* NewFreeNode = GetNewNode(LinkedMemory, NewFreeLink, NewFreeLink->Size);
+    PushNodeToTree(LinkedMemory, FreeTree, NewFreeNode);    
   }
 
-  utils::ZeroSize(Size, Link->Memory);
+  utils::ZeroSize(Size, NewAllocatedLink->Memory);
 
-  return Link->Memory;
+  return NewAllocatedLink->Memory;
 }
 
-void DeleteFreeLink(linked_memory* LinkedMemory, red_black_tree* Tree, memory_link* Link)
-{
-  red_black_tree_node* Node = RedBlackTreeFind(Tree, Link->Size);
-  red_black_tree_node_data* PoppedData = RedBlackTreePopData(Tree, Node, Link);
-  Assert(PoppedData);
-  // If that was the only data, remove the node
-  if(!Node->Data)
-  {
-    Node = RedBlackTreeDelete(Tree, Link->Size);
-    FreeBlock(&LinkedMemory->MemoryLinkNodes, (bptr) Node);
-  }
-
-  FreeBlock(&LinkedMemory->MemoryLinkNodeData, (bptr) PoppedData);
-
-  ListRemove(Link);
-  FreeBlock(&LinkedMemory->MemoryLinks, (bptr) Link);
-}
 
 void FreeMemory(linked_memory* LinkedMemory, void * Payload)
 {
@@ -294,10 +281,6 @@ void FreeMemory(linked_memory* LinkedMemory, void * Payload)
 
   *NodeData = NewRedBlackTreeNodeData( (void*) Link);
   *Node = NewRedBlackTreeNode(Link->Size, NodeData);
-  b32 WasInserted = RedBlackTreeInsert(FreeTree, Node);
-  if(!WasInserted)
-  {
-    FreeBlock(&LinkedMemory->MemoryLinkNodes, (bptr) Node);
-  }
+  PushNodeToTree(LinkedMemory, FreeTree, Node);
 
 }
