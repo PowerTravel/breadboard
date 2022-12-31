@@ -12,18 +12,31 @@ void _VerifyLinkedMemory(linked_memory* LinkedMemory)
     memory_link* Link = Chunk->Sentinel.Next;
     while(Link != &Chunk->Sentinel)
     {
+      if(Link->Allocated)
+      {
+        Assert(Link->Memory == ((bptr)Link + sizeof(memory_link)));
+      }
       if(Link->Previous != &Chunk->Sentinel)
       {
         memory_link* PreviousLink = Link->Previous;
-        Assert(Link->Memory == (PreviousLink->Memory + PreviousLink->Size));
+        if(Link->Allocated)
+        {
+          Assert((bptr) Link == (PreviousLink->Memory + PreviousLink->Size));
+        }else{
+          Assert(Link->Memory == (PreviousLink->Memory + PreviousLink->Size));
+        }
       }else{
-        Assert(Link->Memory == Chunk->MemoryBase);
+        if(Link->Allocated)
+        {
+          Assert(Link->Memory == Chunk->MemoryBase + sizeof(memory_link));
+        }else{
+          Assert(Link->Memory == Chunk->MemoryBase);
+        }
       }
       Link = Link->Next;
     }
   }
 
-  RedBlackTreeVerify(&LinkedMemory->AllocatedMemoryTree);
   RedBlackTreeVerify(&LinkedMemory->FreeMemoryTree);
 }
 
@@ -82,7 +95,7 @@ internal red_black_tree_node* CreateNewChunk(linked_memory* LinkedMemory)
   return InsertedNode;
 }
 
-internal linked_memory NewLinkedMemory(memory_arena* Arena, midx ChunkMemSize, u32 ExpectedAllocationCount)
+linked_memory NewLinkedMemory(memory_arena* Arena, midx ChunkMemSize, u32 ExpectedAllocationCount)
 {
   linked_memory LinkedMemory = {};
   LinkedMemory.Arena = Arena;
@@ -94,8 +107,6 @@ internal linked_memory NewLinkedMemory(memory_arena* Arena, midx ChunkMemSize, u
   LinkedMemory.MemoryLinkNodeData = NewChunkList(Arena, sizeof(red_black_tree_node_data), ExpectedAllocationCount);
   LinkedMemory.MemoryLinks = NewChunkList(Arena, sizeof(memory_link), ExpectedAllocationCount);
   LinkedMemory.FreeMemoryTree = NewRedBlackTree();
-
-  LinkedMemory.AllocatedMemoryTree = NewRedBlackTree();
 
   // Allocate first memory chunk
   CreateNewChunk(&LinkedMemory);
@@ -190,9 +201,11 @@ void* Allocate(linked_memory* LinkedMemory, midx Size)
   Assert(Size < LinkedMemory->ChunkSize);
 
   red_black_tree* FreeTree = &LinkedMemory->FreeMemoryTree;
-  red_black_tree* AllocatedTree = &LinkedMemory->AllocatedMemoryTree;
 
-  red_black_tree_node* Node = FindNodeWithFreeSpace(LinkedMemory, Size);
+  midx EffectiveSize = Size + sizeof(memory_link);
+
+  red_black_tree_node* Node = FindNodeWithFreeSpace(LinkedMemory, EffectiveSize);
+
   Assert(Node); // Node should exist in tree
 
   // Note: The red_black_tree stores duplicate keys with the latest inserted key being
@@ -210,25 +223,26 @@ void* Allocate(linked_memory* LinkedMemory, midx Size)
   //       | mem1 | mem2 |      | mem4 | mem7 |
   //       Mem 7 is inserted in the slot previously held by mem 6
   memory_link* Link = (memory_link*) Node->Data->Data;
+  u32 ChunkIndex = Link->ChunkIndex;
   Assert(Link->Next && Link->Previous);
   Assert(Size <= Link->Size);
 
-  midx FreeSpaceLeft = Link->Size - Size;
-  bptr Memory = Link->Memory;
-  u32 ChunkIndex = Link->ChunkIndex;
-  memory_link* PreviousLink = Link->Previous;
+  midx FreeSpaceLeft = Link->Size - EffectiveSize;
+
+  memory_link* NewAllocatedLink = (memory_link*) Link->Memory;
+  *NewAllocatedLink = *Link;
+  NewAllocatedLink->Allocated = true;
+  NewAllocatedLink->Size = Size;
+  NewAllocatedLink->Memory += sizeof(memory_link);
+
+  ListInsertAfter(Link, NewAllocatedLink);
 
   DeleteFreeLink(LinkedMemory, FreeTree, Node, Link);
-
-  // Push The allocated Node to the allocated tree
-  memory_link* NewAllocatedLink = GetNewLink(LinkedMemory, PreviousLink, ChunkIndex, Size, true, Memory);
-  red_black_tree_node* NewAllocatedNode = GetNewNode(LinkedMemory, NewAllocatedLink, (size_t) NewAllocatedLink->Memory);
-  PushNodeToTree(LinkedMemory, AllocatedTree, NewAllocatedNode);
 
   // If there is space left we create a new memory_link repressenting free space left after the allocated space
   if(FreeSpaceLeft > 0)
   {
-    bptr FreeMemory = Link->Memory + Size;
+    bptr FreeMemory = NewAllocatedLink->Memory + Size;
     memory_link* NewFreeLink = GetNewLink(LinkedMemory, NewAllocatedLink, ChunkIndex, FreeSpaceLeft, false, FreeMemory);
     red_black_tree_node* NewFreeNode = GetNewNode(LinkedMemory, NewFreeLink, NewFreeLink->Size);
     PushNodeToTree(LinkedMemory, FreeTree, NewFreeNode);    
@@ -243,44 +257,46 @@ void* Allocate(linked_memory* LinkedMemory, midx Size)
 void FreeMemory(linked_memory* LinkedMemory, void * Payload)
 {
   TIMED_FUNCTION();
-  red_black_tree* AllocatedTree = &LinkedMemory->AllocatedMemoryTree;
   red_black_tree* FreeTree = &LinkedMemory->FreeMemoryTree;
 
-  // Remove the node from the allocated tree
-  // We don't delete the node and nodedata from the chunklist because we will reuse them for the new free link
-  red_black_tree_node* Node = RedBlackTreeDelete(AllocatedTree, (midx) Payload);
-  Assert(Node);
-  red_black_tree_node_data* NodeData = Node->Data;
-  memory_link* Link = (memory_link*) NodeData->Data;
+  memory_link* LinkToFree = (memory_link*) RetreatByType(Payload, memory_link);
 
-  Link->Allocated = false;
+  // Sanity check that we got the right input Payload
+  Assert( ((bptr) LinkToFree + sizeof(memory_link)) == LinkToFree->Memory );
+
+  memory_link* PreviousLink = LinkToFree->Previous;
+  memory_link* NextLink = LinkToFree->Next;
+  ListRemove(LinkToFree);
+  u32 ChunkIndex = LinkToFree->ChunkIndex;
+  midx FreeSpace = LinkToFree->Size + sizeof(memory_link);
+  bptr Memory = (bptr) LinkToFree;
 
   // If the next link in the memory_link chain is a free link, we need to  remove that link from the freed memory tree and add
   // its size to the Link
-  linked_memory_chunk* Chunk = (linked_memory_chunk*) GetBlockIfItExists(&LinkedMemory->MemoryChunks, Link->ChunkIndex);
+  linked_memory_chunk* Chunk = (linked_memory_chunk*) GetBlockIfItExists(&LinkedMemory->MemoryChunks, ChunkIndex);
   Assert(Chunk); // The chunk associated with the link must exist
   
-  // If Link is not the first link and the link before is unallocated space
+  // If LinkToFree was not the first link and the link before is unallocated space
   // we want to merge them
-  memory_link* PreviousLink = Link->Previous;
   if(PreviousLink != &Chunk->Sentinel && !PreviousLink->Allocated)
   {
-    Link->Size += PreviousLink->Size;
-    Link->Memory = PreviousLink->Memory;
-    DeleteFreeLink(LinkedMemory, FreeTree, PreviousLink);
+    FreeSpace += PreviousLink->Size;
+    Memory = PreviousLink->Memory;
+    memory_link* Tmp = PreviousLink;
+    PreviousLink = PreviousLink->Previous;
+    DeleteFreeLink(LinkedMemory, FreeTree, Tmp);
   }
 
-  memory_link* NextLink = Link->Next;
-  // If Link is not the Last link and the link before is unallocated space
+  // If LinkToFree was not the Last link and the link before is unallocated space
   // we want to merge them
   if(NextLink != &Chunk->Sentinel && !NextLink->Allocated)
   {
-    Link->Size += NextLink->Size;
+    FreeSpace += NextLink->Size;
     DeleteFreeLink(LinkedMemory, FreeTree, NextLink); 
   }
 
-  *NodeData = NewRedBlackTreeNodeData( (void*) Link);
-  *Node = NewRedBlackTreeNode(Link->Size, NodeData);
-  PushNodeToTree(LinkedMemory, FreeTree, Node);
+  memory_link* NewFreeLink = GetNewLink(LinkedMemory, PreviousLink, ChunkIndex, FreeSpace, false, Memory);
+  red_black_tree_node* NewFreeNode = GetNewNode(LinkedMemory, NewFreeLink, NewFreeLink->Size);
+  PushNodeToTree(LinkedMemory, FreeTree, NewFreeNode);
 
 }

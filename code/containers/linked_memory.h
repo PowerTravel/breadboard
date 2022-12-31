@@ -8,10 +8,19 @@ struct memory_link
 {
   b32 Allocated; // Tells us if the link repressents allocated space or not.
   u32 ChunkIndex;
-  // If a memory_link exists in the MemoryLinkTree. It repressents a free chunk of space.
-  //   In that case "Size" holds the ammount of available continous space and is the "Key" in the red_black_tree
-  // If a memory_link does not exist in the MemoryLinkTree. It repressents a allocated chunk of space.
-  //   In that case "Size" holds the ammount of allocated continous space
+  // If a memory_link exists in the FreeMemoryTree. It repressents a free chunk of space.
+  //   Memory variable points to the unallocated space and Size is the size of the free space chunk
+  // If a memory_link does not exist in the MemoryLinkTree it exists within the linked memeory chunk.
+  //   It is a header to the AllocatedSpace. Memory points to the allocated space and Size is the size of allocated space
+  //   Thus the whole used memory is Size + sizeof(memory_link)
+  //
+  //   In the below example, 
+  //     MemoryLinkA's address is MemoryBase
+  //      -> Size is the size of AllocatedSpaceA.
+  //      -> Memory points to the address of AllocatedSpaceA which is MemoryLinkA + sizeof(memory_link)
+  //     FreeSpaceB is pointed to via Memory variable of a memory_link living in FreeMemoryTree who's Key is Size
+  //   MemoryBase -> | MemoryLinkA | AllocatedSpaceA | FreeSpaceB | MemoryLinkC | AllocatedSpaceC | MemoryLinkD | AllocatedSpaceD| ...
+  //
   midx Size; 
   bptr Memory;
   memory_link* Next;      // Memory link pointing to the next block of memory in address space.
@@ -31,12 +40,8 @@ struct linked_memory
   chunk_list MemoryChunks;       // linked_memory_chunk : Holds the base of allocated memory of size "ChunkSize".
   chunk_list MemoryLinkNodes;    // red_black_tree_node
   chunk_list MemoryLinkNodeData; // red_black_tree_node_data
-  chunk_list MemoryLinks;        // memory_link
+  chunk_list MemoryLinks;        // memory_link : Holds memory links which repressents unallocated space in the FreeMemoryTree
   red_black_tree FreeMemoryTree; // Sorts the memory_links pointing to free memory. FreeSize is Keys
-  // Todo: This tree is used when freeing memory. Replace it with stuffing the links in the Chunks Memory base
-  //       | Allocated Link | Memory | Allocated Link | Memory |.
-  //       Then  freeing is a O(Log(free slots)) instead of a O(Log(Allocated Slots)) * O(Log(free slots))
-  red_black_tree AllocatedMemoryTree; // Sorts the memory_links pointing to Occupied memory. MemoryLocation are Keys
 };
 
 linked_memory NewLinkedMemory(memory_arena* Arena, midx ChunkMemSize, u32 ExpectedAllocationCount = 128);

@@ -27,13 +27,13 @@ void VerifyLinkedMemoryCounts(linked_memory* LinkedMemory, u32 MemoryChunkCount,
   Assert(RedBlackTreeNodeCount(&LinkedMemory->FreeMemoryTree) == MemoryLinkNodeCount);
 }
 
-unit_test_linked_memory_tree_verification_struct CreateTreeVerificationStruct(u32 LinkCount, const memory_link* Links, b32 Allocated)
+unit_test_linked_memory_tree_verification_struct CreateTreeVerificationStruct(u32 LinkCount, const memory_link* Links)
 {
   unit_test_linked_memory_tree_verification_struct Result = {};
   u32 LinkIndex = 0;
   for (int Index = 0; Index < LinkCount; ++Index)
   {
-    if(Links[Index].Allocated == Allocated)
+    if(Links[Index].Allocated == false)
     {
       Result.Link[LinkIndex] = Links[Index];
       LinkIndex++;
@@ -71,35 +71,6 @@ void VerifyFreeTreeFunction(red_black_tree_node const * Node, void* CustomData)
     }
 
     Data = Data->Next;
-  }
-}
-
-
-void VerifyAllocatedTreeFunction(red_black_tree_node const * Node, void* CustomData)
-{
-  unit_test_linked_memory_tree_verification_struct* GroundTruth = (unit_test_linked_memory_tree_verification_struct*) CustomData;
-  red_black_tree_node_data* Data = Node->Data;
-
-  memory_link* Link = (memory_link*) Data->Data;
-  Assert(!Data->Next);
-
-  b32 Found = false;
-  u32 Index = 0;
-  while(!Found)
-  {
-    memory_link* GT_Link = &GroundTruth->Link[Index];
-    b32* Checked = &GroundTruth->Checked[Index];
-    if(!*Checked)
-    {
-      if(GT_Link->Size == Link->Size && GT_Link->ChunkIndex == Link->ChunkIndex && GT_Link->Memory == Link->Memory && Node->Key == ((midx) Link->Memory))
-      {
-        Assert(Link->Allocated);
-        *Checked = true;
-        Found = true;
-      }
-    }
-    Assert(Index < GroundTruth->LinkCount);
-    Index++;
   }
 }
 
@@ -152,7 +123,7 @@ void VerifyLinkedMemory(linked_memory* LinkedMemory, u32 ChunkCount, const u32* 
   Assert(ChunkIndex == ChunkCount);
 }
   
-void Verify(linked_memory* LinkedMemory, memory_link* LinkGroundTruth, u32 ChunkCount, const u32* LinkCountPerChunk, u32 AllocatedNodeCount, u32 FreeNodeCount)
+void Verify(linked_memory* LinkedMemory, memory_link* LinkGroundTruth, u32 ChunkCount, const u32* LinkCountPerChunk, u32 FreeLinkCount, u32 FreeNodeCount)
 {
   u32 LinkCount = 0;
   for (int Index = 0; Index < ChunkCount; ++Index)
@@ -160,24 +131,17 @@ void Verify(linked_memory* LinkedMemory, memory_link* LinkGroundTruth, u32 Chunk
     LinkCount += LinkCountPerChunk[Index];
   }
 
-  u32 TotalNodeCount = AllocatedNodeCount + FreeNodeCount;
-
   VerifyLinkedMemory(LinkedMemory, ChunkCount, LinkCountPerChunk, LinkGroundTruth);
 
-  unit_test_linked_memory_tree_verification_struct AllocatedTeeGroundTruth = CreateTreeVerificationStruct(LinkCount, LinkGroundTruth, true);
-  InOrderTraverse(&LinkedMemory->AllocatedMemoryTree, (void*) &AllocatedTeeGroundTruth, VerifyAllocatedTreeFunction);
-  VerifyTree(&AllocatedTeeGroundTruth);
-
-  unit_test_linked_memory_tree_verification_struct FreeTeeGroundTruth = CreateTreeVerificationStruct(LinkCount, LinkGroundTruth, false);
+  unit_test_linked_memory_tree_verification_struct FreeTeeGroundTruth = CreateTreeVerificationStruct(LinkCount, LinkGroundTruth);
   InOrderTraverse(&LinkedMemory->FreeMemoryTree, (void*) &FreeTeeGroundTruth, VerifyFreeTreeFunction);
   VerifyTree(&FreeTeeGroundTruth);
 
   Assert(GetBlockCount(&LinkedMemory->MemoryChunks) == ChunkCount);
-  Assert(GetBlockCount(&LinkedMemory->MemoryLinkNodes) == TotalNodeCount);
-  Assert(GetBlockCount(&LinkedMemory->MemoryLinkNodeData) == LinkCount);
-  Assert(GetBlockCount(&LinkedMemory->MemoryLinks) == LinkCount);
+  Assert(GetBlockCount(&LinkedMemory->MemoryLinkNodes) == FreeNodeCount);
+  Assert(GetBlockCount(&LinkedMemory->MemoryLinkNodeData) == FreeLinkCount);
+  Assert(GetBlockCount(&LinkedMemory->MemoryLinks) == FreeLinkCount);
   Assert(RedBlackTreeNodeCount(&LinkedMemory->FreeMemoryTree) == FreeNodeCount);
-  Assert(RedBlackTreeNodeCount(&LinkedMemory->AllocatedMemoryTree) == AllocatedNodeCount);
 
   _VerifyLinkedMemory(LinkedMemory);
 
@@ -189,12 +153,12 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
 //      |   1  |
 //      | 1024 |
 
-
-  linked_memory LinkedMemory = NewLinkedMemory(Arena, 1024);
+  // 1024 + 4*40 = 1184
+  linked_memory LinkedMemory = NewLinkedMemory(Arena, 1184);
   
   memory_link GroundTruth_0[] = 
   {
-    CreateGroundTruthLink(false,0,1024,0)
+    CreateGroundTruthLink(false,0,1184,0)
   };
   u32 LinkCountPerChunk_0[] = {1};
   
@@ -203,20 +167,21 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
     GroundTruth_0,                  // LinkGroundTruth       : Ordered links as they appear in the chunks link-list
     ArrayCount(LinkCountPerChunk_0),// ChunkCount            : Number of allocated chunks
     LinkCountPerChunk_0,            // LinkCountPerChunk     : Number of links in each chunk
-    0,                              // AllocatedNodeCount    : Total Number of nodes in Allocated link tree
+    1,                              // FreeLinkCount         : Total Number free links
     1                               // FreeNodeCount         : Total Number of nodes in Free link tree
   ); 
 
+  // Note: Actually allocated space is RequestedSpace + sizeof(memory_link) = RequestedSpace + 40;
 
   // Allocate new memory which fits.
   //  |      1      |
   //  | Mem0 |      |
-  //  |  256 |  768 |
+  //  |  296 |  888 |
   void* Mem0 = Allocate(&LinkedMemory, 256);
 
   memory_link GroundTruth_1[] = {
     CreateGroundTruthLink(true,0,256, Mem0),
-    CreateGroundTruthLink(false,0,768,0),
+    CreateGroundTruthLink(false, 0, 1184 - (256+40) , 0 ),
   };
   u32 LinkCountPerChunk_1[] = {2};
   
@@ -225,7 +190,7 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
     GroundTruth_1,                  // LinkGroundTruth       : Ordered links as they appear in the chunks link-list
     ArrayCount(LinkCountPerChunk_1),// ChunkCount            : Number of allocated chunks
     LinkCountPerChunk_1,            // LinkCountPerChunk     : Number of links in each chunk
-    1,                              // AllocatedNodeCount    : Total Number of nodes in Allocated link tree
+    1,                              // FreeLinkCount         : Total Number free links
     1                               // FreeNodeCount         : Total Number of nodes in Free link tree
   ); 
 
@@ -233,13 +198,13 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
   // Allocate new memory which fits.
   //  |          1        | 
   //  | Mem0 | Mem1 |     |
-  //  |  256 |  256 | 512 |
+  //  |  296 |  296 | 592 |
   // Note: Mem0 and Mem1 does not share the same node in allocated tree because their keys are always unique (memory address)
   void* Mem1 = Allocate(&LinkedMemory, 256);
   memory_link GroundTruth_2[] = {
     CreateGroundTruthLink(true,0,256, Mem0),
     CreateGroundTruthLink(true,0,256, Mem1),
-    CreateGroundTruthLink(false,0,512,0),
+    CreateGroundTruthLink(false,0, 1184 - 2 * (256+40),0),
   };
   u32 LinkCountPerChunk_2[] = {3};
   Verify(
@@ -247,7 +212,7 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
     GroundTruth_2,                  // LinkGroundTruth       : Ordered links as they appear in the chunks link-list
     ArrayCount(LinkCountPerChunk_2),// ChunkCount            : Number of allocated chunks
     LinkCountPerChunk_2,            // LinkCountPerChunk     : Number of links in each chunk
-    2,                              // AllocatedNodeCount    : Total Number of nodes in Allocated link tree
+    1,                              // FreeLinkCount         : Total Number free links
     1                               // FreeNodeCount         : Total Number of nodes in Free link tree
   ); 
 
@@ -255,7 +220,7 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
   // Allocate new memory which fits.
   //  |             1             |
   //  | Mem0 | Mem1 | Mem2 |      |
-  //  |  256 |  256 |  256 |  256 |
+  //  |  296 |  296 |  296 |  296 |
   void* Mem2 = Allocate(&LinkedMemory, 256);
   
   
@@ -263,7 +228,7 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
     CreateGroundTruthLink(true,0,256, Mem0),
     CreateGroundTruthLink(true,0,256, Mem1),
     CreateGroundTruthLink(true,0,256, Mem2),
-    CreateGroundTruthLink(false,0,256,0),
+    CreateGroundTruthLink(false,0, 1184 - 3 * (256+40),0),
   };
   u32 LinkCountPerChunk_3[] = {4};
   Verify(
@@ -271,7 +236,7 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
     GroundTruth_3,                  // LinkGroundTruth       : Ordered links as they appear in the chunks link-list
     ArrayCount(LinkCountPerChunk_3),// ChunkCount            : Number of allocated chunks
     LinkCountPerChunk_3,            // LinkCountPerChunk     : Number of links in each chunk
-    3,                              // AllocatedNodeCount    : Total Number of nodes in Allocated link tree
+    1,                              // FreeLinkCount         : Total Number free links
     1                               // FreeNodeCount         : Total Number of nodes in Free link tree
   ); 
 
@@ -281,18 +246,18 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
   // Allocate new memory which does not fit. Allocates new block.
   //  |             1             |  |      2      |
   //  | Mem0 | Mem1 | Mem2 |      |->| Mem3 |      |
-  //  |  256 |  256 |  256 |  256 |  |  512 |  512 |
+  //  |  296 |  296 |  296 |  296 |  |  552 |  632 |
   void* Mem3 = Allocate(&LinkedMemory, 512);
   memory_link GroundTruth_4[] = {
     // Buffer 1
     CreateGroundTruthLink(true,0,256, Mem0),
     CreateGroundTruthLink(true,0,256, Mem1),
     CreateGroundTruthLink(true,0,256, Mem2),
-    CreateGroundTruthLink(false,0,256,0),
+    CreateGroundTruthLink(false,0,1184 - 3 * (256+40),0),
 
     // Buffer 2
     CreateGroundTruthLink(true,1,512, Mem3),
-    CreateGroundTruthLink(false,1,512,0),
+    CreateGroundTruthLink(false,1,1184 - (512+40),0),
   };
   u32 LinkCountPerChunk_4[] = {4,2};
   Verify(
@@ -300,7 +265,7 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
     GroundTruth_4,                  // LinkGroundTruth       : Ordered links as they appear in the chunks link-list
     ArrayCount(LinkCountPerChunk_4),// ChunkCount            : Number of allocated chunks
     LinkCountPerChunk_4,            // LinkCountPerChunk     : Number of links in each chunk
-    4,                              // AllocatedNodeCount    : Total Number of nodes in Allocated link tree
+    2,                              // FreeLinkCount         : Total Number free links
     2                               // FreeNodeCount         : Total Number of nodes in Free link tree
   ); 
 
@@ -310,7 +275,7 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
   // Allocate new memory which fits in first.
   //  |             1             |  |      2      |
   //  | Mem0 | Mem1 | Mem2 | Mem4 |->| Mem3 |      |
-  //  |  256 |  256 |  256 |  256 |  |  512 |  512 |
+  //  |  296 |  296 |  296 |  296 |  |  552 |  632 |
   void* Mem4 = Allocate(&LinkedMemory, 256);
   memory_link GroundTruth_5[] = {
       // Chunk 1
@@ -321,7 +286,7 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
 
       // Chunk 2
       CreateGroundTruthLink(true,1,512, Mem3),
-      CreateGroundTruthLink(false,1,512,0)
+      CreateGroundTruthLink(false,1,1184 - (512+40),0)
     };
   u32 LinkCountPerChunk_5[] = {4,2};
   Verify(
@@ -329,25 +294,25 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
     GroundTruth_5,                  // LinkGroundTruth       : Ordered links as they appear in the chunks link-list
     ArrayCount(LinkCountPerChunk_5),// ChunkCount            : Number of allocated chunks
     LinkCountPerChunk_5,            // LinkCountPerChunk     : Number of links in each chunk
-    5,                              // AllocatedNodeCount    : Total Number of nodes in Allocated link tree
+    1,                              // FreeLinkCount         : Total Number free links
     1                               // FreeNodeCount         : Total Number of nodes in Free link tree
   ); 
 
   // Free Mem4
   //  |             1             |  |      2      |
   //  | Mem0 | Mem1 | Mem2 |      |->| Mem3 |      |
-  //  |  256 |  256 |  256 |  256 |  |  512 |  512 |
+  //  |  296 |  296 |  296 |  296 |  |  552 |  632 |
   FreeMemory(&LinkedMemory, Mem4);
   memory_link GroundTruth_6[] = {
       // Chunk 1
       CreateGroundTruthLink(true, 0,256,  Mem0),
       CreateGroundTruthLink(true, 0,256,  Mem1),
       CreateGroundTruthLink(true, 0,256,  Mem2),
-      CreateGroundTruthLink(false,0,256,  0),
+      CreateGroundTruthLink(false,0,1184 - 3 * (256+40),0),
 
       // Chunk 2
       CreateGroundTruthLink(true,1,512, Mem3),
-      CreateGroundTruthLink(false,1,512,0)
+      CreateGroundTruthLink(false,1,1184 - (512+40),0)
     };
   u32 LinkCountPerChunk_6[] = {4,2};
   Verify(
@@ -355,7 +320,7 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
     GroundTruth_6,                  // LinkGroundTruth       : Ordered links as they appear in the chunks link-list
     ArrayCount(LinkCountPerChunk_6),// ChunkCount            : Number of allocated chunks
     LinkCountPerChunk_6,            // LinkCountPerChunk     : Number of links in each chunk
-    4,                              // AllocatedNodeCount    : Total Number of nodes in Allocated link tree
+    2,                              // FreeLinkCount         : Total Number free links
     2                               // FreeNodeCount         : Total Number of nodes in Free link tree
   );
 
@@ -364,18 +329,18 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
   //       in first chunk share a node
   //  |             1             |  |      2      |
   //  | Mem0 |      | Mem2 |      |->| Mem3 |      |
-  //  |  256 |  256 |  256 |  256 |  |  512 |  512 |
+  //  |  296 |  296 |  296 |  296 |  |  552 |  632 |
   FreeMemory(&LinkedMemory, Mem1);
   memory_link GroundTruth_7[] = {
       // Chunk 1
       CreateGroundTruthLink(true,0,256, Mem0),
-      CreateGroundTruthLink(false,0,256, 0),
+      CreateGroundTruthLink(false,0,1184 - 3 * (256+40),0),
       CreateGroundTruthLink(true,0,256, Mem2),
-      CreateGroundTruthLink(false,0,256, 0),
+      CreateGroundTruthLink(false,0,1184 - 3 * (256+40),0),
 
       // Chunk 2
       CreateGroundTruthLink(true,1,512, Mem3),
-      CreateGroundTruthLink(false,1,512,0)
+      CreateGroundTruthLink(false,1,1184 - (512+40),0)
     };
   u32 LinkCountPerChunk_7[] = {4,2};
   Verify(
@@ -383,7 +348,7 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
     GroundTruth_7,                  // LinkGroundTruth       : Ordered links as they appear in the chunks link-list
     ArrayCount(LinkCountPerChunk_7),// ChunkCount            : Number of allocated chunks
     LinkCountPerChunk_7,            // LinkCountPerChunk     : Number of links in each chunk
-    3,                              // AllocatedNodeCount    : Total Number of nodes in Allocated link tree
+    3,                              // FreeLinkCount         : Total Number free links
     2                               // FreeNodeCount         : Total Number of nodes in Free link tree
   );
 
@@ -397,7 +362,7 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
   //       last one freed, mem5 will be placed in the slot of Mem1
   //  |                1                |  |      2      |
   //  | Mem0 | Mem5 |     | Mem2 |      |->| Mem3 |      |
-  //  |  256 |  200 |  56 |  256 |  256 |  |  512 |  512 |
+  //  |  296 |  240 |  56 |  296 |  296 |  |  552 |  632 |
   void* Mem5 = Allocate(&LinkedMemory, 200 );
   memory_link GroundTruth_8[] = {
       // Chunk 1
@@ -405,11 +370,11 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
       CreateGroundTruthLink(true, 0,200, Mem5),
       CreateGroundTruthLink(false,0, 56, 0   ),
       CreateGroundTruthLink(true, 0,256, Mem2),
-      CreateGroundTruthLink(false,0,256, 0   ),
+      CreateGroundTruthLink(false,0,1184 - 3 * (256+40),0),
 
       // Chunk 2
-      CreateGroundTruthLink(true, 1,512, Mem3),
-      CreateGroundTruthLink(false,1,512,0)
+      CreateGroundTruthLink(true,1,512, Mem3),
+      CreateGroundTruthLink(false,1,1184 - (512+40),0)
     };
   u32 LinkCountPerChunk_8[] = {5,2};
   Verify(
@@ -417,7 +382,7 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
     GroundTruth_8,                  // LinkGroundTruth       : Ordered links as they appear in the chunks link-list
     ArrayCount(LinkCountPerChunk_8),// ChunkCount            : Number of allocated chunks
     LinkCountPerChunk_8,            // LinkCountPerChunk     : Number of links in each chunk
-    4,                              // AllocatedNodeCount    : Total Number of nodes in Allocated link tree
+    3,                              // FreeLinkCount         : Total Number free links
     3                               // FreeNodeCount         : Total Number of nodes in Free link tree
   ); 
 
@@ -425,7 +390,7 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
   // Allocate new memory which fits in first chunk.
   //  |                   1                   |  |      2      |
   //  | Mem0 | Mem5 |     | Mem2 | Mem6 |     |->| Mem3 |      |
-  //  |  256 |  200 |  56 |  256 |  200 |  56 |  |  512 |  512 |
+  //  |  296 |  240 |  56 |  296 |  240 |  56 |  |  552 |  632 |
   // Note: Number of free nodes in the freeNodeTree is  still two, since both slots 
   //       in first chunk share a node
   void* Mem6 = Allocate(&LinkedMemory, 200 );
@@ -439,8 +404,8 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
       CreateGroundTruthLink(false,0, 56, 0   ),
 
       // Chunk 2
-      CreateGroundTruthLink(true, 1,512, Mem3),
-      CreateGroundTruthLink(false,1,512,0)
+      CreateGroundTruthLink(true,1,512, Mem3),
+      CreateGroundTruthLink(false,1,1184 - (512+40),0)
     };
   u32 LinkCountPerChunk_9[] = {6,2};
   Verify(
@@ -448,7 +413,7 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
     GroundTruth_9,                  // LinkGroundTruth       : Ordered links as they appear in the chunks link-list
     ArrayCount(LinkCountPerChunk_9),// ChunkCount            : Number of allocated chunks
     LinkCountPerChunk_9,            // LinkCountPerChunk     : Number of links in each chunk
-    5,                              // AllocatedNodeCount    : Total Number of nodes in Allocated link tree
+    3,                              // FreeLinkCount         : Total Number free links
     2                               // FreeNodeCount         : Total Number of nodes in Free link tree
   ); 
 
@@ -457,19 +422,19 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
   // Free Mem2
   //  |                 1               |  |      2      |
   //  | Mem0 | Mem5 |      | Mem6 |     |->| Mem3 |      |
-  //  |  256 |  200 |  312 |  200 |  56 |  |  512 |  512 |
+  //  |  296 |  240 |  352 |  240 |  56 |  |  552 |  632 |
   FreeMemory(&LinkedMemory, Mem2);
    memory_link GroundTruth_10[] = {
       // Chunk 1
       CreateGroundTruthLink(true, 0,256, Mem0),
       CreateGroundTruthLink(true, 0,200, Mem5),
-      CreateGroundTruthLink(false,0,312, 0   ),
+      CreateGroundTruthLink(false,0,352, 0   ),
       CreateGroundTruthLink(true, 0,200, Mem6),
       CreateGroundTruthLink(false,0, 56, 0   ),
 
       // Chunk 2
-      CreateGroundTruthLink(true, 1,512, Mem3),
-      CreateGroundTruthLink(false,1,512,0)
+      CreateGroundTruthLink(true,1,512, Mem3),
+      CreateGroundTruthLink(false,1,1184 - (512+40),0)
     };
   u32 LinkCountPerChunk_10[] = {5,2};
   Verify(
@@ -477,24 +442,24 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
     GroundTruth_10,                  // LinkGroundTruth       : Ordered links as they appear in the chunks link-list
     ArrayCount(LinkCountPerChunk_10),// ChunkCount            : Number of allocated chunks
     LinkCountPerChunk_10,            // LinkCountPerChunk     : Number of links in each chunk
-    4,                               // AllocatedNodeCount    : Total Number of nodes in Allocated link tree
+    3,                               // FreeLinkCount         : Total Number free links
     3                                // FreeNodeCount         : Total Number of nodes in Free link tree
   ); 
 
   // Free Mem6
   //  |          1         |  |      2      |
   //  | Mem0 | Mem5 |      |->| Mem3 |      |
-  //  |  256 |  200 |  568 |  |  512 |  512 |
+  //  |  296 |  240 |  648 |  |  552 |  632 |
   FreeMemory(&LinkedMemory, Mem6);
    memory_link GroundTruth_11[] = {
       // Chunk 1
       CreateGroundTruthLink(true, 0,256, Mem0),
       CreateGroundTruthLink(true, 0,200, Mem5),
-      CreateGroundTruthLink(false,0,568, 0   ),
+      CreateGroundTruthLink(false,0,648, 0   ),
 
       // Chunk 2
-      CreateGroundTruthLink(true, 1,512, Mem3),
-      CreateGroundTruthLink(false,1,512,0)
+      CreateGroundTruthLink(true,1,512, Mem3),
+      CreateGroundTruthLink(false,1,1184 - (512+40),0)
     };
   u32 LinkCountPerChunk_11[] = {3,2};
   Verify(
@@ -502,24 +467,24 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
     GroundTruth_11,                  // LinkGroundTruth       : Ordered links as they appear in the chunks link-list
     ArrayCount(LinkCountPerChunk_11),// ChunkCount            : Number of allocated chunks
     LinkCountPerChunk_11,            // LinkCountPerChunk     : Number of links in each chunk
-    3,                               // AllocatedNodeCount    : Total Number of nodes in Allocated link tree
+    2,                               // FreeLinkCount         : Total Number free links
     2                                // FreeNodeCount         : Total Number of nodes in Free link tree
   ); 
 
   // Free Mem0
   //  |          1         |  |      2      |
   //  |      | Mem5 |      |->| Mem3 |      |
-  //  |  256 |  200 |  568 |  |  512 |  512 |
+  //  |  296 |  240 |  648 |  |  552 |  632 |
   FreeMemory(&LinkedMemory, Mem0);
    memory_link GroundTruth_12[] = {
       // Chunk 1
-      CreateGroundTruthLink(false, 0,256, 0   ),
+      CreateGroundTruthLink(false, 0,296, 0   ),
       CreateGroundTruthLink(true,  0,200, Mem5),
-      CreateGroundTruthLink(false, 0,568, 0   ),
+      CreateGroundTruthLink(false, 0,648, 0   ),
 
       // Chunk 2
-      CreateGroundTruthLink(true, 1,512, Mem3),
-      CreateGroundTruthLink(false,1,512,0)
+      CreateGroundTruthLink(true,1,512, Mem3),
+      CreateGroundTruthLink(false,1,1184 - (512+40),0)
     };
   u32 LinkCountPerChunk_12[] = {3,2};
   Verify(
@@ -527,22 +492,22 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
     GroundTruth_12,                  // LinkGroundTruth       : Ordered links as they appear in the chunks link-list
     ArrayCount(LinkCountPerChunk_12),// ChunkCount            : Number of allocated chunks
     LinkCountPerChunk_12,            // LinkCountPerChunk     : Number of links in each chunk
-    2,                               // AllocatedNodeCount    : Total Number of nodes in Allocated link tree
+    3,                               // FreeLinkCount         : Total Number free links
     3                                // FreeNodeCount         : Total Number of nodes in Free link tree
   ); 
 
   // Free Mem5
   //  |   1  |  |      2      |
   //  |      |->| Mem3 |      |
-  //  | 1024 |  |  512 |  512 |
+  //  | 1184 |  |  552 |  632 |
   FreeMemory(&LinkedMemory, Mem5);
   memory_link GroundTruth_13[] = {
       // Chunk 1
-      CreateGroundTruthLink(false, 0,1024, 0),
+      CreateGroundTruthLink(false, 0,1184, 0),
 
       // Chunk 2
-      CreateGroundTruthLink(true, 1,512, Mem3),
-      CreateGroundTruthLink(false,1,512,0)
+      CreateGroundTruthLink(true,1,512, Mem3),
+      CreateGroundTruthLink(false,1,1184 - (512+40),0)
     };
   u32 LinkCountPerChunk_13[] = {1,2};
   Verify(
@@ -550,21 +515,21 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
     GroundTruth_13,                  // LinkGroundTruth       : Ordered links as they appear in the chunks link-list
     ArrayCount(LinkCountPerChunk_13),// ChunkCount            : Number of allocated chunks
     LinkCountPerChunk_13,            // LinkCountPerChunk     : Number of links in each chunk
-    1,                               // AllocatedNodeCount    : Total Number of nodes in Allocated link tree
+    2,                               // FreeLinkCount         : Total Number free links
     2                                // FreeNodeCount         : Total Number of nodes in Free link tree
   ); 
 
   // Free Mem3
   //  |   1  |  |   2  |
   //  |      |->|      |
-  //  | 1024 |  | 1024 |
+  //  | 1184 |  | 1184 |
   FreeMemory(&LinkedMemory, Mem3);
    memory_link GroundTruth_14[] = {
       // Chunk 1
-      CreateGroundTruthLink(false, 0,1024, 0),
+      CreateGroundTruthLink(false, 0,1184, 0),
 
       // Chunk 2
-      CreateGroundTruthLink(false, 1,1024, 0),
+      CreateGroundTruthLink(false, 1,1184, 0),
     };
   u32 LinkCountPerChunk_14[] = {1,1};
   Verify(
@@ -572,7 +537,7 @@ void LinkedMemoryUnitTests(memory_arena* Arena)
     GroundTruth_14,                  // LinkGroundTruth       : Ordered links as they appear in the chunks link-list
     ArrayCount(LinkCountPerChunk_14),// ChunkCount            : Number of allocated chunks
     LinkCountPerChunk_14,            // LinkCountPerChunk     : Number of links in each chunk
-    0,                               // AllocatedNodeCount    : Total Number of nodes in Allocated link tree
+    2,                               // FreeLinkCount         : Total Number free links
     1                                // FreeNodeCount         : Total Number of nodes in Free link tree
   ); 
 
